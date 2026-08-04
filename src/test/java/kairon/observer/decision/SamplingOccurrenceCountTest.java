@@ -52,7 +52,7 @@ final class SamplingOccurrenceCountTest {
 
             JsonNode event = samplingEvents(pipeline).get(0);
             assertEquals(
-                    "{\"id\":1,\"kind\":\"BIOLOGICAL_SAMPLE\","
+                    "{\"id\":1,\"event\":\"The organic sampling tool was used on an organic discovery.\","
                             + "\"organism\":\"" + ORGANISM + "\","
                             + "\"stage\":\"START\",\"complete\":false}",
                     event.toString()
@@ -79,7 +79,7 @@ final class SamplingOccurrenceCountTest {
 
             JsonNode event = samplingEvents(pipeline).get(1);
             assertEquals(
-                    "{\"id\":1,\"kind\":\"BIOLOGICAL_SAMPLE\","
+                    "{\"id\":1,\"event\":\"The organic sampling tool was used on an organic discovery.\","
                             + "\"organism\":\"" + ORGANISM + "\","
                             + "\"stage\":\"PROGRESS\",\"complete\":false}",
                     event.toString()
@@ -107,7 +107,7 @@ final class SamplingOccurrenceCountTest {
             sample(pipeline);
 
             List<JsonNode> events = samplingEvents(pipeline);
-            String progress = "{\"id\":1,\"kind\":\"BIOLOGICAL_SAMPLE\","
+            String progress = "{\"id\":1,\"event\":\"The organic sampling tool was used on an organic discovery.\","
                     + "\"organism\":\"" + ORGANISM + "\","
                     + "\"stage\":\"PROGRESS\",\"complete\":false}";
             assertEquals(progress, events.get(1).toString());
@@ -149,7 +149,7 @@ final class SamplingOccurrenceCountTest {
 
             JsonNode event = samplingEvents(pipeline).get(3);
             assertEquals(
-                    "{\"id\":1,\"kind\":\"BIOLOGICAL_SAMPLE\","
+                    "{\"id\":1,\"event\":\"The organic sampling tool was used on an organic discovery.\","
                             + "\"organism\":\"" + ORGANISM + "\","
                             + "\"stage\":\"FINAL\",\"complete\":true}",
                     event.toString()
@@ -183,7 +183,9 @@ final class SamplingOccurrenceCountTest {
 
             JsonNode second = eventsOfKind(pipeline, "TOUCHDOWN").get(1);
             assertEquals(2, second.path("occurrenceOnBody").intValue());
-            assertEquals("TOUCHDOWN", second.path("kind").textValue());
+            assertEquals(
+                    "A ship landed on the surface of a planet or moon.",
+                    second.path("event").textValue());
         }
     }
 
@@ -206,19 +208,19 @@ final class SamplingOccurrenceCountTest {
 
             assertEquals(
                     List.of(
-                            "{\"id\":1,\"kind\":\"BIOLOGICAL_SAMPLE\","
+                            "{\"id\":1,\"event\":\"The organic sampling tool was used on an organic discovery.\","
                                     + "\"organism\":\"" + ORGANISM + "\","
                                     + "\"stage\":\"START\","
                                     + "\"complete\":false}",
-                            "{\"id\":1,\"kind\":\"BIOLOGICAL_SAMPLE\","
+                            "{\"id\":1,\"event\":\"The organic sampling tool was used on an organic discovery.\","
                                     + "\"organism\":\"" + ORGANISM + "\","
                                     + "\"stage\":\"PROGRESS\","
                                     + "\"complete\":false}",
-                            "{\"id\":1,\"kind\":\"BIOLOGICAL_SAMPLE\","
+                            "{\"id\":1,\"event\":\"The organic sampling tool was used on an organic discovery.\","
                                     + "\"organism\":\"" + ORGANISM + "\","
                                     + "\"stage\":\"PROGRESS\","
                                     + "\"complete\":false}",
-                            "{\"id\":1,\"kind\":\"BIOLOGICAL_SAMPLE\","
+                            "{\"id\":1,\"event\":\"The organic sampling tool was used on an organic discovery.\","
                                     + "\"organism\":\"" + ORGANISM + "\","
                                     + "\"stage\":\"FINAL\","
                                     + "\"complete\":true}"
@@ -271,7 +273,7 @@ final class SamplingOccurrenceCountTest {
 
             JsonNode request = requestsPerTrigger(pipeline).getLast();
             assertEquals(
-                    "{\"id\":1,\"kind\":\"BIOLOGICAL_SAMPLE\","
+                    "{\"id\":1,\"event\":\"The organic sampling tool was used on an organic discovery.\","
                             + "\"organism\":\"" + ORGANISM + "\","
                             + "\"stage\":\"FINAL\",\"complete\":true}",
                     request.path("events").get(0).toString()
@@ -424,9 +426,16 @@ final class SamplingOccurrenceCountTest {
             DecisionProductionPipeline pipeline,
             String kind
     ) {
+        String described = pipeline.kindByDescription().entrySet().stream()
+                .filter(entry -> entry.getValue().equals(kind))
+                .map(java.util.Map.Entry::getKey)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(
+                        "no observed event is a " + kind));
         return requestsPerTrigger(pipeline).stream()
                 .map(request -> request.path("events").get(0))
-                .filter(event -> kind.equals(event.path("kind").textValue()))
+                .filter(event ->
+                        described.equals(event.path("event").textValue()))
                 .toList();
     }
 

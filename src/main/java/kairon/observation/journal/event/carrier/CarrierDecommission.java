@@ -26,6 +26,11 @@ public record CarrierDecommission(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Decommissioning of a fleet carrier was requested.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

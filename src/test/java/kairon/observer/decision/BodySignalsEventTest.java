@@ -60,7 +60,7 @@ final class BodySignalsEventTest {
 
             assertEquals(
                     """
-                    {"id":1,"kind":"BODY_SIGNALS_FOUND",\
+                    {"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1}]}""",
                     eventJson(pipeline, "FSSBodySignals")
@@ -91,7 +91,7 @@ final class BodySignalsEventTest {
 
             assertEquals(
                     """
-                    {"id":1,"kind":"BODY_SIGNALS_FOUND",\
+                    {"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}""",
                     eventJson(pipeline, "FSSBodySignals")
@@ -122,7 +122,7 @@ final class BodySignalsEventTest {
 
             assertEquals(
                     """
-                    {"id":1,"kind":"BODY_SIGNALS_FOUND",\
+                    {"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1},\
                     {"type":"GEOLOGICAL","count":2},\
@@ -155,7 +155,7 @@ final class BodySignalsEventTest {
                     .toString();
             assertEquals(
                     """
-                    {"id":1,"kind":"BODY_SIGNALS_FOUND",\
+                    {"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"OTHER","label":"Guardian",\
                     "count":1}]}""",
@@ -364,7 +364,8 @@ final class BodySignalsEventTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"BODY_SIGNALS_FOUND",\
+                    {"events":[{"id":1,"event":"A surface area analysis scan reported \
+                    signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1},\
                     {"type":"GEOLOGICAL","count":2}]}],\

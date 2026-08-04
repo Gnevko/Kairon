@@ -46,7 +46,9 @@ final class RecalledBodyFactsTest {
                 "an empty changes section is not serialized"
         );
         JsonNode event = request.path("events").get(0);
-        assertEquals("BODY_APPROACHED", event.path("kind").textValue());
+        assertEquals(
+                    "A ship in supercruise came within a body's orbital-cruise zone.",
+                    event.path("event").textValue());
         assertEquals("Icy One", event.path("body").textValue());
         assertEquals("Icy System", event.path("system").textValue());
         assertEquals(

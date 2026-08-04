@@ -1,6 +1,7 @@
 package kairon.observer.decision;
 
 import kairon.observation.journal.JournalEventObservation;
+import kairon.observation.journal.LlmPresentableJournalEvent;
 import kairon.projection.ProjectedObservation;
 import kairon.semantics.SemanticFact;
 import kairon.semantics.SemanticField;
@@ -66,8 +67,6 @@ public final class DecisionEventProjector {
             "species"
     );
 
-    private static final String UNRECOGNISED_KIND = "UNRECOGNISED_EVENT";
-
     public ProjectedEvent project(int localId, ProjectedObservation projected) {
         Objects.requireNonNull(projected, "projected");
         JournalEventObservation payload = payloadOf(projected);
@@ -77,19 +76,17 @@ public final class DecisionEventProjector {
         if (rule == null) {
             // Unreachable for a catalogued type: every model-eligible event has
             // a rule, and a test asserts that in both directions. Reaching here
-            // means an uncatalogued payload became a trigger, which is reported
-            // as unrecognised rather than guessed into a domain kind.
-            return new ProjectedEvent(
-                    new LlmDecisionRequest.Event(
-                            localId,
-                            UNRECOGNISED_KIND,
-                            List.of()
-                    ),
-                    DecisionMechanism.IDENTITY,
-                    DecisionMechanism.IDENTITY.contextProfile(),
-                    projected.busSequence()
+            // means an uncatalogued payload became a trigger, which fails the
+            // turn rather than being guessed into a domain kind — and there is
+            // no description to guess either.
+            throw new IllegalStateException(
+                    "an uncatalogued observation became a model trigger: "
+                            + (payload == null
+                            ? "no journal payload"
+                            : payload.getClass().getName())
             );
         }
+        String description = describe(payload);
         SemanticObservationEnvelope envelope = projected.semanticEnvelope();
         List<LlmDecisionRequest.Field> fields = new ArrayList<>();
         Set<String> claimed = new LinkedHashSet<>();
@@ -126,12 +123,47 @@ public final class DecisionEventProjector {
                 new LlmDecisionRequest.Event(
                         localId,
                         rule.kind(),
+                        description,
                         List.copyOf(fields)
                 ),
                 rule.mechanism(),
                 rule.contextProfile(),
                 projected.busSequence()
         );
+    }
+
+    /**
+     * What this event says it reports, asked of the event itself.
+     *
+     * <p>No lookup by class, no lookup by kind, no table: the observation in
+     * hand is the one thing that knows what it means, and this narrows it and
+     * asks. Every model-eligible type implements the contract — the selection
+     * profile refuses to initialise otherwise — so a payload that cannot answer
+     * is a broken contract rather than a case to handle.</p>
+     *
+     * <p>It fails the turn rather than falling back. The internal kind is not a
+     * substitute: sending it would put a name only Kairon understands in the
+     * one slot that tells the model what happened, which is what this contract
+     * exists to stop.</p>
+     */
+    private static String describe(JournalEventObservation payload) {
+        if (!(payload instanceof LlmPresentableJournalEvent presentable)) {
+            throw new IllegalStateException(
+                    "a model trigger must describe itself: "
+                            + payload.getClass().getName()
+                            + " does not implement "
+                            + LlmPresentableJournalEvent.class.getSimpleName()
+            );
+        }
+        String description = presentable.modelFacingDescription();
+        if (description == null || description.isBlank()) {
+            throw new IllegalStateException(
+                    "a model trigger must describe itself: "
+                            + payload.getClass().getName()
+                            + " supplied no description"
+            );
+        }
+        return description;
     }
 
     /**
@@ -186,14 +218,14 @@ public final class DecisionEventProjector {
         appendObject(fields, claimed, fact, rule);
         appendQualifiers(fields, claimed, fact, rule);
         appendQuantity(fields, claimed, fact, rule);
-        if (fact.relationship() != null) {
-            add(
-                    fields,
-                    claimed,
-                    "reverses",
-                    SemanticValue.ofSymbol(reversedKind(fact.relationship()))
-            );
-        }
+        // A semantic relationship is not projected. It named its counterpart
+        // with Kairon's own kind — the one vocabulary an event no longer sends
+        // — so after the kind stopped being serialized the value pointed at a
+        // word the model never sees. It also flattened five different
+        // relations (cancels, negates, releases, inverse of, negative outcome
+        // of) into one field called "reverses". The relationship is unchanged
+        // on the semantic fact and still reaches diagnostics; saying it to the
+        // model needs a contract of its own.
         appendProcess(fields, claimed, fact, rule);
         if (Boolean.TRUE.equals(fact.negation())) {
             add(fields, claimed, "negated", SemanticValue.ofBoolean(true));
@@ -394,23 +426,6 @@ public final class DecisionEventProjector {
                     SemanticValue.ofBoolean(fact.completion())
             );
         }
-    }
-
-    /**
-     * The counterpart action, as a domain kind.
-     *
-     * <p>{@code "reverses ApproachBody"} names a Frontier wire event, which the
-     * model must never see. The trailing token is translated through the
-     * catalogue, and a counterpart outside the model-eligible set — an SRV
-     * launch, a prose phrase — yields nothing at all rather than a leak.</p>
-     */
-    private static String reversedKind(String relationship) {
-        int space = relationship.lastIndexOf(' ');
-        return space < 0
-                ? null
-                : DecisionEventCatalog.kindOfSimpleName(
-                        relationship.substring(space + 1)
-                );
     }
 
     private static String unitName(String unit) {

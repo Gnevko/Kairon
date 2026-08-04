@@ -26,6 +26,11 @@ public record CrewMemberQuits(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Another player left the ship's crew.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String commander = LlmPresentableJournalEvent

@@ -31,6 +31,11 @@ public record ScanOrganic(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The organic sampling tool was used on an organic discovery.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String subject = organicSubject(event);

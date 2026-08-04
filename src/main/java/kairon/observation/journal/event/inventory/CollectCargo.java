@@ -26,6 +26,11 @@ public record CollectCargo(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Cargo was scooped from space or a planet surface.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String cargo = LlmPresentableJournalEvent

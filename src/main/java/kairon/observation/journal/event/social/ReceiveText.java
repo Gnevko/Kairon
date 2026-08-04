@@ -26,6 +26,11 @@ public record ReceiveText(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A text message was received.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String sender = LlmPresentableJournalEvent

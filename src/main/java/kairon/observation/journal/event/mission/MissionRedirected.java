@@ -26,6 +26,11 @@ public record MissionRedirected(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A mission was updated with a new destination.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String mission = LlmPresentableJournalEvent

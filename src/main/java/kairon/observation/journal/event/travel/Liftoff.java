@@ -26,6 +26,11 @@ public record Liftoff(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship took off from the surface of a planet or moon.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> flightFacts = new ArrayList<>();

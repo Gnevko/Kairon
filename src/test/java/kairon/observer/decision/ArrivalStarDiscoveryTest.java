@@ -68,8 +68,8 @@ final class ArrivalStarDiscoveryTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,\
-                    "kind":"SYSTEM_UNDISCOVERED_CONFIRMED",\
+                    {"events":[{"id":1,"event":"A scan reported a star \
+                    as not previously discovered.",\
                     "arrivalStar":"Schieni SI-B e756",\
                     "system":"Schieni SI-B e756",\
                     "starType":"B",\
@@ -129,8 +129,8 @@ final class ArrivalStarDiscoveryTest {
 
                 assertEquals(
                         ("""
-                        {"events":[{"id":1,\
-                        "kind":"SYSTEM_UNDISCOVERED_CONFIRMED",\
+                        {"events":[{"id":1,"event":"A scan reported a \
+                        star as not previously discovered.",\
                         "arrivalStar":"%s","system":"%s","starType":"%s",\
                         "previouslyDiscovered":false}],\
                         "trajectory":{"recent":["SYSTEM_ENTERED"]}}""")
@@ -179,8 +179,9 @@ final class ArrivalStarDiscoveryTest {
             );
             JsonNode request = JSON.readTree(document(pipeline));
             assertEquals(
-                    "BODY_APPROACHED",
-                    request.path("events").get(0).path("kind").textValue()
+                    "A ship in supercruise came within a body's orbital-cruise zone.",
+                    request.path("events").get(0)
+                            .path("event").textValue()
             );
             JsonNode body = request.path("context").path("body");
             assertTrue(

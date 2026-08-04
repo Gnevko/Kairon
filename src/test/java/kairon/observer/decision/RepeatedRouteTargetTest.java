@@ -121,7 +121,7 @@ final class RepeatedRouteTargetTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"SUPERCRUISE_ENTERED",\
+                    {"events":[{"id":1,"event":"A ship entered supercruise from normal space.",\
                     "system":"Schieni GG-A c3-84"}],\
                     "context":{"navigation":{"flightMode":"SUPERCRUISE"}},\
                     "trajectory":{"recent":["VEHICLE_RECOVERED",\

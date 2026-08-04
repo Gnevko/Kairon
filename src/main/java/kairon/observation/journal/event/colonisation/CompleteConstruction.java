@@ -24,6 +24,11 @@ public record CompleteConstruction(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A colonisation construction was completed.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         return new LlmEventPresentation(List.of(
                 "A colonisation construction was completed.",

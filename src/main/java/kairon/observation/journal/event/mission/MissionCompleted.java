@@ -27,6 +27,11 @@ public record MissionCompleted(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A mission was completed.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String mission = LlmPresentableJournalEvent

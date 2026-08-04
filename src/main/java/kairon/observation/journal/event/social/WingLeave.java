@@ -24,6 +24,11 @@ public record WingLeave(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander left a wing.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         return new LlmEventPresentation(List.of(
                 "The player left their current wing.",

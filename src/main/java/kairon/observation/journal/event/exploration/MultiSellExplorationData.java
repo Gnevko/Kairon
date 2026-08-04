@@ -27,6 +27,11 @@ public record MultiSellExplorationData(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A page of exploration data was sold at Cartographics.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

@@ -23,6 +23,11 @@ public record CarrierJumpRequest(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A fleet carrier jump was scheduled.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         java.util.List<String> destinationFacts =

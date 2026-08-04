@@ -26,6 +26,11 @@ public record CrewFire(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A member of crew was dismissed.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String crewMember = LlmPresentableJournalEvent

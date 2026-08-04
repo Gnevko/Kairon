@@ -26,6 +26,11 @@ public record DropshipDeploy(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander left a shuttle dropship at a conflict zone.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> facts = new ArrayList<>();

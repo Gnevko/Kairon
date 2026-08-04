@@ -27,6 +27,11 @@ public record LaunchDrone(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A drone or limpet was launched.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

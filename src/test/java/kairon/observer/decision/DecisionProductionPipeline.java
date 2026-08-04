@@ -22,6 +22,7 @@ import kairon.observation.ObservationDraft.ObservationCaptureMode;
 import kairon.observation.ObservationDraft.ObservationSource;
 import kairon.observation.bus.InProcessObservationBus;
 import kairon.observation.journal.JournalEventObservation;
+import kairon.observation.journal.LlmPresentableJournalEvent;
 import kairon.observation.journal.JournalLineParser;
 import kairon.observation.journal.JournalLineParser.CompleteJournalRecord;
 import kairon.observation.journal.JournalLineParser.ParsedJournalRecord;
@@ -401,20 +402,66 @@ final class DecisionProductionPipeline implements AutoCloseable {
      * given.</p>
      */
     List<String> modelFacingKinds() {
+        java.util.Map<String, String> kindByDescription = kindByDescription();
         List<String> kinds = new java.util.ArrayList<>();
+        for (String description : modelFacingDescriptions()) {
+            String kind = kindByDescription.get(description);
+            if (kind == null) {
+                throw new IllegalStateException(
+                        "no observed event describes itself as: " + description
+                );
+            }
+            kinds.add(kind);
+        }
+        return List.copyOf(kinds);
+    }
+
+    /** Every literal description the provider was actually shown, in order. */
+    List<String> modelFacingDescriptions() {
+        List<String> descriptions = new java.util.ArrayList<>();
         for (LlmClient.ModelInput input : llm.inputs) {
             String userMessage = input.userMessage();
             int start = userMessage.indexOf('{');
             try {
                 JSON.readTree(userMessage.substring(start))
                         .path("events")
-                        .forEach(event ->
-                                kinds.add(event.path("kind").textValue()));
+                        .forEach(event -> descriptions.add(
+                                event.path("event").textValue()
+                        ));
             } catch (Exception failure) {
                 throw new IllegalStateException(userMessage, failure);
             }
         }
-        return List.copyOf(kinds);
+        return List.copyOf(descriptions);
+    }
+
+    /**
+     * Kairon's internal name for each description that was actually observed.
+     *
+     * <p>Built from the observations this run produced, by asking each payload
+     * the two questions production asks it — what does it call itself, and what
+     * rule does the catalogue give it. No table of descriptions exists anywhere,
+     * and nothing is reversed from a name: a description reaches this map only
+     * because an instance produced it.</p>
+     */
+    java.util.Map<String, String> kindByDescription() {
+        java.util.Map<String, String> byDescription =
+                new java.util.LinkedHashMap<>();
+        for (ProjectedObservation projected : capturedProjections) {
+            if (!(projected.trigger().payload()
+                    instanceof LlmPresentableJournalEvent presentable)) {
+                continue;
+            }
+            DecisionEventRule rule = DecisionEventCatalog.ruleFor(presentable);
+            if (rule == null) {
+                continue;
+            }
+            byDescription.putIfAbsent(
+                    presentable.modelFacingDescription(),
+                    rule.kind()
+            );
+        }
+        return byDescription;
     }
 
     ObserverTurnCoordinator observer() {

@@ -171,8 +171,8 @@ final class DecisionSurveyTrajectoryTest {
             JsonNode request = approachRequest(pipeline);
 
             assertEquals(
-                    "BODY_APPROACHED",
-                    request.path("events").get(0).path("kind").textValue()
+                    "A ship in supercruise came within a body's orbital-cruise zone.",
+                    request.path("events").get(0).path("event").textValue()
             );
             assertEquals(
                     List.of(

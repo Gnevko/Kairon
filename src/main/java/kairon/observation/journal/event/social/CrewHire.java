@@ -38,6 +38,11 @@ public record CrewHire(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A crew member was hired.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String crewMember = LlmPresentableJournalEvent

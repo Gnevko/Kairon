@@ -44,7 +44,9 @@ final class DecisionRequestProjectionTest {
 
         JsonNode first = request.path("events").get(0);
         assertEquals(1, first.path("id").intValue());
-        assertEquals("FRIEND_STATUS", first.path("kind").textValue());
+        assertEquals(
+                    "Information about a friend's status was received.",
+                    first.path("event").textValue());
         assertEquals("KotyaGaw", first.path("friend").textValue());
         assertEquals(
                 "ONLINE",
@@ -52,7 +54,7 @@ final class DecisionRequestProjectionTest {
                 "a closed vocabulary is sent in the contract's own casing"
         );
         assertEquals(
-                List.of("id", "kind", "friend", "status"),
+                List.of("id", "event", "friend", "status"),
                 propertyNames(first),
                 "the event reports a current status and nothing else"
         );
@@ -123,8 +125,8 @@ final class DecisionRequestProjectionTest {
         JsonNode request = read(serialized);
         JsonNode event = request.path("events").get(0);
         assertEquals(
-                "COMMANDER_SESSION_STARTED",
-                event.path("kind").textValue()
+                "The game session being loaded identified its Commander.",
+                event.path("event").textValue()
         );
         assertEquals("TESTCMDR", event.path("commander").textValue());
         assertFalse(
@@ -132,7 +134,7 @@ final class DecisionRequestProjectionTest {
                 "a bare name leaves the model to work out whose it is"
         );
         assertEquals(
-                List.of("id", "kind", "commander"),
+                List.of("id", "event", "commander"),
                 propertyNames(event)
         );
         assertEquals(
@@ -171,7 +173,9 @@ final class DecisionRequestProjectionTest {
         ));
 
         JsonNode event = request.path("events").get(0);
-        assertEquals("MESSAGE_RECEIVED", event.path("kind").textValue());
+        assertEquals(
+                    "A text message was received.",
+                    event.path("event").textValue());
         assertEquals("OLKI", event.path("sender").textValue());
         assertEquals(
                 "SQUADRON",
@@ -209,8 +213,8 @@ final class DecisionRequestProjectionTest {
 
         JsonNode event = request.path("events").get(0);
         assertEquals(
-                "BODY_MAPPING_COMPLETED",
-                event.path("kind").textValue()
+                "A surface area analysis scan of a body was completed.",
+                event.path("event").textValue()
         );
         assertEquals("Test Body 4 a", event.path("body").textValue());
         assertEquals(2, event.path("probesUsed").intValue());
@@ -239,9 +243,11 @@ final class DecisionRequestProjectionTest {
         JsonNode log = request(fixture, List.of(
                 fixture.graphDisabled(scanOrganic("Log", 0))
         )).path("events").get(0);
-        assertEquals("BIOLOGICAL_SAMPLE", log.path("kind").textValue());
         assertEquals(
-                List.of("id", "kind", "organism", "stage", "complete"),
+                    "The organic sampling tool was used on an organic discovery.",
+                    log.path("event").textValue());
+        assertEquals(
+                List.of("id", "event", "organism", "stage", "complete"),
                 propertyNames(log),
                 "where the sequence stands is stage and completion, once"
         );
@@ -335,11 +341,13 @@ final class DecisionRequestProjectionTest {
         ));
         JsonNode event = request.path("events").get(0);
 
-        assertEquals("VEHICLE_LAUNCHED", event.path("kind").textValue());
+        assertEquals(
+                    "A vehicle was launched from the ship.",
+                    event.path("event").textValue());
         assertEquals("base", event.path("loadout").textValue());
         assertTrue(event.path("playerControlled").booleanValue());
         assertEquals(
-                List.of("id", "kind", "loadout", "playerControlled"),
+                List.of("id", "event", "loadout", "playerControlled"),
                 propertyNames(event)
         );
         assertFalse(event.has("vehicle"));
@@ -374,7 +382,9 @@ final class DecisionRequestProjectionTest {
                          "event":"FighterDestroyed","ID":10}
                         """)
         )).path("events").get(0);
-        assertEquals("FIGHTER_DESTROYED", destroyed.path("kind").textValue());
+        assertEquals(
+                    "A ship-launched fighter was destroyed.",
+                    destroyed.path("event").textValue());
         assertEquals(
                 "UNCONFIRMED",
                 destroyed.path("occupancy").textValue(),
@@ -387,7 +397,9 @@ final class DecisionRequestProjectionTest {
                          "ID":10,"SRVType_Localised":"Nomad"}
                         """)
         )).path("events").get(0);
-        assertEquals("VEHICLE_RECOVERED", recovered.path("kind").textValue());
+        assertEquals(
+                    "A surface vehicle was brought back aboard the ship.",
+                    recovered.path("event").textValue());
         assertEquals(
                 "SLV",
                 recovered.path("vehicleKind").textValue(),
@@ -423,9 +435,11 @@ final class DecisionRequestProjectionTest {
         ));
         JsonNode disembark = request.path("events").get(0);
 
-        assertEquals("DISEMBARKED", disembark.path("kind").textValue());
         assertEquals(
-                List.of("id", "kind", "system", "body", "onStation", "onPlanet"),
+                    "The Commander stepped out of a ship or SRV.",
+                    disembark.path("event").textValue());
+        assertEquals(
+                List.of("id", "event", "system", "body", "onStation", "onPlanet"),
                 propertyNames(disembark)
         );
         assertEquals(
@@ -443,7 +457,10 @@ final class DecisionRequestProjectionTest {
         assertTrue(disembark.path("onPlanet").booleanValue());
         assertFalse(disembark.has("summary"));
         assertFalse(disembark.has("details"));
-        assertFalse(disembark.toString().contains("stepped out"));
+        assertEquals(
+                "The Commander stepped out of a ship or SRV.",
+                disembark.path("event").textValue(),
+                "the record says what it reports, and nothing about this one");
 
         assertFalse(disembark.has("occupancy"));
         assertFalse(request.toString().contains("UNCONFIRMED"));
@@ -482,9 +499,11 @@ final class DecisionRequestProjectionTest {
         ));
         JsonNode embark = request.path("events").get(0);
 
-        assertEquals("EMBARKED", embark.path("kind").textValue());
         assertEquals(
-                List.of("id", "kind", "system", "body", "onStation", "onPlanet"),
+                    "The Commander, on foot, got into a ship or SRV.",
+                    embark.path("event").textValue());
+        assertEquals(
+                List.of("id", "event", "system", "body", "onStation", "onPlanet"),
                 propertyNames(embark)
         );
         assertEquals(
@@ -644,14 +663,16 @@ final class DecisionRequestProjectionTest {
 
         assertEquals(List.of("events", "context"), propertyNames(request));
         JsonNode event = request.path("events").get(0);
-        assertEquals("TOUCHDOWN", event.path("kind").textValue());
+        assertEquals(
+                    "A ship landed on the surface of a planet or moon.",
+                    event.path("event").textValue());
         assertEquals(
                 "Schieni GG-A c3-84 4 a",
                 event.path("body").textValue()
         );
         assertTrue(event.path("playerControlled").booleanValue());
         assertEquals(
-                List.of("id", "kind", "body", "playerControlled"),
+                List.of("id", "event", "body", "playerControlled"),
                 propertyNames(event)
         );
 
@@ -713,19 +734,21 @@ final class DecisionRequestProjectionTest {
 
         assertFalse(serialized.contains("18.767"));
         assertFalse(serialized.contains("position"));
-        assertTrue(serialized.contains("TOUCHDOWN"));
+        assertTrue(serialized.contains(
+                "A ship landed on the surface of a planet or moon."));
     }
 
     /**
-     * A reversal names the action it undid, in domain terms.
+     * A reversal is not named at all, and the rest of the event survives.
      *
-     * <p>The semantic relationship references its counterpart by wire name.
-     * Passing that through would put a Frontier identifier in front of the
-     * model, so it is translated — and where the counterpart is outside the
-     * model-eligible catalogue it is dropped rather than leaked.</p>
+     * <p>The semantic relationship named its counterpart with Kairon's own
+     * kind, which the model no longer receives for any event — so the value
+     * pointed at a word it never sees. The relationship still exists on the
+     * semantic fact; it simply stops being projected, and nothing about the
+     * event's own fields changes with it.</p>
      */
     @Test
-    void aReversalNamesADomainKindOrNothing() {
+    void aReversalIsNotProjectedAndTheEventKeepsItsFields() {
         DecisionTurnFixture fixture = new DecisionTurnFixture();
         JsonNode left = request(fixture, List.of(
                 fixture.graphDisabled("""
@@ -735,7 +758,13 @@ final class DecisionRequestProjectionTest {
                          "BodyID":20}
                         """)
         )).path("events").get(0);
-        assertEquals("BODY_APPROACHED", left.path("reverses").textValue());
+        assertFalse(left.has("reverses"), left.toString());
+        assertFalse(left.toString().contains("BODY_APPROACHED"));
+        assertFalse(left.toString().contains("ApproachBody"));
+        assertEquals(
+                List.of("id", "event", "body", "system"),
+                propertyNames(left),
+                "the event keeps everything that is not the relationship");
 
         JsonNode recovered = request(fixture, List.of(
                 fixture.graphDisabled("""
@@ -743,12 +772,10 @@ final class DecisionRequestProjectionTest {
                          "ID":10,"SRVType_Localised":"Nomad"}
                         """)
         )).path("events").get(0);
-        assertEquals("VEHICLE_RECOVERED", recovered.path("kind").textValue());
-        assertFalse(
-                recovered.has("reverses"),
-                "an SRV launch is not a model-eligible event, so naming it "
-                        + "would leak a wire identifier for nothing"
-        );
+        assertEquals(
+                    "A surface vehicle was brought back aboard the ship.",
+                    recovered.path("event").textValue());
+        assertFalse(recovered.has("reverses"));
         assertFalse(recovered.toString().contains("LaunchSRV"));
     }
 

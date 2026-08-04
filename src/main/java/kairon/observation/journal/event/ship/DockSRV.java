@@ -26,6 +26,11 @@ public record DockSRV(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A surface vehicle was brought back aboard the ship.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> facts = new ArrayList<>();

@@ -26,6 +26,11 @@ public record SearchAndRescue(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Items were delivered to a Search and Rescue contact.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String item = LlmPresentableJournalEvent

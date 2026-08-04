@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static kairon.observation.journal.LlmPresentableJournalEvent.decimal;
@@ -42,6 +43,85 @@ public record Scan(RawJournalData raw)
 
     public Scan {
         raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
+    }
+
+    /**
+     * Whether this record is a star reading that reports no prior discovery.
+     *
+     * <p>Shape only, and deliberately not "is this the arrival star": the
+     * record cannot say which body a system was entered at. What it can say is
+     * that it is a shallower-than-detailed reading of a star, filed under a
+     * body, whose {@code WasDiscovered} is explicitly false. Which visit that
+     * star belongs to is decided by the layers that track visits.</p>
+     *
+     * <p>This is the one implementation. {@code BodySurveyFacts} delegates to
+     * it, so the observer's admission, the graph's episode policy, the model
+     * facing projection and the sentence below all read the same fields the
+     * same way — and the record owns the shape of its own JSON rather than
+     * borrowing it from a layer above.</p>
+     *
+     * <p>An absent or true {@code WasDiscovered} establishes nothing: the flag
+     * is a claim the record either makes or does not, and a missing one is
+     * silence rather than a denial. Detailed readings are excluded because they
+     * establish the body in full and are reported as a scan result.</p>
+     */
+    public static boolean reportsUndiscoveredStar(JsonNode raw) {
+        return !"DETAILED".equals(scanDepth(raw))
+                && !text(raw, "StarType").isEmpty()
+                && isFalse(raw, "WasDiscovered")
+                && namesABody(raw);
+    }
+
+    /**
+     * One record, two different things it can report.
+     *
+     * <p>A detailed reading establishes what a body is. A shallower reading of
+     * a star that reports nobody had discovered it is a different assertion
+     * made from the same record, and it is the only record that ever carries
+     * that fact. The choice is between two fixed phrases decided by
+     * {@link #reportsUndiscoveredStar}, so the record and the projection cannot
+     * disagree about which assertion this is. Neither phrase says which star
+     * it is or which visit it belongs to — the record does not establish
+     * either, and the named fields beside the sentence carry what it does.</p>
+     */
+    @Override
+    public String modelFacingDescription() {
+        return reportsUndiscoveredStar(raw().parsedJsonObject())
+                ? "A scan reported a star as not previously discovered."
+                : "A discovery scan reported a star, planet or moon's "
+                        + "properties.";
+    }
+
+    private static String scanDepth(JsonNode raw) {
+        String depth = text(raw, "ScanType");
+        return depth.isEmpty() ? null : depth.toUpperCase(Locale.ROOT);
+    }
+
+    private static boolean isFalse(JsonNode raw, String name) {
+        JsonNode value = raw == null ? null : raw.get(name);
+        return value != null && value.isBoolean() && !value.booleanValue();
+    }
+
+    private static boolean namesABody(JsonNode raw) {
+        return nonNegative(raw, "SystemAddress") && nonNegative(raw, "BodyID");
+    }
+
+    private static boolean nonNegative(JsonNode raw, String name) {
+        JsonNode value = raw == null ? null : raw.get(name);
+        return value != null
+                && value.isIntegralNumber()
+                && value.canConvertToLong()
+                && value.longValue() >= 0L;
+    }
+
+    private static String text(JsonNode node, String name) {
+        if (node == null) {
+            return "";
+        }
+        JsonNode value = node.get(name);
+        return value != null && value.isTextual()
+                ? value.textValue().strip()
+                : "";
     }
 
     @Override

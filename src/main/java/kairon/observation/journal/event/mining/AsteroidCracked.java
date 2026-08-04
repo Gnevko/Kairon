@@ -25,6 +25,11 @@ public record AsteroidCracked(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A motherlode asteroid was broken up for mining.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder sentence = new StringBuilder(

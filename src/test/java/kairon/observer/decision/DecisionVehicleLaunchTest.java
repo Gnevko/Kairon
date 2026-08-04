@@ -47,10 +47,12 @@ final class DecisionVehicleLaunchTest {
         JsonNode event = request.path("events").get(0);
 
         assertEquals(
-                List.of("id", "kind", "loadout", "playerControlled"),
+                List.of("id", "event", "loadout", "playerControlled"),
                 propertyNames(event)
         );
-        assertEquals("VEHICLE_LAUNCHED", event.path("kind").textValue());
+        assertEquals(
+                    "A vehicle was launched from the ship.",
+                    event.path("event").textValue());
         assertEquals("base", event.path("loadout").textValue());
         assertTrue(event.path("playerControlled").booleanValue());
 
@@ -207,8 +209,8 @@ final class DecisionVehicleLaunchTest {
 
             JsonNode launch = requestFor(pipeline, triggers, 0);
             assertEquals(
-                    "VEHICLE_LAUNCHED",
-                    launch.path("events").get(0).path("kind").textValue()
+                    "A vehicle was launched from the ship.",
+                    launch.path("events").get(0).path("event").textValue()
             );
             assertFalse(launch.toString().contains("Nomad"));
 
@@ -230,8 +232,8 @@ final class DecisionVehicleLaunchTest {
             );
             JsonNode recovered = recovery.path("events").get(0);
             assertEquals(
-                    "VEHICLE_RECOVERED",
-                    recovered.path("kind").textValue()
+                    "A surface vehicle was brought back aboard the ship.",
+                    recovered.path("event").textValue()
             );
             assertEquals(
                     "SLV",

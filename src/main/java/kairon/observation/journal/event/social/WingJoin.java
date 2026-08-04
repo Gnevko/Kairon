@@ -26,6 +26,11 @@ public record WingJoin(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander joined a wing.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode othersNode = raw.parsedJsonObject().get("Others");
         List<String> others = new ArrayList<>();

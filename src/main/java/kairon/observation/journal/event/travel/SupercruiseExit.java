@@ -26,6 +26,11 @@ public record SupercruiseExit(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship dropped out of supercruise into normal space.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String system = LlmPresentableJournalEvent

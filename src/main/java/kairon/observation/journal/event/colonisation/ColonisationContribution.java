@@ -27,6 +27,11 @@ public record ColonisationContribution(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Materials were contributed to a colonisation effort.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder identity = new StringBuilder(

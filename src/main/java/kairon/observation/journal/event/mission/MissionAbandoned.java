@@ -26,6 +26,11 @@ public record MissionAbandoned(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A mission was abandoned.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String mission = LlmPresentableJournalEvent

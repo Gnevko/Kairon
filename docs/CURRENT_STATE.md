@@ -96,6 +96,49 @@ deterministic recording of every turn of a fixed replay with its trigger bus
 sequences, request document, episodes, occurrences, transitions and cursor — so
 a refactor can be compared against itself.
 
+**A current event now says what it is, in its own words.**
+`LlmPresentableJournalEvent.modelFacingDescription()` is a second method on the
+contract that already marks the 119 researched records, and every one of them
+implements it: one short literal English sentence naming what that kind of event
+reports, carrying no value the record supplies and no judgement, prediction,
+motive or next step. `DecisionEventProjector` narrows the observation it already
+holds and asks it — there is no lookup by class, no lookup by kind, no table and
+no `switch` — and `events[*].event` carries the answer where `events[*].kind`
+used to be. The internal kind is unchanged and still drives selection, the
+behaviour graph, the trajectory vocabulary, diagnostics and the tests; it simply
+stops being serialized, because a name only this process shares is not an answer
+to what happened. `Scan` is the one record that reports two different things and
+chooses between two fixed phrases, reading the same
+`Scan.reportsUndiscoveredStar` predicate the projection reads — the one
+implementation, which `BodySurveyFacts` delegates to, so no record reads the
+semantic layer to describe itself. A
+trigger that cannot describe itself fails the turn through the existing
+preparation-failure path: no provider call, and the internal kind is never a
+fallback. `llmPresentation()` is untouched and is still not called in
+production. Every phrase was checked against the Frontier Player Journal manual
+reference and the pinned `jixxed/ed-journal-schemas` revision, and 83 of them
+were corrected: claims the source does not make were removed
+(`ShipRedeemed` no longer says a ship joined the fleet, `ApproachBody` no longer
+denies a landing, `DropshipDeploy` now says the conflict zone the manual names),
+one inverted direction was fixed (`ShipyardTransfer` brings a ship **here**), and
+`EngineerLegacyConvert` gained a second fixed phrase because `IsPreview` is not
+sent and a preview is not a conversion. `PackageDependencyRulesTest` now also
+forbids `kairon.observation` importing `kairon.semantics`.
+
+`events[*].reverses` is **removed** with the same reasoning: it named its
+counterpart action with the internal kind, which no event sends any more, and
+it collapsed five distinct relations into one word. The semantic relationship
+itself is untouched and still reaches diagnostics.
+`DecisionRequestArchitectureGuardTest` now walks **every string value** of every
+current event — nested objects and arrays included — and fails if any of them
+equals a declared kind, so the vocabulary cannot return under a third field
+name; a fixture carrying `LeaveBody` and `Undocked` keeps that guard honest. `changes`, `context`, `trajectory`, selection, batching, the graph
+and persistence are unchanged; a before/after
+`ModelFacingReplayBaselineTest` diff over 46 turns and 76 events showed
+`events[*].kind` → `events[*].event` and nothing else, with documents growing
+from a median of 264 to 315 characters and a maximum of 1 031 to 1 394 against
+the unchanged 16 000-character budget.
+
 The production model input is `kairon-llm-decision-v1` and the turn trace is
 `kairon-turn-trace-v5`. The earlier `kairon-llm-situation-v2.1` context — DTO,
 factory, serializer, compactor and prompt — has been **removed** from source,
@@ -107,7 +150,7 @@ fallback, runtime version selector or dual serialization exists.
 - Maven artifact: `kairon:kairon:0.1.0-SNAPSHOT`.
 - Runtime: Java 21, single Maven module.
 - Maven Wrapper: Maven 3.9.16.
-- Last implementation verification: `mvnw.cmd clean test` on 2026-08-04, 858
+- Last implementation verification: `mvnw.cmd clean test` on 2026-08-04, 878
   tests run, 0 failures, 0 errors, 3 skipped, BUILD SUCCESS. The three skips
   are the opt-in manual behavior-graph replay (`BehaviorGraphManualReplayTest`,
   which runs only when a journal path is supplied), the `@Disabled`
@@ -529,7 +572,7 @@ The same method declines a `Scan` whose depth is not `Detailed` or which
 names no body, and a signal record from either scanner reporting no positive
 count of anything: neither established a result. One shallow `Scan` is admitted
 — a star reading with `WasDiscovered: false`, which
-`BodySurveyFacts.undiscoveredStarReading` identifies from the record's shape
+`Scan.reportsUndiscoveredStar` identifies from the record's shape
 alone. A fourth, stateful check
 follows it. `BodySurveyNoveltyGuard`, owned by `LlmJournalObserverSubscriber`,
 declines a scanner result identical to the one the model was already given for
@@ -728,7 +771,9 @@ Turn data is a separate user message containing one compact deterministic
 `kairon-llm-decision-v1` JSON object with at most five top-level members:
 
 - `events` — one domain-facing event per current NEW trigger, each with a local
-  id, a stable domain `kind` and only the applicable named domain fields;
+  id, the literal `event` description the record supplies for itself, and only
+  the applicable named domain fields. Kairon's internal `kind` is **not**
+  serialized;
 - `changes` — the canonical changes that add decision-relevant novelty, keyed
   to the local id of the causing event or attributed to no event when a hidden
   observation caused them;
@@ -1179,6 +1224,14 @@ directions: every one of the 112 model-eligible types has a rule, and the
 catalogue covers nothing outside the selection profile. A catalogued event
 therefore cannot reach the generic fallback.
 
+- Every current event carries the literal description its own record supplies
+  (`LlmPresentableJournalEvent.modelFacingDescription()`), serialized as
+  `events[*].event` in place of the internal kind. `DecisionRequestArchitectureGuardTest`
+  fails a request whose event carries a `kind`, a blank description or an
+  internal spelling; `ModelFacingDescriptionContractTest` checks all 112
+  model-eligible types for a single short neutral sentence, and
+  `ModelFacingEventDescriptionTest` checks the serialized request, the property
+  order, an explicit multi-record batch and the fail-closed refusal.
 - The event projection drops what a decision cannot use: the subject the kind
   already fixes, a Commander actor that is always the Commander, a FINAL stage
   and a true completion on an atomic action, `negation: false`, an identity

@@ -24,6 +24,11 @@ public record SystemsShutdown(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship's systems shut down.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         return new LlmEventPresentation(List.of(
                 "The player's ship systems shut down.",

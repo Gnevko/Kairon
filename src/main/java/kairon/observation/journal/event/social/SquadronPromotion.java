@@ -26,6 +26,11 @@ public record SquadronPromotion(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander's rank within a squadron went up.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String squadron = LlmPresentableJournalEvent

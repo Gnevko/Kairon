@@ -27,6 +27,11 @@ public record TechnologyBroker(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A technology broker unlocked new purchasable technology.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder unlock = new StringBuilder(

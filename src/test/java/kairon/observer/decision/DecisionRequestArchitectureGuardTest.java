@@ -14,6 +14,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -72,6 +73,95 @@ final class DecisionRequestArchitectureGuardTest {
             new LlmDecisionRequestFactory();
     private final JacksonDecisionRequestSerializer serializer =
             new JacksonDecisionRequestSerializer();
+
+    /**
+     * Every current event says what it is, and never Kairon's name for it.
+     *
+     * <p>Both halves are the contract. A missing description would leave the
+     * model with named fields and nothing to attach them to; a {@code kind}
+     * beside the description would answer one question twice, and once in a
+     * vocabulary that means nothing outside this process. The internal kind
+     * still exists — selection, the graph, the tests and the diagnostics all
+     * use it — it simply stops being sent.</p>
+     */
+    @Test
+    void everyCurrentEventDescribesItselfAndCarriesNoKind() {
+        for (Fixture fixture : fixtures()) {
+            JsonNode events = read(fixture.json()).path("events");
+            assertTrue(events.size() >= 1, fixture.name());
+            for (JsonNode event : events) {
+                String description = event.path("event").textValue();
+                assertNotNull(
+                        description,
+                        () -> fixture.name() + " sent an event with nothing "
+                                + "to say: " + fixture.json()
+                );
+                assertFalse(
+                        description.isBlank(),
+                        () -> fixture.name() + " sent a blank description"
+                );
+                assertFalse(
+                        description.matches("[A-Z][A-Z0-9_]*"),
+                        () -> fixture.name() + " sent the internal spelling "
+                                + description
+                );
+                assertFalse(
+                        event.has("kind"),
+                        () -> fixture.name() + " sent Kairon's own name for "
+                                + "the event: " + fixture.json()
+                );
+            }
+        }
+    }
+
+    /**
+     * No value anywhere in a current event is one of Kairon's own kinds.
+     *
+     * <p>Checking that the {@code kind} property is gone is not enough: the
+     * same vocabulary reached the model under {@code reverses}, which named a
+     * counterpart action with the catalogue's spelling. Once the kind stopped
+     * being sent, that value pointed at a word the model never sees. The guard
+     * therefore walks every string in the event — property values, nested
+     * objects and arrays alike — rather than one property name, so a future
+     * field cannot reintroduce the leak under a third spelling.</p>
+     */
+    @Test
+    void noValueInACurrentEventIsAnInternalKind() {
+        Set<String> kinds = new LinkedHashSet<>();
+        for (DecisionEventRule rule : DecisionEventCatalog.declaredRules()) {
+            kinds.add(rule.kind());
+        }
+        assertFalse(kinds.isEmpty(), "the catalogue declared no kinds");
+
+        for (Fixture fixture : fixtures()) {
+            for (JsonNode event : read(fixture.json()).path("events")) {
+                List<String> values = new ArrayList<>();
+                collectStrings(event, values);
+                for (String value : values) {
+                    assertFalse(
+                            kinds.contains(value),
+                            () -> fixture.name() + " sent the internal kind "
+                                    + value + " inside an event: "
+                                    + fixture.json()
+                    );
+                }
+            }
+        }
+    }
+
+    /** The relationship field is gone; nothing replaced it. */
+    @Test
+    void noCurrentEventNamesACounterpartAction() {
+        for (Fixture fixture : fixtures()) {
+            for (JsonNode event : read(fixture.json()).path("events")) {
+                assertFalse(
+                        event.has("reverses"),
+                        () -> fixture.name() + " still names a counterpart: "
+                                + fixture.json()
+                );
+            }
+        }
+    }
 
     @Test
     void noRequestCarriesAnInternalPropertyName() {
@@ -299,6 +389,22 @@ final class DecisionRequestArchitectureGuardTest {
                  "AvgPricePaid":8000}
                 """
         }));
+        // Two events whose semantic fact names a counterpart action. Both
+        // used to send that counterpart as Kairon's own kind, which is the
+        // leak the value guard exists for; without them it would pass on
+        // fixtures that never had a relationship to leak.
+        fixtures.add(one("counterpart-relationships", new String[]{
+                """
+                {"timestamp":"2026-07-30T10:00:00Z","event":"LeaveBody",
+                 "StarSystem":"Schieni GG-A c3-84","SystemAddress":23155,
+                 "Body":"Schieni GG-A c3-84 4 a","BodyID":20}
+                """,
+                """
+                {"timestamp":"2026-07-30T10:00:01Z","event":"Undocked",
+                 "StationName":"Jameson Memorial","StationType":"Orbis",
+                 "MarketID":128}
+                """
+        }));
         // A graph-backed turn: the graph advanced, and none of it is sent.
         fixtures.add(new Fixture("graphed-touchdown", graphedTouchdown()));
         return List.copyOf(fixtures);
@@ -356,6 +462,17 @@ final class DecisionRequestArchitectureGuardTest {
         return serializer.serialize(
                 factory.create(fixture.inputs(List.of(touchdown))).request()
         );
+    }
+
+    /** Every string this node carries, at any depth. */
+    private static void collectStrings(JsonNode node, List<String> into) {
+        if (node.isTextual()) {
+            into.add(node.textValue());
+            return;
+        }
+        if (node.isArray() || node.isObject()) {
+            node.forEach(child -> collectStrings(child, into));
+        }
     }
 
     private static Set<String> propertyNames(JsonNode node) {

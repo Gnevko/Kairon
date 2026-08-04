@@ -25,6 +25,11 @@ public record JetConeBoost(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Material collected from a star's jet cone gave the drive a boost.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String value = LlmPresentableJournalEvent

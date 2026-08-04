@@ -26,6 +26,11 @@ public record CommunityGoalJoin(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander signed up for a community goal.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String goal = LlmPresentableJournalEvent

@@ -24,6 +24,11 @@ public record HeatDamage(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Damage was taken from overheating.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         return new LlmEventPresentation(List.of(
                 "The player's current vessel took damage from overheating.",

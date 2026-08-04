@@ -28,6 +28,11 @@ public record EngineerCraft(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "An engineer upgrade was requested for a module.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

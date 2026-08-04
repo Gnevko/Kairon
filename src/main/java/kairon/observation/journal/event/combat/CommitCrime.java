@@ -26,6 +26,11 @@ public record CommitCrime(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A crime was recorded against the Commander.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder record = new StringBuilder(

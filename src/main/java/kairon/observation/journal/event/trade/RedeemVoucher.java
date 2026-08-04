@@ -27,6 +27,11 @@ public record RedeemVoucher(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A voucher was claimed for payment.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String voucherType = LlmPresentableJournalEvent

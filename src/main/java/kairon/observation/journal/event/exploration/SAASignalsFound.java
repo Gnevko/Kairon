@@ -29,6 +29,18 @@ public record SAASignalsFound(RawJournalData raw)
         raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
     }
 
+    /**
+     * Describes signal data without implying a non-empty {@code Signals} array.
+     *
+     * <p>{@code Signals} is required and typed as an array, but the schema has
+     * no {@code minItems}.</p>
+     */
+    @Override
+    public String modelFacingDescription() {
+        return "A surface area analysis scan reported signal data for a "
+                + "planet or rings.";
+    }
+
     @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();

@@ -26,6 +26,11 @@ public record EjectCargo(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Cargo was ejected.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String cargo = LlmPresentableJournalEvent

@@ -84,6 +84,42 @@ final class DecisionTurnBudgetTest {
         assertEquals(full, fitted.originalCharacterCount());
     }
 
+    /**
+     * Compaction never leaves an event without its own account of itself.
+     *
+     * <p>The one rung is the context, and the events pass through it
+     * untouched. Fields with nothing to attach them to would be worse than the
+     * loss compaction is trying to avoid, so the description is mandatory in
+     * the same sense the fields are.</p>
+     */
+    @Test
+    void compactionKeepsEveryEventsDescription() {
+        DecisionTurnFixture fixture = new DecisionTurnFixture();
+        DecisionTurnInputs inputs = landingAfterAnEarlierTurn(fixture);
+        int full = serializer.serialize(
+                factory.create(inputs).request()
+        ).length();
+
+        LlmDecisionRequestCompactor.Result.Fitted fitted =
+                assertInstanceOf(
+                        LlmDecisionRequestCompactor.Result.Fitted.class,
+                        compactor(new DecisionTurnPolicy(8, full - 1))
+                                .prepare(inputs)
+                );
+
+        assertTrue(fitted.compactionApplied());
+        for (LlmDecisionRequest.Event event : fitted.request().events()) {
+            assertFalse(event.description().isBlank());
+        }
+        assertTrue(
+                fitted.serializedJson().contains(
+                        "\"event\":\"A ship landed on the surface "
+                                + "of a planet or moon.\""),
+                fitted.serializedJson()
+        );
+        assertFalse(fitted.serializedJson().contains("\"kind\":\"TOUCHDOWN"));
+    }
+
     @Test
     void mandatoryContentThatDoesNotFitRefusesRatherThanShrinks() {
         DecisionTurnFixture fixture = new DecisionTurnFixture();

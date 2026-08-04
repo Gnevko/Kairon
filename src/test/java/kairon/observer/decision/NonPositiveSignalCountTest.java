@@ -156,7 +156,8 @@ final class NonPositiveSignalCountTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"BODY_SIGNALS_FOUND",\
+                    {"events":[{"id":1,"event":"A surface area analysis scan reported \
+                    signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\
                     "context":{"body":{"biologicalSignals":1}},\
@@ -202,7 +203,8 @@ final class NonPositiveSignalCountTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"BODY_SIGNALS_FOUND",\
+                    {"events":[{"id":1,"event":"A surface area analysis scan reported \
+                    signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\
                     "context":{"body":{"biologicalSignals":1}},\
@@ -302,6 +304,11 @@ final class NonPositiveSignalCountTest {
      * <p>Deliberately the whole outcome rather than a single number: the
      * canonical counts, the structural record and what the model was shown, so
      * that the two instruments are compared on every consequence at once.</p>
+     *
+     * <p>The one thing that legitimately differs is each record's own account
+     * of what it is — a system scan and a surface survey say so in their own
+     * words — so the document is compared with that sentence taken out. What a
+     * zero does is the claim; which instrument said it is not.</p>
      */
     private static String zeroOutcome(Path directory, String eventName)
             throws Exception {
@@ -317,8 +324,17 @@ final class NonPositiveSignalCountTest {
                     + " geo=" + state.geologicalSignalCount()
                     + " occurrences=" + pipeline.episodeTypes().size()
                     + " modelFacing=" + pipeline.modelFacingKinds()
-                    + " document=" + lastUserMessage(pipeline);
+                    + " document=" + withoutTheInstrumentsOwnWords(
+                            lastUserMessage(pipeline));
         }
+    }
+
+    /** The document with each event's self-description replaced. */
+    private static String withoutTheInstrumentsOwnWords(String document) {
+        return document.replaceAll(
+                "\"event\":\"[^\"]*\"",
+                "\"event\":\"<said>\""
+        );
     }
 
     // ------------------------------------------------------------- fixtures

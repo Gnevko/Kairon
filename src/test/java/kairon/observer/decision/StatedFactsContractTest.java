@@ -393,18 +393,24 @@ final class StatedFactsContractTest {
         );
     }
 
+    /**
+     * The event of one kind, found by position rather than by reading a name.
+     *
+     * <p>The request no longer names an event Kairon's way — it carries the
+     * literal description the record supplied — so the kind comes from the
+     * payload the pipeline observed and the position it holds in the turn.</p>
+     */
     private static JsonNode eventOfKind(
             PipelineTrace.TurnView turn,
             String kind
     ) {
-        for (JsonNode event : turn.events()) {
-            if (kind.equals(event.path("kind").textValue())) {
-                return event;
-            }
+        int position = turn.eventKinds().indexOf(kind);
+        if (position < 0) {
+            throw new AssertionError(
+                    "no " + kind + " in " + turn.userMessage()
+            );
         }
-        throw new AssertionError(
-                "no " + kind + " in " + turn.userMessage()
-        );
+        return turn.events().get(position);
     }
 
     private static List<String> changedFields(

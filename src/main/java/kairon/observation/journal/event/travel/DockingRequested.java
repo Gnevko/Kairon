@@ -27,6 +27,11 @@ public record DockingRequested(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Permission to dock was requested.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String station = LlmPresentableJournalEvent

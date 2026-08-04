@@ -100,8 +100,11 @@ final class ObserverPipelineTest {
             assertEquals(1, llm.inputs.size());
             JsonNode request = turn(llm.inputs.getFirst());
             assertEquals(
-                    List.of("UNDOCKED", "SUPERCRUISE_ENTERED"),
-                    eventKinds(request)
+                    List.of(
+                            "A ship lifted off from a landing pad at a station, outpost or settlement.",
+                            "A ship entered supercruise from normal space."
+                    ),
+                    eventDescriptions(request)
             );
             assertEquals(List.of(1, 2), eventIds(request));
             assertEquals(
@@ -149,7 +152,9 @@ final class ObserverPipelineTest {
             harness.finishReplay();
 
             JsonNode request = turn(llm.inputs.getFirst());
-            assertEquals(List.of("UNDOCKED"), eventKinds(request));
+            assertEquals(
+                    List.of("A ship lifted off from a landing pad at a station, outpost or settlement."),
+                    eventDescriptions(request));
             // The later Location established "Later Context". If it had
             // replaced this turn's snapshot the name would be present; an
             // unestablished field is absent, never a null placeholder.
@@ -556,8 +561,8 @@ final class ObserverPipelineTest {
             assertEquals(1, llm.inputs.size());
             JsonNode request = turn(llm.inputs.getFirst());
             assertEquals(
-                    List.of("MESSAGE_RECEIVED"),
-                    eventKinds(request),
+                    List.of("A text message was received."),
+                    eventDescriptions(request),
                     "only the squadron message is a trigger"
             );
             assertEquals(List.of(1), eventIds(request));
@@ -601,8 +606,9 @@ final class ObserverPipelineTest {
         }
     }
 
-    private static List<String> eventKinds(JsonNode request) {
-        return textValues(request.path("events"), "kind");
+    /** What the model was actually told each event is. */
+    private static List<String> eventDescriptions(JsonNode request) {
+        return textValues(request.path("events"), "event");
     }
 
     /** The only identity the model is given, and it is local to the turn. */

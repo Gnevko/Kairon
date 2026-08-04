@@ -26,6 +26,11 @@ public record MaterialCollected(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A material was picked up.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String material = LlmPresentableJournalEvent

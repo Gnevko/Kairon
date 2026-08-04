@@ -26,6 +26,11 @@ public record Undocked(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship lifted off from a landing pad at a station, outpost or settlement.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> locationFacts = new ArrayList<>();

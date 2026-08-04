@@ -26,6 +26,11 @@ public record USSDrop(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship dropped into an unidentified signal source.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> facts = new ArrayList<>();

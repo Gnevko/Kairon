@@ -63,18 +63,32 @@ public record LlmDecisionRequest(
     /**
      * One current trigger, as a domain statement.
      *
-     * <p>Exactly one event per trigger. {@code kind} names the game mechanism
-     * rather than the journal wire name, and {@code fields} carries only the
-     * attributes that mechanism actually has — no subject, no default actor, no
-     * completion flag on an atomic action, no unnamed quantity.</p>
+     * <p>Exactly one event per trigger. {@code description} is the literal
+     * sentence the event's own record supplies for what it reports, and it is
+     * the only statement of identity the model receives. {@code fields} carries
+     * only the attributes that mechanism actually has — no subject, no default
+     * actor, no completion flag on an atomic action, no unnamed quantity.</p>
+     *
+     * <p>{@code kind} stays here and is <strong>not serialized</strong>. It is
+     * Kairon's own name for the event and the projection reads it — the
+     * trajectory asks which kinds a batch consists of, the tests name events by
+     * it — but a model told both a name and a description would be told the
+     * same thing twice, once in a vocabulary that means nothing outside this
+     * process.</p>
      */
-    public record Event(int id, String kind, List<Field> fields) {
+    public record Event(
+            int id,
+            String kind,
+            String description,
+            List<Field> fields
+    ) {
 
         public Event {
             if (id < 1) {
                 throw new IllegalArgumentException("event id must be positive");
             }
             kind = requireNonBlank(kind, "kind");
+            description = requireNonBlank(description, "description");
             fields = List.copyOf(Objects.requireNonNull(fields, "fields"));
         }
     }

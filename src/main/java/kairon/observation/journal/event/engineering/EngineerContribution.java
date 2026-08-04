@@ -26,6 +26,11 @@ public record EngineerContribution(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Items, cash or bounties were offered to an engineer to gain access.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder contribution = new StringBuilder(

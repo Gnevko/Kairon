@@ -44,8 +44,6 @@ public final class DecisionEventCatalog {
     private static final Map<Class<? extends JournalEventObservation>,
             DecisionEventRule> RULES = build();
 
-    private static final Map<String, String> BY_SIMPLE_NAME = bySimpleName();
-
     /**
      * The rules a record earns rather than a type.
      *
@@ -193,20 +191,6 @@ public final class DecisionEventCatalog {
             declared.add(recordRule.rule());
         }
         return List.copyOf(declared);
-    }
-
-    /**
-     * The domain kind for a journal event named in prose, if there is one.
-     *
-     * <p>Semantic relationships reference their counterpart by wire name
-     * ({@code "reverses ApproachBody"}). Passing that through would put a
-     * Frontier identifier in front of the model, so it is translated here and
-     * dropped when the counterpart is outside the model-eligible catalogue —
-     * an unresolvable reference is worth less than the leak costs.</p>
-     */
-    public static String kindOfSimpleName(String simpleName) {
-        Objects.requireNonNull(simpleName, "simpleName");
-        return BY_SIMPLE_NAME.get(simpleName);
     }
 
     public static int size() {
@@ -737,13 +721,6 @@ public final class DecisionEventCatalog {
         put(rules, RebootRepair.class,
                 DecisionEventRule.of("SHIP_REBOOT_REPAIR",
                         DecisionMechanism.SHIP_STATUS));
-    }
-
-    private static Map<String, String> bySimpleName() {
-        Map<String, String> names = new LinkedHashMap<>();
-        RULES.forEach((eventType, rule) ->
-                names.put(eventType.getSimpleName(), rule.kind()));
-        return Map.copyOf(names);
     }
 
     private static void put(

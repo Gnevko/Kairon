@@ -26,6 +26,11 @@ public record UnderAttack(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A vessel is being fired upon.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String target = LlmPresentableJournalEvent.textual(

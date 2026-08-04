@@ -80,11 +80,13 @@ final class DecisionTrajectoryPolicyTest {
         assertEquals(List.of("events"), propertyNames(request));
         JsonNode event = request.path("events").get(0);
         assertEquals(
-                List.of("id", "kind", "friend", "status"),
+                List.of("id", "event", "friend", "status"),
                 propertyNames(event),
                 "the event itself is exactly what it was"
         );
-        assertEquals("FRIEND_STATUS", event.path("kind").textValue());
+        assertEquals(
+                    "Information about a friend's status was received.",
+                    event.path("event").textValue());
         assertEquals("KotyaGaw", event.path("friend").textValue());
         assertEquals("ONLINE", event.path("status").textValue());
         assertFalse(request.has("trajectory"));
@@ -172,8 +174,11 @@ final class DecisionTrajectoryPolicyTest {
         ).request()));
 
         assertEquals(
-                List.of("FRIEND_STATUS", "MESSAGE_RECEIVED"),
-                kinds(request)
+                List.of(
+                        "Information about a friend's status was received.",
+                        "A text message was received."
+                ),
+                descriptions(request)
         );
         assertFalse(request.has("trajectory"));
     }
@@ -200,8 +205,11 @@ final class DecisionTrajectoryPolicyTest {
         ).request()));
 
         assertEquals(
-                List.of("FRIEND_STATUS", "TOUCHDOWN"),
-                kinds(request)
+                List.of(
+                        "Information about a friend's status was received.",
+                        "A ship landed on the surface of a planet or moon."
+                ),
+                descriptions(request)
         );
         assertEquals(
                 List.of("SYSTEM_ENTERED", "LIFTOFF"),
@@ -305,8 +313,8 @@ final class DecisionTrajectoryPolicyTest {
         return List.copyOf(recent);
     }
 
-    private static List<String> kinds(JsonNode request) {
-        return values(request, "kind");
+    private static List<String> descriptions(JsonNode request) {
+        return values(request, "event");
     }
 
     private static List<String> values(JsonNode request, String field) {

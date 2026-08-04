@@ -26,6 +26,11 @@ public record Touchdown(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship landed on the surface of a planet or moon.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> landingFacts = new ArrayList<>();

@@ -43,7 +43,9 @@ public final class DecisionPromptFactory {
 
             <reading>
             events are what just happened. They are the only evidence you may
-            cite.
+            cite. Each one carries event, a plain statement of what took place,
+            and its remaining fields say what it took place to. Read the two
+            together and claim nothing the statement does not say.
 
             changes are what those events altered, and appear only where that is
             not already clear from the events themselves.

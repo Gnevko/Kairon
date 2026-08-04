@@ -41,7 +41,7 @@ identity of any kind.
 
 | Part | Presence | Meaning |
 | --- | --- | --- |
-| `events` | always, never empty | what just happened; the only citable evidence |
+| `events` | always, never empty | what just happened, each stating in its own words what it is; the only citable evidence |
 | `changes` | when a change adds decision-relevant novelty | what those events altered |
 | `context` | when the events need it to be understood | what else is true right now |
 | `trajectory` | when this system visit has a remembered run of events, and the batch is not entirely trajectory-independent kinds | what led here, and what usually follows |
@@ -88,15 +88,33 @@ is unchanged and remains Kairon's universal internal representation; the
 projection to a model-facing event happens in `kairon.observer.decision`.
 
 ```json
-{"id": 1, "kind": "BODY_MAPPING_COMPLETED",
+{"id": 1, "event": "A surface area analysis scan of a body was completed.",
  "body": "Schieni GG-A c3-84 4 a", "probesUsed": 2, "efficiencyTarget": 2}
 ```
 
-`kind` is a stable domain name for what the event reports. It is never the
-journal wire name, never a behaviour-graph node name, and not a restatement of
-the wire name in other words: the `Commander` event says which Commander took up
-the current session, so its kind is `COMMANDER_SESSION_STARTED` rather than
-anything about recognising an identity.
+`event` is the literal description the record itself supplies, through
+`LlmPresentableJournalEvent.modelFacingDescription()`. It says what kind of
+thing happened, in the terms of the game; the fields beside it say what it
+happened to. Nothing looks it up: the observation in hand is the only source of
+its own meaning, there is no table keyed by kind or by class, and no `switch`
+over kinds exists anywhere.
+
+**The internal `kind` is not sent.** It still exists — `DecisionEventCatalog`
+still gives every eligible type one, selection, the behaviour graph, the
+trajectory vocabulary, diagnostics and the tests all read it — but a name only
+this process shares is not an answer to "what happened", and sending it beside
+a description would answer one question twice. `LlmDecisionRequest.Event` carries
+both; `JacksonDecisionRequestSerializer` writes only the description.
+
+A description is a property of the type, not of the record: two landings say the
+same sentence and differ only in their fields. One class is allowed to choose
+between fixed phrases when it genuinely reports two different things — `Scan`
+does, through `Scan.reportsUndiscoveredStar` — the one implementation, which
+`BodySurveyFacts` delegates to, so the record and the projection cannot disagree — and nothing is ever interpolated into the text.
+
+`trajectory` is unchanged and still speaks in kinds. Making a remembered or
+predicted event describe itself is a separate problem: there is no instance
+behind either one.
 
 Nor is the wire name evidence about the world. A real journal was observed
 emitting `LaunchFighter` for a vehicle whose later `Disembark(SRV=true)`,
@@ -174,7 +192,16 @@ Only applicable domain fields, under domain names: `probesUsed`,
 `efficiencyTarget`, `credits`, `units`, `distanceLy`, `organism`, `stage`,
 `complete`, `sender`, `channel`, `message`, `body`, `system`, `commander`,
 `friend`, `status`, `vehicle`, `vehicleKind`, `vehicleType`,
-`playerControlled`, `newEntry`, `reverses`, `occurrenceOnBody`.
+`playerControlled`, `newEntry`, `occurrenceOnBody`.
+
+A semantic relationship is **not** among them. It named its counterpart with
+Kairon's own kind — the vocabulary an event no longer sends — so once the kind
+stopped being serialized the value pointed at a word the model never sees, and
+it flattened five different relations (`cancels`, `negates`, `releases`,
+`inverse of`, `negative outcome of`) into one field called `reverses`. The
+relationship is unchanged on the semantic fact and still reaches diagnostics;
+saying it to the model needs a contract of its own, which is a separate
+design step.
 
 A recovered vessel carries **two** fields, not one label: `vehicleKind` is the
 class (`SLV`, `SRV`) and `vehicleType` the model (`Nomad`, `Scarab`). One
@@ -198,7 +225,8 @@ running the session, `friend` a third party, `body` a body — never a bare
 `name` the model has to attribute.
 
 Closed vocabularies are sent in one casing. `stage`, `presence`,
-`flightMode` and `kind` are upper snake case because they come from Java enums;
+`flightMode` and a change's `kind` are upper snake case because they come from
+Java enums;
 the ones that arrive as Frontier tokens — a friend's `status`, a body's `type`,
 a message's `channel` — are brought into the same shape: `Online` to `ONLINE`,
 `PlanetaryRing` to `PLANETARY_RING`, `squadron` to `SQUADRON`. Only the spelling
@@ -225,7 +253,7 @@ misread, so an unnamed number now fails closed.
   START/`false`, `Sample` to PROGRESS/`false`, `Analyse` to FINAL/`true` — and
   sampling is multi-stage, so all three reach the model as `stage` and
   `complete`. The qualifier is therefore dropped rather than renamed: a
-  `BIOLOGICAL_SAMPLE` is exactly `id`, `kind`, `organism`, `stage`, `complete`.
+  a biological sample is exactly `id`, `event`, `organism`, `stage`, `complete`.
   The internal `scanType` qualifier and the `ScanType` field are unchanged.
 - An event whose rule declares `wholeAction` carries no `stage` at all, and no
   uncertainty either: its kind is the entire assertion, so there is no process
@@ -273,7 +301,7 @@ current status and never asserts a transition into it, so there is no claim for
 the contract to qualify — and saying that a transition is unconfirmed would
 introduce the very claim it disclaims. The reason is unchanged in
 `UnresolvedFact` and still reaches diagnostics. A friend status is therefore
-exactly `id`, `kind`, `friend`, `status`.
+exactly `id`, `event`, `friend`, `status`.
 
 ---
 
@@ -522,8 +550,9 @@ dropped from the list rather than passed through.
 A repeated event carries `occurrenceOnBody` on the event itself:
 
 ```json
-{"id": 1, "kind": "TOUCHDOWN", "body": "Schieni GG-A c3-84 4 a",
- "playerControlled": true, "occurrenceOnBody": 2}
+{"id": 1, "event": "A ship landed on the surface of a planet or moon.",
+ "body": "Schieni GG-A c3-84 4 a", "playerControlled": true,
+ "occurrenceOnBody": 2}
 ```
 
 It counts occurrences of that event type, at that exact body, inside the current
@@ -633,6 +662,7 @@ model.
 | Request | `kairon.observer.decision.LlmDecisionRequest` |
 | Evidence mapping | `kairon.turn.evidence.DecisionEvidence` |
 | Event rules | `kairon.observer.decision.DecisionEventCatalog`, `RecordDecisionRule` |
+| Event description | `LlmPresentableJournalEvent.modelFacingDescription()`, implemented by each journal record |
 | Mechanisms | `kairon.observer.decision.DecisionMechanism` |
 | Context slices | `kairon.observer.decision.DecisionContextProfile` |
 | Already-stated facts | `kairon.observer.decision.StatedFacts` |

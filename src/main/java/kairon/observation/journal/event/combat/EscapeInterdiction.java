@@ -26,6 +26,11 @@ public record EscapeInterdiction(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander escaped an interdiction.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder outcome = new StringBuilder(

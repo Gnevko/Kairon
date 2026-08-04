@@ -26,6 +26,11 @@ public record DockingCancelled(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A docking request was cancelled.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String station = LlmPresentableJournalEvent

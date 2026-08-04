@@ -27,6 +27,11 @@ public record Embark(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander, on foot, got into a ship or SRV.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> vesselFacts = new ArrayList<>();

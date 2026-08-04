@@ -26,6 +26,11 @@ public record ApproachBody(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship in supercruise came within a body's orbital-cruise zone.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String body = LlmPresentableJournalEvent.textual(event.get("Body"))

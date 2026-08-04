@@ -26,6 +26,11 @@ public record CrewMemberJoins(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Another player joined the ship's crew.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String commander = LlmPresentableJournalEvent

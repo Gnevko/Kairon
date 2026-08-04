@@ -28,6 +28,11 @@ public record Location(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander's location was reported at startup or after respawn.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

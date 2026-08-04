@@ -25,6 +25,11 @@ public record NewCommander(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A new Commander was created.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String name = LlmPresentableJournalEvent.textual(event.get("Name"))

@@ -26,6 +26,11 @@ public record MissionFailed(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A mission failed.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String mission = LlmPresentableJournalEvent

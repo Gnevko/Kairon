@@ -26,6 +26,11 @@ public record ShipyardNew(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A new ship was registered after a purchase.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> facts = new ArrayList<>();

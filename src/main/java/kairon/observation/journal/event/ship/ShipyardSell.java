@@ -26,6 +26,11 @@ public record ShipyardSell(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A stored ship was sold at a shipyard.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String ship = LlmPresentableJournalEvent

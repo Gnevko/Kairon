@@ -26,6 +26,11 @@ public record ShipRedeemed(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A new ship was redeemed.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> facts = new ArrayList<>();

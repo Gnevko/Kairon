@@ -27,6 +27,11 @@ public record Died(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander was killed.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

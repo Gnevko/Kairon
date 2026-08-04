@@ -38,6 +38,11 @@ public record NpcCrewRank(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A crew member's combat rank increased.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String crewMember = LlmPresentableJournalEvent

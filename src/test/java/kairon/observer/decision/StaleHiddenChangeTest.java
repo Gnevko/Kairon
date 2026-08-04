@@ -215,8 +215,11 @@ final class StaleHiddenChangeTest {
             ).request()));
 
             assertEquals(
-                    List.of("SYSTEM_JUMP", "VEHICLE_LAUNCHED"),
-                    kinds(request)
+                    List.of(
+                            "A ship jumped from one star system to another.",
+                            "A vehicle was launched from the ship."
+                    ),
+                    descriptions(request)
             );
             JsonNode vehicle = changeFor(request, "vehicle");
             assertEquals(
@@ -275,11 +278,11 @@ final class StaleHiddenChangeTest {
         return List.copyOf(subjects);
     }
 
-    private static List<String> kinds(JsonNode request) {
-        List<String> kinds = new ArrayList<>();
+    private static List<String> descriptions(JsonNode request) {
+        List<String> descriptions = new ArrayList<>();
         request.path("events").forEach(event ->
-                kinds.add(event.path("kind").textValue()));
-        return List.copyOf(kinds);
+                descriptions.add(event.path("event").textValue()));
+        return List.copyOf(descriptions);
     }
 
     private static List<String> flightModeChanges(JsonNode request) {

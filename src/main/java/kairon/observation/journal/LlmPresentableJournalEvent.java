@@ -22,6 +22,32 @@ import static java.util.regex.Pattern.UNICODE_CHARACTER_CLASS;
 public interface LlmPresentableJournalEvent
         extends JournalEventObservation {
 
+    /**
+     * What this event literally reports, in one short sentence.
+     *
+     * <p>The definition of the occurrence, not an account of this one. It is
+     * the same sentence for every record of the type, and it carries no value
+     * the record supplies: what happened is here, what it happened to stays in
+     * the event's own named fields. It is the only thing the model is told the
+     * event <em>is</em> — no internal kind, no wire name, no enum spelling
+     * reaches it.</p>
+     *
+     * <p>It states no importance, rarity, value, danger, player intent,
+     * supposed cause or next step, and it never assembles a sentence out of
+     * body names, systems, coordinates or counts.</p>
+     *
+     * <p>A record whose class carries more than one distinct model-facing
+     * assertion may choose between fixed canonical phrases by reading its own
+     * fields. Choosing is all it may do: a value is never interpolated, and the
+     * branch has to answer a real difference in what the record reports.</p>
+     *
+     * <p>This is not a shorter {@link #llmPresentation()}. That method renders
+     * the facts of one record as prose and is a separate contract; this one
+     * names the kind of thing that happened and nothing about this instance.
+     * </p>
+     */
+    String modelFacingDescription();
+
     LlmEventPresentation llmPresentation();
 
     /**

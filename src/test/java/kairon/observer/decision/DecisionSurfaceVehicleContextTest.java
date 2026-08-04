@@ -60,11 +60,13 @@ final class DecisionSurfaceVehicleContextTest {
                     propertyNames(request)
             );
             JsonNode event = request.path("events").get(0);
-            assertEquals("TOUCHDOWN", event.path("kind").textValue());
+            assertEquals(
+                    "A ship landed on the surface of a planet or moon.",
+                    event.path("event").textValue());
             assertEquals(
                     List.of(
                             "id",
-                            "kind",
+                            "event",
                             "body",
                             "playerControlled",
                             "occurrenceOnBody"
@@ -171,8 +173,8 @@ final class DecisionSurfaceVehicleContextTest {
 
             JsonNode request = lastRequest(pipeline);
             assertEquals(
-                    "LIFTOFF",
-                    request.path("events").get(0).path("kind").textValue()
+                    "A ship took off from the surface of a planet or moon.",
+                    request.path("events").get(0).path("event").textValue()
             );
             assertEquals(
                     "SLV",

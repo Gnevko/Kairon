@@ -62,6 +62,11 @@ public record Promotion(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander's rank increased.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> promotions = new ArrayList<>();

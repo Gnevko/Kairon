@@ -63,7 +63,7 @@ final class UnknownSignalCategoryTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"BODY_SIGNALS_FOUND",\
+                    {"events":[{"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1}]}],\
                     "trajectory":{"recent":["SYSTEM_ENTERED",\
@@ -158,7 +158,8 @@ final class UnknownSignalCategoryTest {
 
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"BODY_SIGNALS_FOUND",\
+                    {"events":[{"id":1,"event":"A surface area analysis scan reported \
+                    signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\
                     "trajectory":{"recent":["SYSTEM_ENTERED",\
@@ -195,7 +196,8 @@ final class UnknownSignalCategoryTest {
 
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"BODY_SIGNALS_FOUND",\
+                    {"events":[{"id":1,"event":"A surface area analysis scan reported \
+                    signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\
                     "context":{"body":{"biologicalSignals":1}},\

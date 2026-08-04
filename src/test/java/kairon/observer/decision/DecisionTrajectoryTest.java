@@ -150,8 +150,11 @@ final class DecisionTrajectoryTest {
             ).request()));
 
             assertEquals(
-                    List.of("BODY_APPROACHED", "TOUCHDOWN"),
-                    kinds(request),
+                    List.of(
+                            "A ship in supercruise came within a body's orbital-cruise zone.",
+                            "A ship landed on the surface of a planet or moon."
+                    ),
+                    descriptions(request),
                     "both are current events"
             );
             assertEquals(
@@ -536,11 +539,11 @@ final class DecisionTrajectoryTest {
         return List.copyOf(recent);
     }
 
-    private static List<String> kinds(JsonNode request) {
-        List<String> kinds = new ArrayList<>();
-        request.path("events")
-                .forEach(event -> kinds.add(event.path("kind").textValue()));
-        return List.copyOf(kinds);
+    private static List<String> descriptions(JsonNode request) {
+        List<String> descriptions = new ArrayList<>();
+        request.path("events").forEach(event ->
+                descriptions.add(event.path("event").textValue()));
+        return List.copyOf(descriptions);
     }
 
     private static List<String> propertyNames(JsonNode node) {

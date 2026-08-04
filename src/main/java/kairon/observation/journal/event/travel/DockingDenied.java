@@ -27,6 +27,11 @@ public record DockingDenied(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A station denied a docking request.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String station = LlmPresentableJournalEvent

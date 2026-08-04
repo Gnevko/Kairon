@@ -31,6 +31,11 @@ public record SAAScanComplete(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A surface area analysis scan of a body was completed.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

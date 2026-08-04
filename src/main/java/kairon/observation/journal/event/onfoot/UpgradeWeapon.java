@@ -26,6 +26,11 @@ public record UpgradeWeapon(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A hand weapon was upgraded.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String weapon = LlmPresentableJournalEvent.displayText(event, "Name")

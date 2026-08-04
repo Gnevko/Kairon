@@ -26,6 +26,11 @@ public record ColonisationSystemClaimRelease(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A colonisation claim on a star system was released.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> facts = new ArrayList<>();

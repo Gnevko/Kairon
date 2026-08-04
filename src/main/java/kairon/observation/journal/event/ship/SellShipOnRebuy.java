@@ -26,6 +26,11 @@ public record SellShipOnRebuy(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A stored ship was sold to raise funds on the rebuy screen.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String ship = LlmPresentableJournalEvent

@@ -45,7 +45,9 @@ final class EstablishedBodyTypeTest {
                 "an empty changes section is not serialized"
         );
         JsonNode event = request.path("events").get(0);
-        assertEquals("SUPERCRUISE_EXITED", event.path("kind").textValue());
+        assertEquals(
+                    "A ship dropped out of supercruise into normal space.",
+                    event.path("event").textValue());
         assertEquals("Icy One", event.path("body").textValue());
         assertEquals("Icy System", event.path("system").textValue());
         assertEquals(

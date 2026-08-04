@@ -26,6 +26,11 @@ public record JoinedSquadron(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander joined a squadron.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String squadron = LlmPresentableJournalEvent

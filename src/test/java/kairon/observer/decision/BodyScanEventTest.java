@@ -97,7 +97,8 @@ final class BodyScanEventTest {
             );
             assertEquals(
                     """
-                    {"id":1,"kind":"BODY_SCANNED","body":"Schieni 4 a",\
+                    {"id":1,"event":"A discovery scan reported a star, \
+                    planet or moon's properties.","body":"Schieni 4 a",\
                     "system":"Schieni","scanType":"DETAILED",\
                     "bodyType":"PLANET","planetClass":"Icy body",\
                     "landable":true,"terraformState":"Terraformable",\

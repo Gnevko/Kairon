@@ -26,6 +26,11 @@ public record ShipyardTransfer(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship stored elsewhere was requested to be transported here.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String ship = LlmPresentableJournalEvent

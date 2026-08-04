@@ -25,6 +25,11 @@ public record PowerplayJoin(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander joined up with a power.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String power = LlmPresentableJournalEvent.textual(event.get("Power"))

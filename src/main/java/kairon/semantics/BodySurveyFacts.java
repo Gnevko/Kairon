@@ -1,6 +1,7 @@
 package kairon.semantics;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import kairon.observation.journal.event.exploration.Scan;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -153,12 +154,16 @@ public final class BodySurveyFacts {
      * {@code WasDiscovered} establishes nothing: the flag is a claim the record
      * either makes or does not, and a missing one is silence rather than a
      * denial.</p>
+     *
+     * <p>The reading itself lives on {@link Scan}, because the record is what
+     * the shape belongs to and because the record has to answer the same
+     * question when it describes itself. This delegates rather than repeating
+     * it: two copies of a predicate that decides what a turn is about would
+     * drift, and the drift would be a scan reported as a milestone or the
+     * reverse.</p>
      */
     public static boolean undiscoveredStarReading(JsonNode raw) {
-        return !detailedScan(raw)
-                && "STAR".equals(bodyKind(raw))
-                && "false".equals(flag(raw, "WasDiscovered"))
-                && bodyIdentity(raw) != null;
+        return Scan.reportsUndiscoveredStar(raw);
     }
 
     /**

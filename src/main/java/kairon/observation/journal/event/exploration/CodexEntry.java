@@ -32,6 +32,11 @@ public record CodexEntry(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A new discovery was added to the Codex.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

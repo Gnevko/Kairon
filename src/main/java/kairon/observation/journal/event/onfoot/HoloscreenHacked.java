@@ -25,6 +25,11 @@ public record HoloscreenHacked(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A holoscreen was hacked.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         var before = LlmPresentableJournalEvent.textual(

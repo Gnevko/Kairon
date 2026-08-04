@@ -26,6 +26,11 @@ public record CommunityGoalReward(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A reward was received for a community goal.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String goal = LlmPresentableJournalEvent

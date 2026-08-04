@@ -384,6 +384,7 @@ final class SemanticPipelineHarness implements AutoCloseable {
                         .add(effect.busSequence());
             }
         }
+        Map<String, String> kindByDescription = pipeline.kindByDescription();
         List<PipelineTrace.TurnView> views = new ArrayList<>(inputs.size());
         for (int index = 0; index < inputs.size(); index++) {
             String userMessage = inputs.get(index).userMessage();
@@ -398,16 +399,23 @@ final class SemanticPipelineHarness implements AutoCloseable {
                     ? decisions.get(index).turnSequence()
                     : -1L;
             List<Integer> ids = new ArrayList<>();
-            List<String> kinds = new ArrayList<>();
+            List<String> descriptions = new ArrayList<>();
             parsed.path("events").forEach(event -> {
                 ids.add(event.path("id").intValue());
-                kinds.add(event.path("kind").textValue());
+                descriptions.add(event.path("event").textValue());
             });
+            // The request no longer names the event Kairon's way, so the kind
+            // is resolved from the payload the pipeline actually observed.
+            List<String> kinds = new ArrayList<>(descriptions.size());
+            for (String description : descriptions) {
+                kinds.add(kindByDescription.get(description));
+            }
             views.add(new PipelineTrace.TurnView(
                     turnSequence,
                     document,
                     parsed,
                     ids,
+                    descriptions,
                     kinds,
                     triggersByTurn.getOrDefault(turnSequence, List.of())
             ));

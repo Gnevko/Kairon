@@ -24,6 +24,11 @@ public record ColonisationBeaconDeployed(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A colonisation beacon was deployed.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         return new LlmEventPresentation(List.of(
                 "A colonisation beacon was deployed.",

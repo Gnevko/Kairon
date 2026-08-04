@@ -28,6 +28,11 @@ public record Friends(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Information about a friend's status was received.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String commander = LlmPresentableJournalEvent

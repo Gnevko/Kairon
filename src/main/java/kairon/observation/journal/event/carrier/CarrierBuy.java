@@ -23,6 +23,11 @@ public record CarrierBuy(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A fleet carrier was purchased.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         java.util.List<String> sentences = new java.util.ArrayList<>();

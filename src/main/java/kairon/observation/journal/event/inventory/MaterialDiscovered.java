@@ -26,6 +26,11 @@ public record MaterialDiscovered(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A new material was discovered.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String material = LlmPresentableJournalEvent

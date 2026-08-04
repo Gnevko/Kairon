@@ -187,12 +187,12 @@ final class SnapshotReplayIntegrationTest {
             JsonNode request = turn(llm.inputs.getFirst());
             assertEquals(
                     List.of(
-                            "SYSTEM_JUMP",
-                            "SUPERCRUISE_ENTERED",
-                            "FRIEND_STATUS",
-                            "SYSTEM_JUMP"
+                            "A ship jumped from one star system to another.",
+                            "A ship entered supercruise from normal space.",
+                            "Information about a friend's status was received.",
+                            "A ship jumped from one star system to another."
                     ),
-                    eventKinds(request)
+                    eventDescriptions(request)
             );
             JsonNode friends = request.path("events").get(2);
             assertFalse(
@@ -414,8 +414,9 @@ final class SnapshotReplayIntegrationTest {
         return null;
     }
 
-    private static List<String> eventKinds(JsonNode request) {
-        return textValues(request.path("events"), "kind");
+    /** What the model was actually told each event is. */
+    private static List<String> eventDescriptions(JsonNode request) {
+        return textValues(request.path("events"), "event");
     }
 
     private static List<Integer> eventIds(JsonNode request) {

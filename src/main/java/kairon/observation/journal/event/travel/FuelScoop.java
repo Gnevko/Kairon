@@ -26,6 +26,11 @@ public record FuelScoop(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Fuel was scooped from a star.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> facts = new ArrayList<>();

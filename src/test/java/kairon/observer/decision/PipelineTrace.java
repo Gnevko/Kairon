@@ -164,6 +164,7 @@ record PipelineTrace(
                     .append(" triggers=").append(turn.triggerBusSequences())
                     .append(" ids=").append(turn.eventIds())
                     .append(" kinds=").append(turn.eventKinds())
+                    .append(" said=").append(turn.eventDescriptions())
                     .append("\n      ").append(turn.userMessage())
                     .append('\n');
         }
@@ -276,6 +277,13 @@ record PipelineTrace(
      *
      * @param document          the parsed request, for semantic comparison
      * @param userMessage       the exact bytes the provider received
+     * @param eventDescriptions what the provider was actually told each event
+     *                          is, read from the request itself
+     * @param eventKinds        Kairon's own name for each of those events,
+     *                          resolved from the observed payload rather than
+     *                          from the request — the request no longer carries
+     *                          one, and reversing a name out of a description
+     *                          would make every kind assertion a tautology
      * @param triggerBusSequences the observations the coordinator bound to this
      *                          turn, read from the production listener port
      */
@@ -284,6 +292,7 @@ record PipelineTrace(
             String userMessage,
             JsonNode document,
             List<Integer> eventIds,
+            List<String> eventDescriptions,
             List<String> eventKinds,
             List<Long> triggerBusSequences
     ) {
@@ -292,6 +301,7 @@ record PipelineTrace(
             userMessage = Objects.requireNonNull(userMessage, "userMessage");
             document = Objects.requireNonNull(document, "document");
             eventIds = List.copyOf(eventIds);
+            eventDescriptions = List.copyOf(eventDescriptions);
             eventKinds = List.copyOf(eventKinds);
             triggerBusSequences = List.copyOf(triggerBusSequences);
         }

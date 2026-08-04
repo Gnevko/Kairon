@@ -26,6 +26,11 @@ public record MarketBuy(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Goods were purchased in the market.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String commodity = LlmPresentableJournalEvent

@@ -27,6 +27,11 @@ public record CargoTransfer(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Cargo was transferred between the ship and a fleet carrier or SRV.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode transfers = raw.parsedJsonObject().get("Transfers");
         List<String> entries = new ArrayList<>();

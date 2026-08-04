@@ -26,6 +26,11 @@ public record SetUserShipName(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A name was assigned to a ship in Starport Services.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String name = LlmPresentableJournalEvent

@@ -93,6 +93,16 @@ final class PackageDependencyRulesTest {
                     "kairon.turn",
                     "kairon.trace",
                     "same, for the third"
+            ),
+            new Rule(
+                    "kairon.observation",
+                    "kairon.semantics",
+                    "the semantic layer reads journal records, so a record "
+                            + "that reads the semantic layer back is a cycle; "
+                            + "a record describing itself must answer from "
+                            + "its own fields, and the shared predicate lives "
+                            + "on the record with kairon.semantics delegating "
+                            + "to it"
             )
     );
 

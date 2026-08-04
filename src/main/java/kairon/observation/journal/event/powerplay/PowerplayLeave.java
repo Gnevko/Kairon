@@ -25,6 +25,11 @@ public record PowerplayLeave(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander left a power.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String power = LlmPresentableJournalEvent.textual(event.get("Power"))

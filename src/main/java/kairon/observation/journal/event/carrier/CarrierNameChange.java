@@ -25,6 +25,11 @@ public record CarrierNameChange(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A fleet carrier was renamed.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder sentence = new StringBuilder();

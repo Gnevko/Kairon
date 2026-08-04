@@ -26,6 +26,11 @@ public record LeftSquadron(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander left a squadron.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String squadron = LlmPresentableJournalEvent

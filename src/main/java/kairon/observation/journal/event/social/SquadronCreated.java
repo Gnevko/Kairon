@@ -26,6 +26,11 @@ public record SquadronCreated(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A squadron was created.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String squadron = LlmPresentableJournalEvent

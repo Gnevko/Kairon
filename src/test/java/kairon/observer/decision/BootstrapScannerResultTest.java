@@ -96,7 +96,7 @@ final class BootstrapScannerResultTest {
             assertEquals(beforeSignals + 1, pipeline.modelInputs().size());
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"BODY_SIGNALS_FOUND",\
+                    {"events":[{"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1}]}],\
                     "trajectory":{"recent":["SYSTEM_ENTERED",\

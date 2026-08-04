@@ -27,6 +27,11 @@ public record SellOrganicData(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Organic data was sold.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder sale = new StringBuilder(

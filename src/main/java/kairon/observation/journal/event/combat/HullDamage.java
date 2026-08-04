@@ -26,6 +26,11 @@ public record HullDamage(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Hull health dropped below one of the game's damage thresholds.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

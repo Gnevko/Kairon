@@ -28,6 +28,11 @@ public record FSDJump(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship jumped from one star system to another.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

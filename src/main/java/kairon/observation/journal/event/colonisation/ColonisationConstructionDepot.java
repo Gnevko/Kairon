@@ -27,6 +27,11 @@ public record ColonisationConstructionDepot(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A construction depot reported its progress while the ship was docked there.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

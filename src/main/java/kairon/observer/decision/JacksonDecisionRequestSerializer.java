@@ -81,7 +81,9 @@ public final class JacksonDecisionRequestSerializer {
         for (LlmDecisionRequest.Event event : events) {
             json.writeStartObject();
             json.writeNumberField("id", event.id());
-            json.writeStringField("kind", event.kind());
+            // What happened, in the record's own words. Kairon's internal kind
+            // is deliberately absent: it is a name only this process shares.
+            json.writeStringField("event", event.description());
             for (LlmDecisionRequest.Field field : event.fields()) {
                 value(json, field.name(), field.value());
             }

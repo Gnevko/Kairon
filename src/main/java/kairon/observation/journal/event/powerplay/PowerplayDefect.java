@@ -25,6 +25,11 @@ public record PowerplayDefect(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander defected from one power to another.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         var from = LlmPresentableJournalEvent.textual(

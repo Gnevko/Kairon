@@ -42,7 +42,9 @@ final class DecisionOccurrenceCountTest {
             pipeline.settleProjection();
 
             JsonNode event = lastEvent(pipeline);
-            assertEquals("TOUCHDOWN", event.path("kind").textValue());
+            assertEquals(
+                    "A ship landed on the surface of a planet or moon.",
+                    event.path("event").textValue());
             assertEquals(1, event.path("occurrenceOnBody").intValue());
         }
     }
@@ -67,7 +69,9 @@ final class DecisionOccurrenceCountTest {
             pipeline.settleProjection();
 
             JsonNode event = lastEvent(pipeline);
-            assertEquals("TOUCHDOWN", event.path("kind").textValue());
+            assertEquals(
+                    "A ship landed on the surface of a planet or moon.",
+                    event.path("event").textValue());
             assertEquals(2, event.path("occurrenceOnBody").intValue());
         }
     }
@@ -130,7 +134,9 @@ final class DecisionOccurrenceCountTest {
             pipeline.settleProjection();
 
             JsonNode event = lastEvent(pipeline);
-            assertEquals("TOUCHDOWN", event.path("kind").textValue());
+            assertEquals(
+                    "A ship landed on the surface of a planet or moon.",
+                    event.path("event").textValue());
             assertEquals(
                     1,
                     event.path("occurrenceOnBody").intValue(),
@@ -160,7 +166,9 @@ final class DecisionOccurrenceCountTest {
             pipeline.settleProjection();
 
             JsonNode event = lastEvent(pipeline);
-            assertEquals("FRIEND_STATUS", event.path("kind").textValue());
+            assertEquals(
+                    "Information about a friend's status was received.",
+                    event.path("event").textValue());
             assertFalse(event.has("occurrenceOnBody"));
         }
     }
@@ -203,14 +211,16 @@ final class DecisionOccurrenceCountTest {
             assertEquals(
                     List.of(
                             "id",
-                            "kind",
+                            "event",
                             "body",
                             "playerControlled",
                             "occurrenceOnBody"
                     ),
                     propertyNames(event)
             );
-            assertEquals("TOUCHDOWN", event.path("kind").textValue());
+            assertEquals(
+                    "A ship landed on the surface of a planet or moon.",
+                    event.path("event").textValue());
             assertEquals(
                     "Schieni GG-A c3-84 4 a",
                     event.path("body").textValue()

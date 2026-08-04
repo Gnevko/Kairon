@@ -26,6 +26,11 @@ public record Interdiction(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander attempted to interdict another pilot or an NPC.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder attempt = new StringBuilder(

@@ -26,6 +26,11 @@ public record ShipyardSwap(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander switched to another ship stored at this station.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String selectedShip = LlmPresentableJournalEvent

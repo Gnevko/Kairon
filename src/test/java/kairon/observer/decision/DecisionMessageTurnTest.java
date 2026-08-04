@@ -56,10 +56,12 @@ final class DecisionMessageTurnTest {
         );
         JsonNode event = request.path("events").get(0);
         assertEquals(
-                List.of("id", "kind", "sender", "channel", "message"),
+                List.of("id", "event", "sender", "channel", "message"),
                 propertyNames(event)
         );
-        assertEquals("MESSAGE_RECEIVED", event.path("kind").textValue());
+        assertEquals(
+                    "A text message was received.",
+                    event.path("event").textValue());
         assertEquals("OLKI", event.path("sender").textValue());
         assertEquals("SQUADRON", event.path("channel").textValue());
         assertEquals(
@@ -183,8 +185,8 @@ final class DecisionMessageTurnTest {
         List<String> channels = new ArrayList<>();
         request.path("events").forEach(event -> {
             assertEquals(
-                    "MESSAGE_RECEIVED",
-                    event.path("kind").textValue()
+                    "A text message was received.",
+                    event.path("event").textValue()
             );
             channels.add(event.path("channel").textValue());
         });
@@ -235,8 +237,11 @@ final class DecisionMessageTurnTest {
                 ))
         ).request()));
         assertEquals(
-                List.of("MESSAGE_RECEIVED", "TOUCHDOWN"),
-                kinds(both)
+                List.of(
+                        "A text message was received.",
+                        "A ship landed on the surface of a planet or moon."
+                ),
+                descriptions(both)
         );
         assertEquals(
                 List.of("SYSTEM_ENTERED", "LIFTOFF"),
@@ -274,11 +279,11 @@ final class DecisionMessageTurnTest {
         return List.copyOf(recent);
     }
 
-    private static List<String> kinds(JsonNode request) {
-        List<String> kinds = new ArrayList<>();
-        request.path("events")
-                .forEach(event -> kinds.add(event.path("kind").textValue()));
-        return List.copyOf(kinds);
+    private static List<String> descriptions(JsonNode request) {
+        List<String> descriptions = new ArrayList<>();
+        request.path("events").forEach(event ->
+                descriptions.add(event.path("event").textValue()));
+        return List.copyOf(descriptions);
     }
 
     private static List<String> propertyNames(JsonNode node) {

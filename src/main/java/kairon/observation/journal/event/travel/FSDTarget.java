@@ -27,6 +27,11 @@ public record FSDTarget(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A star system was selected to jump to.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         Optional<String> destination =

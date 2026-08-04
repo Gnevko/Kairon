@@ -24,6 +24,11 @@ public record SelfDestruct(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship's self-destruct function was used.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         return new LlmEventPresentation(List.of(
                 "The player used the self-destruct function.",

@@ -157,7 +157,7 @@ final class SessionRestoreEpisodeTest {
             // and displace the correct value from the context.
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"SUPERCRUISE_ENTERED",\
+                    {"events":[{"id":1,"event":"A ship entered supercruise from normal space.",\
                     "system":"Restore A"}],\
                     "context":{"navigation":{"flightMode":"SUPERCRUISE"}},\
                     "trajectory":{"recent":["SUPERCRUISE_JUMP_STARTED"]}}""",
@@ -340,8 +340,8 @@ final class SessionRestoreEpisodeTest {
 
             JsonNode request = requestFor(pipeline, "FSDJump");
             assertEquals(
-                    "SYSTEM_JUMP",
-                    request.path("events").get(0).path("kind").textValue()
+                    "A ship jumped from one star system to another.",
+                    request.path("events").get(0).path("event").textValue()
             );
             assertEquals(
                     "SUPERCRUISE",

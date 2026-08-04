@@ -26,6 +26,11 @@ public record LeaveBody(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship flying away from a body rose above its orbital-cruise altitude.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String body = LlmPresentableJournalEvent

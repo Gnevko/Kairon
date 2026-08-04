@@ -83,8 +83,8 @@ final class DecisionSamplingContextTest {
                 request.path("context").path("vehicle").path("kind").textValue()
         );
         assertEquals(
-                "DISEMBARKED",
-                request.path("events").get(0).path("kind").textValue()
+                "The Commander stepped out of a ship or SRV.",
+                request.path("events").get(0).path("event").textValue()
         );
     }
 
@@ -101,7 +101,7 @@ final class DecisionSamplingContextTest {
         assertEquals("IN_PROGRESS", sampling.path("stage").textValue());
         assertEquals(
                 """
-                {"events":[{"id":1,"kind":"DISEMBARKED",\
+                {"events":[{"id":1,"event":"The Commander stepped out of a ship or SRV.",\
                 "system":"Schieni GG-A c3-84",\
                 "body":"Schieni GG-A c3-84 4 a",\
                 "onStation":false,"onPlanet":true}],\
@@ -127,8 +127,8 @@ final class DecisionSamplingContextTest {
                 """);
 
         assertEquals(
-                "EMBARKED",
-                request.path("events").get(0).path("kind").textValue()
+                "The Commander, on foot, got into a ship or SRV.",
+                request.path("events").get(0).path("event").textValue()
         );
         JsonNode sampling = samplingGroup(request);
         assertEquals(ORGANISM, sampling.path("organism").textValue());
@@ -150,8 +150,8 @@ final class DecisionSamplingContextTest {
     void aDropshipDeploymentInheritsTheSameQuestion() {
         JsonNode running = request(sampling("Log"), DROPSHIP);
         assertEquals(
-                "DROPSHIP_DEPLOYED",
-                running.path("events").get(0).path("kind").textValue()
+                "The Commander left a shuttle dropship at a conflict zone.",
+                running.path("events").get(0).path("event").textValue()
         );
         assertEquals("STARTED", samplingGroup(running).path("stage").textValue());
 
@@ -201,7 +201,9 @@ final class DecisionSamplingContextTest {
 
         JsonNode started = request(fixture, scanOrganic("Log", 0));
         JsonNode event = started.path("events").get(0);
-        assertEquals("BIOLOGICAL_SAMPLE", event.path("kind").textValue());
+        assertEquals(
+                    "The organic sampling tool was used on an organic discovery.",
+                    event.path("event").textValue());
         assertEquals(ORGANISM, event.path("organism").textValue());
         assertEquals("START", event.path("stage").textValue());
         assertFalse(event.path("complete").booleanValue());
@@ -252,7 +254,7 @@ final class DecisionSamplingContextTest {
 
         assertEquals(
                 """
-                {"events":[{"id":1,"kind":"BIOLOGICAL_SAMPLE",\
+                {"events":[{"id":1,"event":"The organic sampling tool was used on an organic discovery.",\
                 "organism":"Bacterium Bullaris - Red",\
                 "stage":"START","complete":false}],\
                 "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
@@ -263,7 +265,7 @@ final class DecisionSamplingContextTest {
         String advanced = serialize(fixture, scanOrganic("Sample", 1));
         assertEquals(
                 """
-                {"events":[{"id":1,"kind":"BIOLOGICAL_SAMPLE",\
+                {"events":[{"id":1,"event":"The organic sampling tool was used on an organic discovery.",\
                 "organism":"Bacterium Bullaris - Red",\
                 "stage":"PROGRESS","complete":false}],\
                 "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
@@ -286,8 +288,8 @@ final class DecisionSamplingContextTest {
 
         JsonNode betweenStages = request(fixture, disembark());
         assertEquals(
-                "DISEMBARKED",
-                betweenStages.path("events").get(0).path("kind").textValue()
+                "The Commander stepped out of a ship or SRV.",
+                betweenStages.path("events").get(0).path("event").textValue()
         );
         assertEquals(
                 "STARTED",
@@ -306,8 +308,8 @@ final class DecisionSamplingContextTest {
                  "BodyID":20,"OnStation":false,"OnPlanet":true}
                 """);
         assertEquals(
-                "EMBARKED",
-                embarked.path("events").get(0).path("kind").textValue()
+                "The Commander, on foot, got into a ship or SRV.",
+                embarked.path("events").get(0).path("event").textValue()
         );
         assertEquals(
                 "IN_PROGRESS",
@@ -429,14 +431,14 @@ final class DecisionSamplingContextTest {
             ).request());
             JsonNode request = read(serialized);
 
-            assertEquals("DISEMBARKED",
-                    request.path("events").get(0).path("kind").textValue());
+            assertEquals("The Commander stepped out of a ship or SRV.",
+                    request.path("events").get(0).path("event").textValue());
             assertEquals(2,
                     request.path("events").get(0)
                             .path("occurrenceOnBody").intValue());
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"DISEMBARKED",\
+                    {"events":[{"id":1,"event":"The Commander stepped out of a ship or SRV.",\
                     "system":"Schieni GG-A c3-84",\
                     "body":"Schieni GG-A c3-84 4 a",\
                     "onStation":false,"onPlanet":true,\

@@ -25,6 +25,11 @@ public record Commander(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The game session being loaded identified its Commander.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String commander = LlmPresentableJournalEvent

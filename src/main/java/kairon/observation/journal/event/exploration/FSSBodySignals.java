@@ -27,6 +27,11 @@ public record FSSBodySignals(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A full spectrum system scan reported signal data for a body.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> identityFacts = new ArrayList<>();

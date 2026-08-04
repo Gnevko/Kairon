@@ -27,6 +27,11 @@ public record Bounty(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander was awarded a bounty for a kill.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

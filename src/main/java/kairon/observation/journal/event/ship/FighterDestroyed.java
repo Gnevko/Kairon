@@ -24,6 +24,11 @@ public record FighterDestroyed(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A ship-launched fighter was destroyed.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         return new LlmEventPresentation(List.of(
                 "A ship-launched fighter was destroyed; this event does not "

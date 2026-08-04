@@ -25,6 +25,11 @@ public record JetConeDamage(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "Passing through a star's jet cone damaged a ship module.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String module = LlmPresentableJournalEvent

@@ -112,8 +112,8 @@ final class SamplingActivationChangeTest {
                 "learning that nothing is being sampled is not a change"
         );
         assertEquals(
-                "SUPERCRUISE_ENTERED",
-                request.path("events").get(0).path("kind").textValue()
+                "A ship entered supercruise from normal space.",
+                request.path("events").get(0).path("event").textValue()
         );
         assertEquals(
                 "Schieni GG-A c3-84",

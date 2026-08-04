@@ -28,6 +28,11 @@ public record CarrierJump(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A fleet carrier jumped while the Commander was docked at it.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sentences = new ArrayList<>();

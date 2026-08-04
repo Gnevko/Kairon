@@ -26,6 +26,11 @@ public record DockingGranted(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A docking request was granted.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         String station = LlmPresentableJournalEvent

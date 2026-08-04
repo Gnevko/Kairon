@@ -25,6 +25,11 @@ public record FSSAllBodiesFound(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "All bodies in the star system have been identified.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder sentence = new StringBuilder(

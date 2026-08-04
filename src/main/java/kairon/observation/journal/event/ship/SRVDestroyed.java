@@ -26,6 +26,11 @@ public record SRVDestroyed(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A surface vehicle was destroyed.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> facts = new ArrayList<>();

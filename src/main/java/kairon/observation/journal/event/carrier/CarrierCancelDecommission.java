@@ -25,6 +25,11 @@ public record CarrierCancelDecommission(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "A fleet carrier decommission was cancelled.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder sentence = new StringBuilder(

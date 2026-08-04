@@ -27,6 +27,11 @@ public record Disembark(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander stepped out of a ship or SRV.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         List<String> sourceFacts = new ArrayList<>();

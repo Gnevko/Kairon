@@ -26,6 +26,11 @@ public record PVPKill(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The Commander killed another player.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
         StringBuilder outcome = new StringBuilder(

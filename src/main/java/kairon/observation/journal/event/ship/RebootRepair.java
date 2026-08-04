@@ -26,6 +26,11 @@ public record RebootRepair(RawJournalData raw)
     }
 
     @Override
+    public String modelFacingDescription() {
+        return "The ship's reboot-repair function was used.";
+    }
+
+    @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode modules = raw.parsedJsonObject().get("Modules");
         List<String> repaired = new ArrayList<>();

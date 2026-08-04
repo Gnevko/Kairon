@@ -171,7 +171,7 @@ final class ShipLaunchedVesselLifecycleTest {
 
             String launch = turnFor(pipeline, "LaunchFighter");
             assertEquals(
-                    "{\"id\":1,\"kind\":\"VEHICLE_LAUNCHED\","
+                    "{\"id\":1,\"event\":\"A vehicle was launched from the ship.\","
                             + "\"loadout\":\"base\","
                             + "\"playerControlled\":true,"
                             + "\"occurrenceOnBody\":1}",
@@ -223,7 +223,7 @@ final class ShipLaunchedVesselLifecycleTest {
             // existing ones rather than merely present.
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"TOUCHDOWN",\
+                    {"events":[{"id":1,"event":"A ship landed on the surface of a planet or moon.",\
                     "body":"Schieni GG-A c3-84 4 a","playerControlled":true,\
                     "occurrenceOnBody":1}],\
                     "context":{"system":{"name":"Schieni GG-A c3-84"},\
@@ -275,7 +275,7 @@ final class ShipLaunchedVesselLifecycleTest {
 
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"DISEMBARKED",\
+                    {"events":[{"id":1,"event":"The Commander stepped out of a ship or SRV.",\
                     "system":"Schieni GG-A c3-84",\
                     "body":"Schieni GG-A c3-84 4 a",\
                     "onStation":false,"onPlanet":true,\
@@ -288,7 +288,7 @@ final class ShipLaunchedVesselLifecycleTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"EMBARKED",\
+                    {"events":[{"id":1,"event":"The Commander, on foot, got into a ship or SRV.",\
                     "system":"Schieni GG-A c3-84",\
                     "body":"Schieni GG-A c3-84 4 a",\
                     "onStation":false,"onPlanet":true,\
@@ -320,7 +320,7 @@ final class ShipLaunchedVesselLifecycleTest {
             String recovery = turnFor(pipeline, "DockSRV");
             assertEquals(
                     """
-                    {"events":[{"id":1,"kind":"VEHICLE_RECOVERED",\
+                    {"events":[{"id":1,"event":"A surface vehicle was brought back aboard the ship.",\
                     "vehicleKind":"SLV","vehicleType":"Nomad",\
                     "occurrenceOnBody":1}],\
                     "changes":[{"eventId":1,"subject":"commander",\
@@ -398,7 +398,9 @@ final class ShipLaunchedVesselLifecycleTest {
 
             JsonNode recovery = read(turnFor(pipeline, "DockSRV"));
             JsonNode event = recovery.path("events").get(0);
-            assertEquals("VEHICLE_RECOVERED", event.path("kind").textValue());
+            assertEquals(
+                    "A surface vehicle was brought back aboard the ship.",
+                    event.path("event").textValue());
             assertEquals("SRV", event.path("vehicleKind").textValue());
             assertEquals("Scarab", event.path("vehicleType").textValue());
             assertEquals(
@@ -435,7 +437,9 @@ final class ShipLaunchedVesselLifecycleTest {
 
             JsonNode event = read(turnFor(pipeline, "DockSRV"))
                     .path("events").get(0);
-            assertEquals("VEHICLE_RECOVERED", event.path("kind").textValue());
+            assertEquals(
+                    "A surface vehicle was brought back aboard the ship.",
+                    event.path("event").textValue());
             assertFalse(
                     event.has("vehicleKind"),
                     "the record classified nothing, so nothing is claimed"

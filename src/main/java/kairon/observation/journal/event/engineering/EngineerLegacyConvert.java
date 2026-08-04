@@ -27,6 +27,29 @@ public record EngineerLegacyConvert(RawJournalData raw)
         raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
     }
 
+    /**
+     * One record, two different things it can report.
+     *
+     * <p>{@code IsPreview} distinguishes the game showing what a conversion
+     * would do from the conversion itself, and nothing else in the request
+     * carries that distinction — the semantic adapter does not emit the flag,
+     * so a single sentence asserting a conversion would report a preview as a
+     * completed one. Both phrases are fixed and neither reads a value.</p>
+     */
+    @Override
+    public String modelFacingDescription() {
+        return isPreview()
+                ? "A conversion of a legacy engineered module was previewed."
+                : "A legacy engineered module was converted to the current "
+                        + "format.";
+    }
+
+    private boolean isPreview() {
+        return LlmPresentableJournalEvent
+                .booleanValue(raw().parsedJsonObject().get("IsPreview"))
+                .orElse(false);
+    }
+
     @Override
     public LlmEventPresentation llmPresentation() {
         JsonNode event = raw.parsedJsonObject();
