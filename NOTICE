@@ -1,0 +1,37 @@
+Required Notice: Copyright 2026 Alex Gnevko (GitHub: Gnevko)
+
+Kairon
+======
+
+The Kairon source code is licensed under the PolyForm Noncommercial
+License 1.0.0. See LICENSE for the full license text.
+
+Kairon documentation and media assets are licensed under the Creative
+Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+See LICENSE-DOCS for the full legal code.
+
+See LICENSES.md for the scope of each license.
+
+Commercial use
+--------------
+
+The PolyForm Noncommercial License 1.0.0 permits noncommercial use only.
+Any commercial use requires a separate written license agreement with the
+copyright holder. This notice does not modify, extend, or restrict the
+terms of the PolyForm Noncommercial License 1.0.0 itself.
+
+Contact for commercial licensing: https://github.com/Gnevko
+
+Third-party components
+----------------------
+
+Third-party dependencies and referenced third-party materials remain under
+their own licenses and are not relicensed by this project. See
+THIRD_PARTY_NOTICES.md.
+
+Disclaimer
+----------
+
+Kairon is an independent, unofficial project. It is not affiliated with,
+endorsed by, or sponsored by Frontier Developments plc. Elite Dangerous
+and related names are the property of their respective owners.

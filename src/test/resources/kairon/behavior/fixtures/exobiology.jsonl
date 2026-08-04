@@ -1,0 +1,20 @@
+{"timestamp":"2026-07-24T16:00:00Z","event":"Commander","FID":"F12345678","Name":"TESTCMDR"}
+{"timestamp":"2026-07-24T16:00:01Z","event":"LoadGame","FID":"F12345678","ShipID":9,"Ship":"explorer_nx","ShipName":"Kairon Test"}
+{"timestamp":"2026-07-24T16:00:02Z","event":"FSDJump","StarSystem":"Test A","SystemAddress":1001}
+{"timestamp":"2026-07-24T16:00:03Z","event":"FSSDiscoveryScan","SystemAddress":1001,"BodyCount":12,"NonBodyCount":2}
+{"timestamp":"2026-07-24T16:00:03.100Z","event":"FSSBodySignals","BodyName":"Test A 1","SystemAddress":1001,"BodyID":4,"Signals":[{"Type":"$SAA_SignalType_Biological;","Count":1}]}
+{"timestamp":"2026-07-24T16:00:03.200Z","event":"FSSBodySignals","BodyName":"Test A 2","SystemAddress":1001,"BodyID":5,"Signals":[{"Type":"$SAA_SignalType_Geological;","Count":3}]}
+{"timestamp":"2026-07-24T16:00:04Z","event":"FSSAllBodiesFound","SystemName":"Test A","SystemAddress":1001,"Count":12}
+{"timestamp":"2026-07-24T16:00:04.500Z","event":"SAAScanComplete","BodyName":"Test A 1","SystemAddress":1001,"BodyID":4,"ProbesUsed":2,"EfficiencyTarget":3}
+{"timestamp":"2026-07-24T16:00:05Z","event":"SAASignalsFound","BodyName":"Test A 1","SystemAddress":1001,"BodyID":4,"Signals":[{"Type":"$SAA_SignalType_Biological;","Count":5}],"Genuses":[{"Genus":"$Codex_Ent_Bacterial_Genus_Name;"}]}
+{"timestamp":"2026-07-24T16:00:06Z","event":"ApproachBody","StarSystem":"Test A","SystemAddress":1001,"Body":"Test A 1","BodyID":4}
+{"timestamp":"2026-07-24T16:00:07Z","event":"SupercruiseExit","StarSystem":"Test A","SystemAddress":1001,"Body":"Test A 1","BodyID":4,"BodyType":"Planet"}
+{"timestamp":"2026-07-24T16:00:08Z","event":"LaunchFighter","ID":10,"Loadout":"base","PlayerControlled":true}
+{"timestamp":"2026-07-24T16:00:09Z","event":"Touchdown","StarSystem":"Test A","SystemAddress":1001,"Body":"Test A 1","BodyID":4,"OnPlanet":true}
+{"timestamp":"2026-07-24T16:00:10Z","event":"Disembark","SRV":true,"ID":10,"StarSystem":"Test A","SystemAddress":1001,"Body":"Test A 1","BodyID":4,"OnPlanet":true}
+{"timestamp":"2026-07-24T16:00:11Z","event":"ScanOrganic","ScanType":"Log","Genus":"$Codex_Ent_Bacterial_Genus_Name;","Species":"$Codex_Ent_Bacterial_01_Name;","Variant":"$Codex_Ent_Bacterial_01_A_Name;","SystemAddress":1001,"Body":4}
+{"timestamp":"2026-07-24T16:00:12Z","event":"Embark","SRV":true,"ID":10,"StarSystem":"Test A","SystemAddress":1001,"Body":"Test A 1","BodyID":4,"OnPlanet":true}
+{"timestamp":"2026-07-24T16:00:13Z","event":"Liftoff","StarSystem":"Test A","SystemAddress":1001,"Body":"Test A 1","BodyID":4}
+{"timestamp":"2026-07-24T16:00:14Z","event":"Touchdown","StarSystem":"Test A","SystemAddress":1001,"Body":"Test A 1","BodyID":4,"OnPlanet":true}
+{"timestamp":"2026-07-24T16:00:15Z","event":"Disembark","SRV":true,"ID":10,"StarSystem":"Test A","SystemAddress":1001,"Body":"Test A 1","BodyID":4,"OnPlanet":true}
+{"timestamp":"2026-07-24T16:00:16Z","event":"ScanOrganic","ScanType":"Sample","Genus":"$Codex_Ent_Bacterial_Genus_Name;","Species":"$Codex_Ent_Bacterial_01_Name;","Variant":"$Codex_Ent_Bacterial_01_A_Name;","SystemAddress":1001,"Body":4}

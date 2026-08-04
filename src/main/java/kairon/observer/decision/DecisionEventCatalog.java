@@ -1,0 +1,761 @@
+package kairon.observer.decision;
+
+import kairon.observation.journal.JournalEventObservation;
+import kairon.observation.journal.event.carrier.*;
+import kairon.observation.journal.event.colonisation.*;
+import kairon.observation.journal.event.combat.*;
+import kairon.observation.journal.event.engineering.*;
+import kairon.observation.journal.event.exploration.*;
+import kairon.observation.journal.event.inventory.*;
+import kairon.observation.journal.event.mining.*;
+import kairon.observation.journal.event.mission.*;
+import kairon.observation.journal.event.onfoot.*;
+import kairon.observation.journal.event.powerplay.*;
+import kairon.observation.journal.event.session.*;
+import kairon.observation.journal.event.ship.*;
+import kairon.observation.journal.event.social.*;
+import kairon.observation.journal.event.trade.*;
+import kairon.observation.journal.event.travel.*;
+import kairon.semantics.BodySurveyFacts;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+/**
+ * What every model-eligible journal event is called in domain terms.
+ *
+ * <p>One rule per catalogued type, grouped by mechanism. The table is the whole
+ * of the per-event decision: everything else about turning an observation into
+ * a model-facing event is shared code driven by the mechanism.</p>
+ *
+ * <p>Coverage is total and is meant to stay that way. A model-eligible event
+ * with no rule here would reach the model under a guessed name, so
+ * {@link #ruleFor} returns null and the projection refuses rather than
+ * inventing one; a test asserts the table matches
+ * {@code LlmJournalEventSelection.TARGET_NEW_ELIGIBLE} exactly, in both
+ * directions.</p>
+ */
+public final class DecisionEventCatalog {
+
+    private static final Map<Class<? extends JournalEventObservation>,
+            DecisionEventRule> RULES = build();
+
+    private static final Map<String, String> BY_SIMPLE_NAME = bySimpleName();
+
+    /**
+     * The rules a record earns rather than a type.
+     *
+     * <p>The second extension point, and deliberately a separate one.
+     * {@link #RULES} stays exactly one rule per eligible type, because every
+     * other journal class means one thing. A {@code Scan} means two: the
+     * detailed reading is a body established and is catalogued by type; the
+     * shallow reading of the star this visit arrived at, reporting that nobody
+     * had been here, is a different assertion made from the same record — and it
+     * is the only record that ever carries that fact. Filing it under
+     * {@code BODY_SCANNED} would report a scan the Commander did not take; not
+     * filing it at all is what silently dropped the arrival star's class and
+     * discovery flag.</p>
+     *
+     * <p>The kind claims exactly what the record says: this star had not been
+     * discovered before now. It does not claim that a first-discovery credit has
+     * been registered — the journal does not say so, and selling the data is
+     * what would.</p>
+     *
+     * <p>A list rather than a chain of conditions. Every entry is tried, so
+     * declaration order decides nothing; two entries claiming one record is an
+     * error rather than a silent precedence, and a property asserted of "every
+     * rule" can see these too.</p>
+     */
+    private static final List<RecordDecisionRule> RECORD_RULES = List.of(
+            new RecordDecisionRule(
+                    "arrival star reported undiscovered",
+                    event -> event instanceof Scan
+                            && BodySurveyFacts.undiscoveredStarReading(
+                                    event.raw().parsedJsonObject()
+                            ),
+                    DecisionEventRule.of(
+                                    "SYSTEM_UNDISCOVERED_CONFIRMED",
+                                    DecisionMechanism.EXPLORATION
+                            )
+                            // About the system, not about a body: what it says
+                            // of the arrival star is the whole of the turn, and
+                            // that star's survey flags, its distance of zero
+                            // from the arrival point and a coarse type of STAR
+                            // beside its class made a two-sentence turn out of
+                            // a one-sentence fact.
+                            .reading(DecisionContextProfile.SYSTEM_ONLY)
+                            .named("arrivalStar")
+                            .uncounted()
+                            .retaining(
+                                    "system",
+                                    "starType",
+                                    "previouslyDiscovered"
+                            )
+            )
+    );
+
+    private DecisionEventCatalog() {
+    }
+
+    /**
+     * The rule for a journal type, or null when the type is not catalogued.
+     *
+     * <p>The class-keyed extension point. Never ask it about an observation
+     * whose meaning can depend on what the record says — {@link #ruleFor(
+     * JournalEventObservation)} is the question with the record in it, and
+     * asking this one instead is how a record-earned rule gets skipped.</p>
+     */
+    public static DecisionEventRule ruleFor(
+            Class<? extends JournalEventObservation> eventType
+    ) {
+        return RULES.get(Objects.requireNonNull(eventType, "eventType"));
+    }
+
+    /**
+     * The rule for one observation, which is the type's unless the record
+     * earns another.
+     *
+     * <p>Read from the same fields the observer's admission and the graph's
+     * episode policy read, so the three cannot disagree about what a record is:
+     * a reading admitted as the arrival-star milestone is projected as the
+     * milestone and recorded as the milestone's own occurrence.</p>
+     *
+     * <p>Every record rule is evaluated, not the first matching one. Order is
+     * therefore not a hidden priority, and a record two rules both claim fails
+     * here rather than silently taking whichever was declared first.</p>
+     */
+    public static DecisionEventRule ruleFor(JournalEventObservation event) {
+        Objects.requireNonNull(event, "event");
+        return ruleFor(event, RECORD_RULES);
+    }
+
+    /**
+     * The same lookup against a supplied rule set.
+     *
+     * <p>Exists so the ambiguity failure can be provoked by a test with two
+     * overlapping rules. Production always passes {@link #RECORD_RULES}.</p>
+     */
+    static DecisionEventRule ruleFor(
+            JournalEventObservation event,
+            List<RecordDecisionRule> recordRules
+    ) {
+        Objects.requireNonNull(event, "event");
+        Objects.requireNonNull(recordRules, "recordRules");
+        RecordDecisionRule earned = null;
+        for (RecordDecisionRule candidate : recordRules) {
+            if (!candidate.matches(event)) {
+                continue;
+            }
+            if (earned != null) {
+                throw new IllegalStateException(
+                        "record matches two decision rules: "
+                                + earned.name() + " and " + candidate.name()
+                );
+            }
+            earned = candidate;
+        }
+        return earned != null
+                ? earned.rule()
+                : ruleFor(event.getClass());
+    }
+
+    public static Set<Class<? extends JournalEventObservation>> coveredTypes() {
+        return RULES.keySet();
+    }
+
+    /**
+     * The record-keyed extension point, enumerated.
+     *
+     * <p>A test can ask whether two of them can claim one record; nothing can
+     * ask that of a condition buried in a lookup.</p>
+     */
+    public static List<RecordDecisionRule> recordRules() {
+        return RECORD_RULES;
+    }
+
+    /**
+     * Every rule this catalogue can hand out, however it is keyed.
+     *
+     * <p>{@link #coveredTypes} answers the type question and stays exactly the
+     * eligible profile. This answers the reachability question, which is not the
+     * same one: a rule a record can earn is reachable, and a property asserted
+     * of "every rule" has to see it. The union is built from both sets rather
+     * than from one plus a named constant, so a second record rule joins it by
+     * being declared.</p>
+     */
+    public static List<DecisionEventRule> declaredRules() {
+        List<DecisionEventRule> declared = new ArrayList<>(RULES.values());
+        for (RecordDecisionRule recordRule : RECORD_RULES) {
+            declared.add(recordRule.rule());
+        }
+        return List.copyOf(declared);
+    }
+
+    /**
+     * The domain kind for a journal event named in prose, if there is one.
+     *
+     * <p>Semantic relationships reference their counterpart by wire name
+     * ({@code "reverses ApproachBody"}). Passing that through would put a
+     * Frontier identifier in front of the model, so it is translated here and
+     * dropped when the counterpart is outside the model-eligible catalogue —
+     * an unresolvable reference is worth less than the leak costs.</p>
+     */
+    public static String kindOfSimpleName(String simpleName) {
+        Objects.requireNonNull(simpleName, "simpleName");
+        return BY_SIMPLE_NAME.get(simpleName);
+    }
+
+    public static int size() {
+        return RULES.size();
+    }
+
+    private static Map<Class<? extends JournalEventObservation>,
+            DecisionEventRule> build() {
+        Map<Class<? extends JournalEventObservation>, DecisionEventRule> rules =
+                new LinkedHashMap<>();
+        registerIdentity(rules);
+        registerSocial(rules);
+        registerTravel(rules);
+        registerSurface(rules);
+        registerPresence(rules);
+        registerVehicle(rules);
+        registerDocking(rules);
+        registerExploration(rules);
+        registerSampling(rules);
+        registerMission(rules);
+        registerCombat(rules);
+        registerCommerce(rules);
+        registerEngineering(rules);
+        registerCarrier(rules);
+        registerColonisation(rules);
+        registerPowerplay(rules);
+        registerShipStatus(rules);
+        return Map.copyOf(rules);
+    }
+
+    private static void registerIdentity(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        // The journal emits this when a Commander takes up a session, not when
+        // an identity is newly recognised.
+        put(rules, Commander.class,
+                DecisionEventRule.of("COMMANDER_SESSION_STARTED",
+                        DecisionMechanism.IDENTITY));
+        put(rules, NewCommander.class,
+                DecisionEventRule.of("COMMANDER_CREATED",
+                        DecisionMechanism.IDENTITY));
+        put(rules, Promotion.class,
+                DecisionEventRule.of("RANK_PROMOTION",
+                        DecisionMechanism.IDENTITY, "newRank"));
+    }
+
+    private static void registerSocial(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        // A friend is a third party, so the default "commander" name would
+        // read as the Commander themselves.
+        put(rules, Friends.class,
+                DecisionEventRule.of("FRIEND_STATUS",
+                        DecisionMechanism.SOCIAL).named("friend"));
+        put(rules, ReceiveText.class,
+                DecisionEventRule.of("MESSAGE_RECEIVED",
+                        DecisionMechanism.SOCIAL));
+        put(rules, CrewHire.class,
+                DecisionEventRule.of("CREW_HIRED",
+                        DecisionMechanism.SOCIAL, "credits"));
+        put(rules, CrewFire.class,
+                DecisionEventRule.of("CREW_DISMISSED",
+                        DecisionMechanism.SOCIAL));
+        put(rules, CrewMemberJoins.class,
+                DecisionEventRule.of("CREW_MEMBER_JOINED",
+                        DecisionMechanism.SOCIAL));
+        put(rules, CrewMemberQuits.class,
+                DecisionEventRule.of("CREW_MEMBER_LEFT",
+                        DecisionMechanism.SOCIAL));
+        put(rules, NpcCrewRank.class,
+                DecisionEventRule.of("CREW_RANK_CHANGED",
+                        DecisionMechanism.SOCIAL, "combatRank"));
+        put(rules, JoinedSquadron.class,
+                DecisionEventRule.of("SQUADRON_JOINED",
+                        DecisionMechanism.SOCIAL));
+        put(rules, LeftSquadron.class,
+                DecisionEventRule.of("SQUADRON_LEFT",
+                        DecisionMechanism.SOCIAL));
+        put(rules, KickedFromSquadron.class,
+                DecisionEventRule.of("SQUADRON_EXPELLED",
+                        DecisionMechanism.SOCIAL));
+        put(rules, SquadronCreated.class,
+                DecisionEventRule.of("SQUADRON_CREATED",
+                        DecisionMechanism.SOCIAL));
+        put(rules, SquadronPromotion.class,
+                DecisionEventRule.of("SQUADRON_PROMOTION",
+                        DecisionMechanism.SOCIAL, "newRank"));
+        put(rules, SquadronDemotion.class,
+                DecisionEventRule.of("SQUADRON_DEMOTION",
+                        DecisionMechanism.SOCIAL, "newRank"));
+        put(rules, WingJoin.class,
+                DecisionEventRule.of("WING_JOINED",
+                        DecisionMechanism.SOCIAL));
+        put(rules, WingLeave.class,
+                DecisionEventRule.of("WING_LEFT",
+                        DecisionMechanism.SOCIAL));
+    }
+
+    private static void registerTravel(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        // A jump names a system and no body. The occurrence it mints carries
+        // the arrival star, because that is where the ship then is — which is
+        // not a body the jump is about, and counting it says nothing.
+        put(rules, FSDJump.class,
+                DecisionEventRule.of("SYSTEM_JUMP",
+                        DecisionMechanism.TRAVEL, "distanceLy").uncounted());
+        put(rules, SupercruiseEntry.class,
+                DecisionEventRule.of("SUPERCRUISE_ENTERED",
+                        DecisionMechanism.TRAVEL));
+        put(rules, SupercruiseExit.class,
+                DecisionEventRule.of("SUPERCRUISE_EXITED",
+                        DecisionMechanism.BODY_TRANSIT));
+        put(rules, ApproachBody.class,
+                DecisionEventRule.of("BODY_APPROACHED",
+                        DecisionMechanism.BODY_TRANSIT));
+        put(rules, LeaveBody.class,
+                DecisionEventRule.of("BODY_LEFT",
+                        DecisionMechanism.BODY_TRANSIT));
+        put(rules, USSDrop.class,
+                DecisionEventRule.of("SIGNAL_SOURCE_ENTERED",
+                        DecisionMechanism.TRAVEL, "threatLevel"));
+        put(rules, JetConeBoost.class,
+                DecisionEventRule.of("FSD_BOOSTED",
+                        DecisionMechanism.TRAVEL, "boostMultiplier"));
+        put(rules, JetConeDamage.class,
+                DecisionEventRule.of("JET_CONE_DAMAGE",
+                        DecisionMechanism.TRAVEL));
+    }
+
+    private static void registerSurface(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        put(rules, Touchdown.class,
+                DecisionEventRule.of("TOUCHDOWN",
+                        DecisionMechanism.SURFACE));
+        put(rules, Liftoff.class,
+                DecisionEventRule.of("LIFTOFF",
+                        DecisionMechanism.SURFACE));
+    }
+
+    private static void registerPresence(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        // A presence transfer is the Commander moving between vessels, and the
+        // same request says where that left them: context.commander.presence,
+        // which the presence mechanism always asks for. An occupancy gap beside
+        // it is a question the request has already answered, and reading
+        // "UNCONFIRMED" next to ON_FOOT or SRV invites doubt about a fact that
+        // is not in doubt. Claimed per event rather than per mechanism, because
+        // it rests on the context slice actually answering it — the vehicle
+        // events raise the same gap with nothing to answer it and keep it.
+        put(rules, Embark.class,
+                DecisionEventRule.of("EMBARKED",
+                        DecisionMechanism.PRESENCE).settling("occupancy"));
+        put(rules, Disembark.class,
+                DecisionEventRule.of("DISEMBARKED",
+                        DecisionMechanism.PRESENCE).settling("occupancy"));
+        put(rules, DropshipDeploy.class,
+                DecisionEventRule.of("DROPSHIP_DEPLOYED",
+                        DecisionMechanism.PRESENCE));
+    }
+
+    private static void registerVehicle(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        // Not necessarily a fighter. Frontier has been observed emitting
+        // LaunchFighter for a vehicle whose later Disembark, Embark and DockSRV
+        // records prove it was a Nomad SRV, and the launch record carries no
+        // SRVType, localised name or any other field that would settle it. So
+        // the kind says only what is known: a vehicle went out. A later event
+        // that does establish the type reports it then; nothing is guessed here
+        // and nothing already sent is rewritten.
+        //
+        // The kind settles the action itself. Its named object is the loadout
+        // rather than a vessel, its START is the adapter noting a deployment
+        // beginning rather than a stage anyone can act on, and launching a
+        // vehicle says nothing about where the Commander is — which the context
+        // answers directly with commander.presence.
+        put(rules, LaunchFighter.class,
+                DecisionEventRule.of("VEHICLE_LAUNCHED",
+                        DecisionMechanism.VEHICLE).named("loadout").whole());
+        put(rules, FighterDestroyed.class,
+                DecisionEventRule.of("FIGHTER_DESTROYED",
+                        DecisionMechanism.VEHICLE));
+        put(rules, DockSRV.class,
+                DecisionEventRule.of("VEHICLE_RECOVERED",
+                        DecisionMechanism.VEHICLE));
+        put(rules, SRVDestroyed.class,
+                DecisionEventRule.of("SRV_DESTROYED",
+                        DecisionMechanism.VEHICLE));
+    }
+
+    private static void registerDocking(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        put(rules, Docked.class,
+                DecisionEventRule.of("DOCKED", DecisionMechanism.DOCKING));
+        put(rules, Undocked.class,
+                DecisionEventRule.of("UNDOCKED", DecisionMechanism.DOCKING));
+        put(rules, DockingDenied.class,
+                DecisionEventRule.of("DOCKING_DENIED",
+                        DecisionMechanism.DOCKING));
+        put(rules, DockingCancelled.class,
+                DecisionEventRule.of("DOCKING_CANCELLED",
+                        DecisionMechanism.DOCKING));
+        put(rules, DockingTimeout.class,
+                DecisionEventRule.of("DOCKING_TIMED_OUT",
+                        DecisionMechanism.DOCKING));
+    }
+
+    private static void registerExploration(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        put(rules, SAAScanComplete.class,
+                DecisionEventRule.of("BODY_MAPPING_COMPLETED",
+                        DecisionMechanism.EXPLORATION, "probesUsed"));
+        // Only the detailed scan reaches here; the shallower depths establish
+        // nothing and are declined before a turn opens. A repeat of the same
+        // reading is never recorded, so a body-scoped count could only ever
+        // say one.
+        put(rules, Scan.class,
+                DecisionEventRule.of("BODY_SCANNED",
+                        DecisionMechanism.EXPLORATION).uncounted());
+        // One kind for both scanners. What the Commander learned is that this
+        // body carries these signals; which instrument said so first is
+        // Kairon's bookkeeping, and a second identical reading is not a second
+        // finding. Both are catalogued because either can be the instrument
+        // that reports a set first, and a finding nobody is told about is a
+        // finding that did not reach the Commander.
+        put(rules, FSSBodySignals.class,
+                DecisionEventRule.of("BODY_SIGNALS_FOUND",
+                        DecisionMechanism.EXPLORATION).uncounted());
+        put(rules, SAASignalsFound.class,
+                DecisionEventRule.of("BODY_SIGNALS_FOUND",
+                        DecisionMechanism.EXPLORATION).uncounted());
+        // Scoped to the system, like a jump: whichever body happened to be
+        // selected when the survey completed is not what the survey is about.
+        put(rules, FSSAllBodiesFound.class,
+                DecisionEventRule.of("SYSTEM_SURVEY_COMPLETED",
+                        DecisionMechanism.EXPLORATION, "bodyCount")
+                        .uncounted());
+        // Exploration, read against the system alone: a codex entry cannot say
+        // which body it is about. Its BodyID is contradicted by the journal
+        // that emits it — the measured replay files a Sudarsky-class gas giant
+        // and a T Tauri star under body 0 of systems whose body 0 the adjacent
+        // scans report as a K star and a B star — so attaching what Kairon
+        // knows about the current body to it describes two objects as one. The
+        // entry stands on what it says: its name, its category, its region and
+        // its system. A narrower slice, not a different family of game event.
+        put(rules, CodexEntry.class,
+                DecisionEventRule.of("CODEX_ENTRY_RECORDED",
+                                DecisionMechanism.EXPLORATION)
+                        .reading(DecisionContextProfile.SYSTEM_ONLY)
+                        .named("entry"));
+        put(rules, SellExplorationData.class,
+                DecisionEventRule.of("EXPLORATION_DATA_SOLD",
+                        DecisionMechanism.COMMERCE, "credits"));
+        put(rules, MultiSellExplorationData.class,
+                DecisionEventRule.of("EXPLORATION_DATA_SOLD",
+                        DecisionMechanism.COMMERCE, "credits"));
+        put(rules, SellOrganicData.class,
+                DecisionEventRule.of("ORGANIC_DATA_SOLD",
+                        DecisionMechanism.COMMERCE, "credits"));
+        put(rules, AsteroidCracked.class,
+                DecisionEventRule.of("ASTEROID_CRACKED",
+                        DecisionMechanism.EXPLORATION));
+        put(rules, MaterialDiscovered.class,
+                DecisionEventRule.of("MATERIAL_DISCOVERED",
+                        DecisionMechanism.EXPLORATION, "discoveryNumber"));
+    }
+
+    private static void registerSampling(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        // The one genuinely multi-step mechanism in the catalogue: Log,
+        // Sample and Analyse are three events of one sequence, and only the
+        // last completes it.
+        //
+        // Those same three are three structural types in the graph, so the
+        // body-scoped count of "this event type here" counts logs, or samples,
+        // or analyses — never biological samples. Under the one shared kind the
+        // model reads, "occurrenceOnBody: 1" on a FINAL scan says the first
+        // analysis, and reads as the first sample on the body. The count is
+        // therefore not sent; stage and complete say where the sequence is.
+        put(rules, ScanOrganic.class,
+                DecisionEventRule.of("BIOLOGICAL_SAMPLE",
+                        DecisionMechanism.SAMPLING).named("organism")
+                        .staged().countedPerStage());
+    }
+
+    private static void registerMission(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        put(rules, MissionAccepted.class,
+                DecisionEventRule.of("MISSION_ACCEPTED",
+                        DecisionMechanism.MISSION));
+        put(rules, MissionCompleted.class,
+                DecisionEventRule.of("MISSION_COMPLETED",
+                        DecisionMechanism.MISSION, "credits"));
+        put(rules, MissionFailed.class,
+                DecisionEventRule.of("MISSION_FAILED",
+                        DecisionMechanism.MISSION));
+        put(rules, MissionAbandoned.class,
+                DecisionEventRule.of("MISSION_ABANDONED",
+                        DecisionMechanism.MISSION));
+        put(rules, MissionRedirected.class,
+                DecisionEventRule.of("MISSION_REDIRECTED",
+                        DecisionMechanism.MISSION));
+        put(rules, CommunityGoalJoin.class,
+                DecisionEventRule.of("COMMUNITY_GOAL_JOINED",
+                        DecisionMechanism.MISSION));
+        put(rules, CommunityGoalReward.class,
+                DecisionEventRule.of("COMMUNITY_GOAL_REWARD",
+                        DecisionMechanism.MISSION, "credits"));
+    }
+
+    private static void registerCombat(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        put(rules, Bounty.class,
+                DecisionEventRule.of("BOUNTY_AWARDED",
+                        DecisionMechanism.COMBAT, "credits"));
+        put(rules, CommitCrime.class,
+                DecisionEventRule.of("CRIME_COMMITTED",
+                        DecisionMechanism.COMBAT));
+        put(rules, Died.class,
+                DecisionEventRule.of("COMMANDER_DIED",
+                        DecisionMechanism.COMBAT, "killerCombatRank"));
+        put(rules, PVPKill.class,
+                DecisionEventRule.of("PLAYER_KILLED",
+                        DecisionMechanism.COMBAT).named("victim"));
+        put(rules, Interdicted.class,
+                DecisionEventRule.of("INTERDICTED",
+                        DecisionMechanism.COMBAT));
+        put(rules, Interdiction.class,
+                DecisionEventRule.of("INTERDICTION_ATTEMPTED",
+                        DecisionMechanism.COMBAT));
+        put(rules, EscapeInterdiction.class,
+                DecisionEventRule.of("INTERDICTION_ESCAPED",
+                        DecisionMechanism.COMBAT));
+        put(rules, UnderAttack.class,
+                DecisionEventRule.of("UNDER_ATTACK",
+                        DecisionMechanism.COMBAT));
+        put(rules, SelfDestruct.class,
+                DecisionEventRule.of("SELF_DESTRUCT",
+                        DecisionMechanism.COMBAT));
+    }
+
+    private static void registerCommerce(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        put(rules, MarketBuy.class,
+                DecisionEventRule.of("COMMODITY_BOUGHT",
+                        DecisionMechanism.COMMERCE, "units"));
+        put(rules, MarketSell.class,
+                DecisionEventRule.of("COMMODITY_SOLD",
+                        DecisionMechanism.COMMERCE, "units"));
+        put(rules, RedeemVoucher.class,
+                DecisionEventRule.of("VOUCHER_REDEEMED",
+                        DecisionMechanism.COMMERCE, "credits"));
+        put(rules, SearchAndRescue.class,
+                DecisionEventRule.of("SALVAGE_HANDED_IN",
+                        DecisionMechanism.COMMERCE, "units"));
+        put(rules, CollectCargo.class,
+                DecisionEventRule.of("CARGO_COLLECTED",
+                        DecisionMechanism.COMMERCE, "units"));
+        put(rules, EjectCargo.class,
+                DecisionEventRule.of("CARGO_EJECTED",
+                        DecisionMechanism.COMMERCE, "units"));
+        put(rules, CargoTransfer.class,
+                DecisionEventRule.of("CARGO_TRANSFERRED",
+                        DecisionMechanism.COMMERCE, "units"));
+        put(rules, ShipyardBuy.class,
+                DecisionEventRule.of("SHIP_PURCHASED",
+                        DecisionMechanism.COMMERCE, "credits"));
+        put(rules, ShipyardNew.class,
+                DecisionEventRule.of("SHIP_DELIVERED",
+                        DecisionMechanism.COMMERCE));
+        put(rules, ShipyardSell.class,
+                DecisionEventRule.of("SHIP_SOLD",
+                        DecisionMechanism.COMMERCE, "credits"));
+        put(rules, ShipyardSwap.class,
+                DecisionEventRule.of("SHIP_SWAPPED",
+                        DecisionMechanism.COMMERCE));
+        // A transfer starts a delivery that finishes later, so its START stage
+        // and false completion are real information rather than ceremony.
+        put(rules, ShipyardTransfer.class,
+                DecisionEventRule.of("SHIP_TRANSFER_SCHEDULED",
+                        DecisionMechanism.COMMERCE, "distanceLy").staged());
+        put(rules, SellShipOnRebuy.class,
+                DecisionEventRule.of("SHIP_SOLD_ON_REBUY",
+                        DecisionMechanism.COMMERCE, "credits"));
+        put(rules, ShipRedeemed.class,
+                DecisionEventRule.of("SHIP_REDEEMED",
+                        DecisionMechanism.COMMERCE));
+        put(rules, SetUserShipName.class,
+                DecisionEventRule.of("SHIP_RENAMED",
+                        DecisionMechanism.COMMERCE));
+    }
+
+    private static void registerEngineering(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        put(rules, EngineerCraft.class,
+                DecisionEventRule.of("BLUEPRINT_APPLIED",
+                        DecisionMechanism.ENGINEERING, "level"));
+        put(rules, EngineerContribution.class,
+                DecisionEventRule.of("ENGINEER_CONTRIBUTION",
+                        DecisionMechanism.ENGINEERING, "units"));
+        put(rules, EngineerLegacyConvert.class,
+                DecisionEventRule.of("BLUEPRINT_CONVERTED",
+                        DecisionMechanism.ENGINEERING));
+        put(rules, TechnologyBroker.class,
+                DecisionEventRule.of("TECHNOLOGY_UNLOCKED",
+                        DecisionMechanism.ENGINEERING));
+        put(rules, UpgradeSuit.class,
+                DecisionEventRule.of("SUIT_UPGRADED",
+                        DecisionMechanism.ENGINEERING, "newClass"));
+        put(rules, UpgradeWeapon.class,
+                DecisionEventRule.of("WEAPON_UPGRADED",
+                        DecisionMechanism.ENGINEERING, "newClass"));
+        put(rules, HoloscreenHacked.class,
+                DecisionEventRule.of("HOLOSCREEN_HACKED",
+                        DecisionMechanism.ENGINEERING));
+    }
+
+    private static void registerCarrier(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        put(rules, CarrierBuy.class,
+                DecisionEventRule.of("CARRIER_PURCHASED",
+                        DecisionMechanism.CARRIER, "credits"));
+        put(rules, CarrierDecommission.class,
+                DecisionEventRule.of("CARRIER_DECOMMISSION_SCHEDULED",
+                        DecisionMechanism.CARRIER, "credits"));
+        put(rules, CarrierCancelDecommission.class,
+                DecisionEventRule.of("CARRIER_DECOMMISSION_CANCELLED",
+                        DecisionMechanism.CARRIER));
+        // Requested now, executed later: the pending jump is the whole point.
+        put(rules, CarrierJumpRequest.class,
+                DecisionEventRule.of("CARRIER_JUMP_SCHEDULED",
+                        DecisionMechanism.CARRIER).staged());
+        put(rules, CarrierJump.class,
+                DecisionEventRule.of("CARRIER_JUMPED",
+                        DecisionMechanism.CARRIER));
+        put(rules, CarrierJumpCancelled.class,
+                DecisionEventRule.of("CARRIER_JUMP_CANCELLED",
+                        DecisionMechanism.CARRIER));
+        put(rules, CarrierNameChange.class,
+                DecisionEventRule.of("CARRIER_RENAMED",
+                        DecisionMechanism.CARRIER));
+    }
+
+    private static void registerColonisation(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        put(rules, ColonisationSystemClaim.class,
+                DecisionEventRule.of("SYSTEM_CLAIMED",
+                        DecisionMechanism.COLONISATION));
+        put(rules, ColonisationSystemClaimRelease.class,
+                DecisionEventRule.of("SYSTEM_CLAIM_RELEASED",
+                        DecisionMechanism.COLONISATION));
+        put(rules, ColonisationBeaconDeployed.class,
+                DecisionEventRule.of("COLONISATION_BEACON_DEPLOYED",
+                        DecisionMechanism.COLONISATION));
+        // A depot reports progress repeatedly until it is complete.
+        put(rules, ColonisationConstructionDepot.class,
+                DecisionEventRule.of("CONSTRUCTION_PROGRESS",
+                        DecisionMechanism.COLONISATION, "progress").staged());
+        put(rules, ColonisationContribution.class,
+                DecisionEventRule.of("CONSTRUCTION_CONTRIBUTION",
+                        DecisionMechanism.COLONISATION, "units"));
+        put(rules, CompleteConstruction.class,
+                DecisionEventRule.of("CONSTRUCTION_COMPLETED",
+                        DecisionMechanism.COLONISATION));
+    }
+
+    private static void registerPowerplay(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        put(rules, PowerplayJoin.class,
+                DecisionEventRule.of("POWER_JOINED",
+                        DecisionMechanism.POWERPLAY));
+        put(rules, PowerplayLeave.class,
+                DecisionEventRule.of("POWER_LEFT",
+                        DecisionMechanism.POWERPLAY));
+        put(rules, PowerplayDefect.class,
+                DecisionEventRule.of("POWER_DEFECTED",
+                        DecisionMechanism.POWERPLAY));
+        put(rules, PowerplayRank.class,
+                DecisionEventRule.of("POWER_RANK_CHANGED",
+                        DecisionMechanism.POWERPLAY, "newRank"));
+    }
+
+    private static void registerShipStatus(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules
+    ) {
+        put(rules, HullDamage.class,
+                DecisionEventRule.of("HULL_DAMAGE",
+                        DecisionMechanism.SHIP_STATUS, "hullHealth"));
+        put(rules, HeatDamage.class,
+                DecisionEventRule.of("HEAT_DAMAGE",
+                        DecisionMechanism.SHIP_STATUS));
+        put(rules, CockpitBreached.class,
+                DecisionEventRule.of("COCKPIT_BREACHED",
+                        DecisionMechanism.SHIP_STATUS));
+        put(rules, SystemsShutdown.class,
+                DecisionEventRule.of("SYSTEMS_SHUTDOWN",
+                        DecisionMechanism.SHIP_STATUS));
+        put(rules, RebootRepair.class,
+                DecisionEventRule.of("SHIP_REBOOT_REPAIR",
+                        DecisionMechanism.SHIP_STATUS));
+    }
+
+    private static Map<String, String> bySimpleName() {
+        Map<String, String> names = new LinkedHashMap<>();
+        RULES.forEach((eventType, rule) ->
+                names.put(eventType.getSimpleName(), rule.kind()));
+        return Map.copyOf(names);
+    }
+
+    private static void put(
+            Map<Class<? extends JournalEventObservation>,
+                    DecisionEventRule> rules,
+            Class<? extends JournalEventObservation> eventType,
+            DecisionEventRule rule
+    ) {
+        if (rules.put(eventType, rule) != null) {
+            throw new IllegalStateException(
+                    "duplicate decision rule for " + eventType.getName()
+            );
+        }
+    }
+}

@@ -1,0 +1,6 @@
+{"timestamp":"2026-07-24T19:00:00Z","event":"Commander","FID":"F12345678","Name":"TESTCMDR"}
+{"timestamp":"2026-07-24T19:00:01Z","event":"LoadGame","FID":"F12345678","ShipID":9,"Ship":"explorer_nx"}
+{"timestamp":"2026-07-24T19:00:02Z","event":"Location","StarSystem":"System A","SystemAddress":3001}
+{"timestamp":"2026-07-24T19:00:03Z","event":"StartJump","JumpType":"Hyperspace","StarSystem":"System B","SystemAddress":3002}
+{"timestamp":"2026-07-24T19:00:04Z","event":"FSDJump","StarSystem":"System B","SystemAddress":3002}
+{"timestamp":"2026-07-24T19:00:05Z","event":"FSSDiscoveryScan","SystemAddress":3002,"BodyCount":5,"NonBodyCount":0}

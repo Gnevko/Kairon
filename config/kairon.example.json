@@ -1,0 +1,68 @@
+{
+  "source": {
+    "mode": "live",
+    "journalDirectory": "replace-with-journal-directory",
+    "replayFile": null
+  },
+  "observer": {
+    "outputLanguage": "ru",
+    "quietPeriodMs": 750,
+    "maximumBatchAgeMs": 2000,
+    "traceFile": "./var/journal-observer-turns.jsonl"
+  },
+  "ui": {
+    "enabled": true,
+    "maximumObservationRows": 1000,
+    "maximumTurnRows": 200
+  },
+  "speech": {
+    "enabled": false,
+    "provider": "GOOGLE_CLOUD_TTS",
+    "languageCode": "ru-RU",
+    "voiceName": "replace-with-google-voice-name",
+    "audioEncoding": "LINEAR16",
+    "speakingRate": 1.0,
+    "pitch": 0.0,
+    "volumeGainDb": 0.0,
+    "requestTimeoutMs": 15000,
+    "outputDevice": null,
+    "alsoPrintToConsole": true
+  },
+  "behaviorGraph": {
+    "enabled": true,
+    "storageDirectory": "./data/behavior-graphs",
+    "weightHalfLife": "P30D",
+    "contextPriorStrength": 2.0,
+    "snapshotEverySignificantEvents": 50,
+    "storeRawJournalPayload": false
+  },
+  "observationCorpus": {
+    "enabled": false,
+    "outputFile": "var/observation-corpus.jsonl"
+  },
+  "llm": {
+    "activeProvider": "lm-studio",
+    "providers": {
+      "lm-studio": {
+        "type": "LM_STUDIO",
+        "baseUrl": "http://localhost:1234/v1",
+        "model": "replace-with-loaded-model-id",
+        "temperature": 0.2,
+        "maximumOutputTokens": 256,
+        "requestTimeoutMs": 30000,
+        "responseFormat": "JSON_OBJECT",
+        "pricing": null
+      },
+      "mistral": {
+        "type": "MISTRAL",
+        "baseUrl": "https://api.mistral.ai/v1",
+        "model": "replace-with-mistral-model-id",
+        "temperature": 0.2,
+        "maximumOutputTokens": 256,
+        "requestTimeoutMs": 30000,
+        "responseFormat": "JSON_OBJECT",
+        "pricing": null
+      }
+    }
+  }
+}

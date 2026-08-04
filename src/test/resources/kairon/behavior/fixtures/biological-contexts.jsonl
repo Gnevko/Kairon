@@ -1,0 +1,15 @@
+{"timestamp":"2026-07-24T18:00:00Z","event":"Commander","FID":"F12345678","Name":"TESTCMDR"}
+{"timestamp":"2026-07-24T18:00:01Z","event":"LoadGame","FID":"F12345678","ShipID":9,"Ship":"explorer_nx"}
+{"timestamp":"2026-07-24T18:00:02Z","event":"FSDJump","StarSystem":"Bio One","SystemAddress":2001}
+{"timestamp":"2026-07-24T18:00:03Z","event":"SAASignalsFound","BodyName":"Bio One 1","SystemAddress":2001,"BodyID":3,"Signals":[{"Type":"$SAA_SignalType_Biological;","Count":1}]}
+{"timestamp":"2026-07-24T18:00:04Z","event":"FSDTarget","Name":"Other System","SystemAddress":2999}
+{"timestamp":"2026-07-24T18:00:05Z","event":"StartJump","JumpType":"Hyperspace","StarSystem":"Other System","SystemAddress":2999}
+{"timestamp":"2026-07-24T18:00:06Z","event":"FSDJump","StarSystem":"Bio Seven A","SystemAddress":2002}
+{"timestamp":"2026-07-24T18:00:07Z","event":"SAASignalsFound","BodyName":"Bio Seven A 1","SystemAddress":2002,"BodyID":3,"Signals":[{"Type":"$SAA_SignalType_Biological;","Count":7}]}
+{"timestamp":"2026-07-24T18:00:08Z","event":"ApproachBody","StarSystem":"Bio Seven A","SystemAddress":2002,"Body":"Bio Seven A 1","BodyID":3}
+{"timestamp":"2026-07-24T18:00:09Z","event":"FSDJump","StarSystem":"Bio Seven B","SystemAddress":2003}
+{"timestamp":"2026-07-24T18:00:10Z","event":"SAASignalsFound","BodyName":"Bio Seven B 1","SystemAddress":2003,"BodyID":3,"Signals":[{"Type":"$SAA_SignalType_Biological;","Count":7}]}
+{"timestamp":"2026-07-24T18:00:11Z","event":"ApproachBody","StarSystem":"Bio Seven B","SystemAddress":2003,"Body":"Bio Seven B 1","BodyID":3}
+{"timestamp":"2026-07-24T18:00:12Z","event":"FSDJump","StarSystem":"Bio Seven C","SystemAddress":2004}
+{"timestamp":"2026-07-24T18:00:13Z","event":"SAASignalsFound","BodyName":"Bio Seven C 1","SystemAddress":2004,"BodyID":3,"Signals":[{"Type":"$SAA_SignalType_Biological;","Count":7}]}
+{"timestamp":"2026-07-24T18:00:14Z","event":"ApproachBody","StarSystem":"Bio Seven C","SystemAddress":2004,"Body":"Bio Seven C 1","BodyID":3}

@@ -1,0 +1,63 @@
+# Maven
+/target/
+*.class
+
+# IntelliJ IDEA
+/.idea/
+*.iml
+*.ipr
+*.iws
+/out/
+
+# Local agent/tool state
+/.agents/
+/.codex/
+# Local instruction file for AI coding agents. Kept in the working tree on
+# purpose, but it is local tooling state rather than public documentation.
+# Scoped to the repository root so it can never match a docs/ Markdown file.
+/CLAUDE.md
+
+# Runtime logs, journals, turn traces and generated graph data.
+#
+# Protection is scoped to the runtime output directories on purpose. A global
+# "*.jsonl" rule would also hide the required test fixtures under
+# src/test/resources/**, which the suite loads from the classpath — that
+# breaks the build for anyone cloning the repository. "/var/" and "/data/"
+# already cover every path the runtime actually writes to (turn traces,
+# replay logs, behavior-graph persistence, observation corpus).
+/logs/
+/traces/
+/var/
+/data/
+# Elite Dangerous journals are "Journal.*.log"; keep a global guard for one
+# dropped anywhere in the tree, but never hide public test fixtures.
+*.log
+!/src/test/resources/**/*.log
+
+# Local configuration and credentials
+config/kairon.json
+config/*-local.json
+authentication.json
+config/*credentials*.json
+config/*service-account*.json
+*service-account*.json
+/.env
+/.env.*
+
+# Private keys and certificate material
+*.pem
+*.p12
+*.pfx
+*.jks
+*.key
+
+# Operating-system and editor temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*.tmp
+*~
+hs_err_pid*
+replay_pid*

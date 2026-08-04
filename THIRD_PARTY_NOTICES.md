@@ -1,0 +1,56 @@
+# Third-party notices
+
+This file records third-party material that Kairon references or depends on.
+Each item remains under its own license and is **not** relicensed under the
+PolyForm Noncommercial License 1.0.0 or CC BY-NC-SA 4.0.
+
+## Referenced specifications and schemas
+
+### jixxed/ed-journal-schemas
+
+- Source: <https://github.com/jixxed/ed-journal-schemas>
+- Pinned revision: `33a8f35e81868b168b4bbd647b5e13dbd8de062a`
+- License: **Apache License 2.0** (as stated by the upstream repository)
+
+Kairon's journal event catalogue (`kairon.observation.journal.JournalEventCatalog`
+and the records under `src/main/java/kairon/observation/journal/event/`) is pinned
+to this revision of the upstream JSON schemas. No upstream file is copied into
+this repository and no code generator is used; the Java records are hand-written
+transport types and are the source of truth in this project. The pin records
+which upstream revision the discriminator set was aligned against.
+
+Attribution is provided here in recognition of that upstream work. If any part of
+this project is later determined to be a derivative work of the upstream schemas,
+the Apache License 2.0 terms apply to that part.
+
+### Frontier Player Journal Manual
+
+Journal event records cite the *Frontier Player Journal Manual* for field
+semantics (for example `Journal_Manual_v37.pdf`). The manual is published by
+Frontier Developments plc and is not redistributed in this repository. Elite
+Dangerous and related names are the property of their respective owners.
+
+## Runtime and build dependencies
+
+These are resolved from Maven Central at build time. **No dependency is vendored
+into this repository**, so no dependency source or binary is redistributed here.
+The licenses below apply to anyone redistributing a built artifact.
+
+| Component | Version | License | Verified from |
+|---|---|---|---|
+| `com.fasterxml.jackson.core:jackson-databind` | 2.22.0 | Apache License 2.0 | dependency POM |
+| `com.fasterxml.jackson.datatype:jackson-datatype-jsr310` | 2.22.0 | Apache License 2.0 | Jackson project |
+| `com.google.cloud:google-cloud-texttospeech` | 2.95.0 | Apache License 2.0 | dependency POM |
+| `org.slf4j:slf4j-api` | 2.0.18 | MIT License | <https://www.slf4j.org/license.html> |
+| `org.slf4j:slf4j-simple` | 2.0.18 | MIT License | <https://www.slf4j.org/license.html> |
+| `org.junit.jupiter:junit-jupiter` (test scope) | 5.14.3 | Eclipse Public License 2.0 | dependency POM |
+
+## Build tooling
+
+- **Apache Maven Wrapper** (`mvnw`, `mvnw.cmd`, `.mvn/wrapper/`) is distributed by
+  the Apache Maven project under the Apache License 2.0. The wrapper downloads
+  Apache Maven 3.9.16 from `repo.maven.apache.org` using the pinned checksum in
+  `.mvn/wrapper/maven-wrapper.properties`.
+- **GitHub Actions** used in CI (`actions/checkout`, `actions/setup-java`) are
+  distributed by GitHub under the MIT License and are referenced by version tag,
+  not vendored.

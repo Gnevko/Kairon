@@ -1,0 +1,5 @@
+{"timestamp":"2026-07-24T17:00:00Z","event":"Commander","FID":"F12345678","Name":"TESTCMDR"}
+{"timestamp":"2026-07-24T17:00:01Z","event":"LoadGame","FID":"F12345678","ShipID":9,"Ship":"explorer_nx"}
+{"timestamp":"2026-07-24T17:00:02Z","event":"FSDJump","StarSystem":"Test B","SystemAddress":1002}
+{"timestamp":"2026-07-24T17:00:03Z","event":"Touchdown","StarSystem":"Test B","SystemAddress":1002,"Body":"Test B 2","BodyID":8,"OnPlanet":true}
+{"timestamp":"2026-07-24T17:00:04Z","event":"Liftoff","StarSystem":"Test B","SystemAddress":1002,"Body":"Test B 2","BodyID":8}

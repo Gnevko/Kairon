@@ -1,0 +1,6 @@
+{"timestamp":"2026-07-24T20:00:00Z","event":"Commander","FID":"F12345678","Name":"TESTCMDR"}
+{"timestamp":"2026-07-24T20:00:01Z","event":"LoadGame","FID":"F12345678","ShipID":9,"Ship":"explorer_nx"}
+{"timestamp":"2026-07-24T20:00:02Z","event":"Location","StarSystem":"Switch System","SystemAddress":4001}
+{"timestamp":"2026-07-24T20:00:03Z","event":"FSSDiscoveryScan","SystemAddress":4001,"BodyCount":5,"NonBodyCount":0}
+{"timestamp":"2026-07-24T20:00:04Z","event":"Loadout","ShipID":14,"Ship":"diamondback","ShipName":"Second Ship","Modules":[]}
+{"timestamp":"2026-07-24T20:00:05Z","event":"Undocked","StarSystem":"Switch System","SystemAddress":4001}
