@@ -175,7 +175,7 @@ public final class JacksonDecisionRequestSerializer {
             for (LlmDecisionRequest.Prediction prediction
                     : trajectory.likelyNext()) {
                 json.writeStartObject();
-                json.writeStringField("kind", prediction.kind());
+                json.writeStringField("event", prediction.event());
                 json.writeNumberField(
                         "probability",
                         prediction.probability()

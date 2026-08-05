@@ -74,7 +74,7 @@ final class ArrivalStarDiscoveryTest {
                     "system":"Schieni SI-B e756",\
                     "starType":"B",\
                     "previouslyDiscovered":false}],\
-                    "trajectory":{"recent":["SYSTEM_ENTERED"]}}""",
+                    "trajectory":{"recent":["A ship jumped from one star system to another."]}}""",
                     document(pipeline),
                     "the milestone and the trajectory, and nothing else"
             );
@@ -133,7 +133,7 @@ final class ArrivalStarDiscoveryTest {
                         star as not previously discovered.",\
                         "arrivalStar":"%s","system":"%s","starType":"%s",\
                         "previouslyDiscovered":false}],\
-                        "trajectory":{"recent":["SYSTEM_ENTERED"]}}""")
+                        "trajectory":{"recent":["A ship jumped from one star system to another."]}}""")
                                 .formatted(
                                         arrival.system(),
                                         arrival.system(),

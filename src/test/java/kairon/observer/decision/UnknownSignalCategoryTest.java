@@ -68,8 +68,8 @@ final class UnknownSignalCategoryTest {
                     {"events":[{"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1}]}],\
-                    "trajectory":{"recent":["SYSTEM_ENTERED",\
-                    "BODY_APPROACHED"]}}""",
+                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
+                    "A ship in supercruise came within a body's orbital-cruise zone."]}}""",
                     trace.turns().getLast().userMessage(),
                     "the set already says what was found, so nothing repeats it"
             );
@@ -164,8 +164,8 @@ final class UnknownSignalCategoryTest {
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\
-                    "trajectory":{"recent":["SYSTEM_ENTERED",\
-                    "BODY_APPROACHED"]}}""",
+                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
+                    "A ship in supercruise came within a body's orbital-cruise zone."]}}""",
                     turn.userMessage()
             );
             assertFalse(
@@ -203,8 +203,9 @@ final class UnknownSignalCategoryTest {
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\
                     "context":{"body":{"biologicalSignals":1}},\
-                    "trajectory":{"recent":["SYSTEM_ENTERED",\
-                    "BODY_APPROACHED","BODY_SIGNALS_FOUND"]}}""",
+                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
+                    "A ship in supercruise came within a body's orbital-cruise \
+                    zone.","A full spectrum system scan reported signal data for a body."]}}""",
                     trace.turns().getLast().userMessage()
             );
             assertEquals(1, trace.finalState().orElseThrow()

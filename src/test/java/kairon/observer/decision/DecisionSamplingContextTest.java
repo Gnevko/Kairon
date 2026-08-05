@@ -202,8 +202,9 @@ final class DecisionSamplingContextTest {
         JsonNode started = request(fixture, scanOrganic("Log", 0));
         JsonNode event = started.path("events").get(0);
         assertEquals(
-                    "The organic sampling tool was used on an organic discovery.",
-                    event.path("event").textValue());
+                "The organic sampling tool logged the first scan of an "
+                        + "unfinished sampling sequence.",
+                event.path("event").textValue());
         assertEquals(ORGANISM, event.path("organism").textValue());
         assertEquals("START", event.path("stage").textValue());
         assertFalse(event.path("complete").booleanValue());
@@ -254,7 +255,8 @@ final class DecisionSamplingContextTest {
 
         assertEquals(
                 """
-                {"events":[{"event":"The organic sampling tool was used on an organic discovery.",\
+                {"events":[{"event":"The organic sampling tool logged the \
+                first scan of an unfinished sampling sequence.",\
                 "organism":"Bacterium Bullaris - Red",\
                 "stage":"START","complete":false}],\
                 "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
@@ -265,7 +267,8 @@ final class DecisionSamplingContextTest {
         String advanced = serialize(fixture, scanOrganic("Sample", 1));
         assertEquals(
                 """
-                {"events":[{"event":"The organic sampling tool was used on an organic discovery.",\
+                {"events":[{"event":"The organic sampling tool recorded a \
+                subsequent scan of an unfinished sampling sequence.",\
                 "organism":"Bacterium Bullaris - Red",\
                 "stage":"PROGRESS","complete":false}],\
                 "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
@@ -447,19 +450,23 @@ final class DecisionSamplingContextTest {
                     "vehicle":{"kind":"SLV"},\
                     "sampling":{"organism":"Bacterium Bullaris - Red",\
                     "stage":"STARTED"}},\
-                    "trajectory":{"recent":["EMBARKED","LIFTOFF","TOUCHDOWN"],\
-                    "likelyNext":[{"kind":"BIOLOGICAL_SAMPLE_STARTED",\
+                    "trajectory":{"recent":["The Commander, on foot, got into a ship or SRV.","A ship took off from \
+                    the surface of a planet or moon.","A ship landed on the surface of a planet or moon."],\
+                    "likelyNext":[{"event":"The organic sampling tool logged the \
+                    first scan of an unfinished sampling sequence.",\
                     "probability":1.0}]}}""",
                     serialized
             );
 
             assertEquals(
-                    List.of("EMBARKED", "LIFTOFF", "TOUCHDOWN"),
+                    List.of("The Commander, on foot, got into a ship or SRV.", "A ship took off from the surface of a "
+                            + "planet or moon.", "A ship landed on the surface of a planet or moon."),
                     texts(request.path("trajectory").path("recent"))
             );
             assertTrue(serialized.contains(
-                    "\"likelyNext\":[{\"kind\":\"BIOLOGICAL_SAMPLE_STARTED\","
-                            + "\"probability\":1.0}]"
+                    "\"likelyNext\":[{\"event\":\"The organic sampling tool "
+                            + "logged the first scan of an unfinished "
+                            + "sampling sequence.\",\"probability\":1.0}]"
             ), serialized);
 
             JsonNode sampling = samplingGroup(request);

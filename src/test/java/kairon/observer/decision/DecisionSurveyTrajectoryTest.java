@@ -176,22 +176,23 @@ final class DecisionSurveyTrajectoryTest {
             );
             assertEquals(
                     List.of(
-                            "BODY_MAPPING_COMPLETED",
-                            "BODY_SIGNALS_FOUND",
-                            "BODY_SCANNED"
+                            "A surface area analysis scan of a body was completed.",
+                            "A surface area analysis scan reported signal data for a planet or rings.",
+                            "A discovery scan reported a star, planet or moon's properties."
                     ),
                     recent(request)
             );
             assertEquals(
                     1,
-                    frequency(recent(request), "BODY_MAPPING_COMPLETED")
+                    frequency(recent(request), "A surface area analysis scan of a body was completed.")
             );
             assertEquals(
                     1,
-                    frequency(recent(request), "BODY_SIGNALS_FOUND")
+                    frequency(recent(request), "A surface area analysis scan reported signal data for a planet or "
+                            + "rings.")
             );
             assertFalse(
-                    recent(request).contains("BODY_APPROACHED"),
+                    recent(request).contains("A ship in supercruise came within a body's orbital-cruise zone."),
                     "the current event is not also its own predecessor"
             );
         }

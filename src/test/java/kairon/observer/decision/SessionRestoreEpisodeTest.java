@@ -144,11 +144,11 @@ final class SessionRestoreEpisodeTest {
 
             JsonNode request = requestFor(pipeline, "SupercruiseEntry");
             assertEquals(
-                    List.of("SUPERCRUISE_JUMP_STARTED"),
+                    List.of("A frame shift drive began charging for supercruise."),
                     recent(request)
             );
             assertFalse(
-                    recent(request).contains("SYSTEM_ENTERED"),
+                    recent(request).contains("A ship jumped from one star system to another."),
                     "the Commander did not enter this system"
             );
             // The restore established NORMAL_SPACE, the supercruise jump
@@ -160,7 +160,7 @@ final class SessionRestoreEpisodeTest {
                     {"events":[{"event":"A ship entered supercruise from normal space.",\
                     "system":"Restore A"}],\
                     "context":{"navigation":{"flightMode":"SUPERCRUISE"}},\
-                    "trajectory":{"recent":["SUPERCRUISE_JUMP_STARTED"]}}""",
+                    "trajectory":{"recent":["A frame shift drive began charging for supercruise."]}}""",
                     request.toString()
             );
         }
@@ -315,8 +315,8 @@ final class SessionRestoreEpisodeTest {
                     NormalizedEventType.SYSTEM_ENTRY
             ), "no edge crosses from the previous visit into this one");
             assertEquals(
-                    "SYSTEM_ENTERED",
-                    DecisionTrajectoryNames.kindOf(
+                    "A ship jumped from one star system to another.",
+                    DecisionTrajectoryDescriptions.descriptionOf(
                             NormalizedEventType.SYSTEM_ENTRY
                     )
             );

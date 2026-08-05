@@ -244,8 +244,9 @@ final class DecisionRequestProjectionTest {
                 fixture.graphDisabled(scanOrganic("Log", 0))
         )).path("events").get(0);
         assertEquals(
-                    "The organic sampling tool was used on an organic discovery.",
-                    log.path("event").textValue());
+                "The organic sampling tool logged the first scan of an "
+                        + "unfinished sampling sequence.",
+                log.path("event").textValue());
         assertEquals(
                 List.of("event", "organism", "stage", "complete"),
                 propertyNames(log),

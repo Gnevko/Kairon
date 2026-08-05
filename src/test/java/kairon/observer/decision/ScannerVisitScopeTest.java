@@ -212,7 +212,7 @@ final class ScannerVisitScopeTest {
                     "the event the model was given has an occurrence of its own"
             );
             assertEquals(
-                    List.of("SYSTEM_ENTERED"),
+                    List.of("A ship jumped from one star system to another."),
                     trajectory(pipeline),
                     "and nothing from the bootstrap stands behind it"
             );
@@ -261,7 +261,7 @@ final class ScannerVisitScopeTest {
                     "and the live one recorded itself"
             );
             assertEquals(
-                    List.of("SYSTEM_ENTERED"),
+                    List.of("A ship jumped from one star system to another."),
                     trajectory(pipeline)
             );
         }

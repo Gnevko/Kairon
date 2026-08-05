@@ -161,8 +161,9 @@ final class NonPositiveSignalCountTest {
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\
                     "context":{"body":{"biologicalSignals":1}},\
-                    "trajectory":{"recent":["SYSTEM_ENTERED","BODY_APPROACHED",\
-                    "BODY_SIGNALS_FOUND"]}}""",
+                    "trajectory":{"recent":["A ship jumped from one star system to another.","A ship in supercruise \
+                    came within a body's orbital-cruise zone.",\
+                    "A full spectrum system scan reported signal data for a body."]}}""",
                     lastUserMessage(pipeline),
                     "the event states what this reading found; what the "
                             + "earlier one found is context"
@@ -208,8 +209,9 @@ final class NonPositiveSignalCountTest {
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\
                     "context":{"body":{"biologicalSignals":1}},\
-                    "trajectory":{"recent":["SYSTEM_ENTERED","BODY_APPROACHED",\
-                    "BODY_SIGNALS_FOUND"]}}""",
+                    "trajectory":{"recent":["A ship jumped from one star system to another.","A ship in supercruise \
+                    came within a body's orbital-cruise zone.",\
+                    "A full spectrum system scan reported signal data for a body."]}}""",
                     lastUserMessage(pipeline),
                     "the model is never told a signal is at zero"
             );

@@ -31,14 +31,7 @@ public sealed interface EngineerLegacyConvert
 
     String EVENT_TYPE = "EngineerLegacyConvert";
 
-    /**
-     * What a record reports when it does not say which of the two it is.
-     *
-     * <p>The same sentence {@link Converted} uses, deliberately and for now: an
-     * absent flag was read as a conversion before the split, and changing that
-     * is a claim about the event rather than about its class. It is written
-     * down here instead of hiding in an {@code orElse(false)}.</p>
-     */
+    /** What the conversion itself reports. */
     String CONVERTED_DESCRIPTION =
             "A legacy engineered module was converted to the current format.";
 
@@ -93,7 +86,16 @@ public sealed interface EngineerLegacyConvert
         }
     }
 
-    /** The record carries no usable {@code IsPreview}. */
+    /**
+     * The record carries no usable {@code IsPreview}.
+     *
+     * <p>It used to say what {@link Converted} says — an absent flag was read
+     * as a conversion, first through an {@code orElse(false)} and then, once
+     * the class was split, as a written-down constant. Both were a claim the
+     * record does not make: a preview and a conversion are the two things this
+     * record can be, and one without the flag is neither of them told apart.
+     * Saying so is the one thing this variant is for.</p>
+     */
     record Unrecognised(RawJournalData raw)
             implements EngineerLegacyConvert, UnrecognisedEventVariant {
 
@@ -103,7 +105,8 @@ public sealed interface EngineerLegacyConvert
 
         @Override
         public String modelFacingDescription() {
-            return CONVERTED_DESCRIPTION;
+            return "A legacy engineered module conversion or preview was "
+                    + "reported without saying which.";
         }
 
         @Override

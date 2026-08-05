@@ -37,8 +37,14 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
 
     String EVENT_TYPE = "LaunchDrone";
 
-    /** What every launch reports; the limpet kind stays in the fields. */
-    String SHARED_DESCRIPTION = "A drone or limpet was launched.";
+    /**
+     * What a launch reports when the journal did not say which limpet it was.
+     *
+     * <p>The eight researched kinds each say their own. This one is what is
+     * left when {@code Type} names nothing Kairon knows — a launch happened,
+     * and which limpet is a question the record did not answer.</p>
+     */
+    String UNSPECIFIED_DESCRIPTION = "A drone or limpet was launched.";
 
     /** This event never reports the outcome, whichever limpet it was. */
     String OUTCOME_UNKNOWN =
@@ -68,6 +74,11 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         }
 
         @Override
+        public String modelFacingDescription() {
+            return "A hatch-breaker limpet was launched.";
+        }
+
+        @Override
         public LlmEventPresentation llmPresentation() {
             return launched("a hatch-breaker limpet");
         }
@@ -76,6 +87,11 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
     record FuelTransfer(RawJournalData raw) implements LaunchDrone {
         public FuelTransfer {
             raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
+        }
+
+        @Override
+        public String modelFacingDescription() {
+            return "A fuel-transfer limpet was launched.";
         }
 
         @Override
@@ -90,6 +106,11 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         }
 
         @Override
+        public String modelFacingDescription() {
+            return "A collector limpet was launched.";
+        }
+
+        @Override
         public LlmEventPresentation llmPresentation() {
             return launched("a collector limpet");
         }
@@ -98,6 +119,11 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
     record Prospector(RawJournalData raw) implements LaunchDrone {
         public Prospector {
             raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
+        }
+
+        @Override
+        public String modelFacingDescription() {
+            return "A prospector limpet was launched.";
         }
 
         @Override
@@ -112,6 +138,11 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         }
 
         @Override
+        public String modelFacingDescription() {
+            return "A repair limpet was launched.";
+        }
+
+        @Override
         public LlmEventPresentation llmPresentation() {
             return launched("a repair limpet");
         }
@@ -120,6 +151,11 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
     record Research(RawJournalData raw) implements LaunchDrone {
         public Research {
             raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
+        }
+
+        @Override
+        public String modelFacingDescription() {
+            return "A research limpet was launched.";
         }
 
         @Override
@@ -134,6 +170,11 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         }
 
         @Override
+        public String modelFacingDescription() {
+            return "A decontamination limpet was launched.";
+        }
+
+        @Override
         public LlmEventPresentation llmPresentation() {
             return launched("a decontamination limpet");
         }
@@ -142,6 +183,11 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
     record Recon(RawJournalData raw) implements LaunchDrone {
         public Recon {
             raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
+        }
+
+        @Override
+        public String modelFacingDescription() {
+            return "A recon limpet was launched.";
         }
 
         @Override
@@ -157,6 +203,11 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         }
 
         @Override
+        public String modelFacingDescription() {
+            return UNSPECIFIED_DESCRIPTION;
+        }
+
+        @Override
         public LlmEventPresentation llmPresentation() {
             JsonNode event = raw.parsedJsonObject();
             return new LlmEventPresentation(List.of(
@@ -169,11 +220,6 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
                     OUTCOME_UNKNOWN
             ));
         }
-    }
-
-    @Override
-    default String modelFacingDescription() {
-        return SHARED_DESCRIPTION;
     }
 
     private static LlmEventPresentation launched(String limpet) {

@@ -146,7 +146,7 @@ public final class DecisionTrajectoryProjector {
             if (currentOccurrences.contains(occurrence.occurrenceId())) {
                 continue;
             }
-            String kind = DecisionTrajectoryNames.kindOf(
+            String kind = DecisionTrajectoryDescriptions.descriptionOf(
                     occurrence.eventType()
             );
             if (kind != null) {
@@ -174,7 +174,7 @@ public final class DecisionTrajectoryProjector {
             if (result.size() == MAX_PREDICTIONS) {
                 break;
             }
-            String kind = DecisionTrajectoryNames.kindOf(
+            String kind = DecisionTrajectoryDescriptions.descriptionOf(
                     prediction.predictedEventType()
             );
             if (kind != null) {

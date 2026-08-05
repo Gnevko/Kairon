@@ -336,7 +336,7 @@ record PipelineTrace(
             List<String> predictions = new ArrayList<>();
             document.path("trajectory").path("likelyNext")
                     .forEach(prediction ->
-                            predictions.add(prediction.path("kind")
+                            predictions.add(prediction.path("event")
                                     .textValue()));
             return List.copyOf(predictions);
         }

@@ -467,13 +467,19 @@ absent, for these three exactly as everywhere else.
 
 ## 8. Trajectory
 
-The behaviour graph reaches the model as exactly two lists of domain names, and
-as one number on the current event.
+The behaviour graph reaches the model as exactly two lists of statements, and as
+one number on the current event.
 
 ```json
 "trajectory": {
-  "recent": ["BIOLOGICAL_SAMPLE_STARTED", "EMBARKED", "LIFTOFF"],
-  "likelyNext": [{"kind": "DISEMBARKED", "probability": 1.0}]
+  "recent": [
+    "The organic sampling tool logged the first scan of an unfinished sampling sequence.",
+    "The Commander, on foot, got into a ship or SRV.",
+    "A ship took off from the surface of a planet or moon."
+  ],
+  "likelyNext": [
+    {"event": "The Commander stepped out of a ship or SRV.", "probability": 1.0}
+  ]
 }
 ```
 
@@ -533,21 +539,26 @@ folded into the one before it.
 
 ### The vocabulary
 
-`DecisionTrajectoryNames` maps every declared `NormalizedEventType` to a domain
-name. Where a type corresponds to a catalogued journal event the name **is** that
-event's kind, and a test asserts the two tables agree on every such pair — a
-landing remembered must be called what a landing is called. Types no
-model-eligible journal event produces (the Status-derived scanner modes and
-landing gear, limpets, the episode root) are named here in the same register.
+`DecisionTrajectoryDescriptions` maps every declared `NormalizedEventType` to
+what that event says. Where a type is produced by a journal class the sentence
+**is** that class's `modelFacingDescription()`, and a test parses a minimal
+record of each and compares — a landing remembered must say what a landing says.
+Types no journal class describes (the Status-derived scanner modes and landing
+gear, the two frame-shift charges, the system honk) are authored here in the same
+register.
 
-Three types are named more finely than the catalogue names them. Organic
-sampling is one kind carrying a `stage`, and a remembered event has no stage, so
-the position folds into the name: `BIOLOGICAL_SAMPLE_STARTED`,
-`_CONTINUED`, `_COMPLETED`.
+The three sampling steps each say which step they were, so a remembered sample
+needs no stage to fold in.
 
-An unmapped type — an unrecognised scan or jump type normalizes to an
-`UNKNOWN_*` value built from the journal's own event name — yields no name and is
-dropped from the list rather than passed through.
+A prediction reads the same past-tense sentence as a memory of the same event.
+What has not happened is said by the field it sits in — `likelyNext`, with a
+probability beside it — and the prompt states it outright. A second set of
+sentences in a forward tense would be a second vocabulary to keep in step with
+the first.
+
+An unmapped type — an unrecognised discriminator normalizes to an `UNKNOWN_*`
+value built from the journal's own event name — yields no sentence and is dropped
+from the list rather than passed through.
 
 ### Occurrence count
 

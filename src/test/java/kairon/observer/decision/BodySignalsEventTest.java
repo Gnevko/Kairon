@@ -369,24 +369,29 @@ final class BodySignalsEventTest {
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1},\
                     {"type":"GEOLOGICAL","count":2}]}],\
-                    "trajectory":{"recent":["SYSTEM_ENTERED",\
-                    "BODY_SIGNALS_FOUND"]}}""",
+                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
+                    "A full spectrum system scan reported signal data for a body."]}}""",
                     lastUserMessage(pipeline),
                     "the second finding is factual and complete"
             );
+            // Both instruments report the same kind of fact, and both are
+            // still one kind — BODY_SIGNALS_FOUND, above. Remembered, each
+            // says which instrument said it, because that is what its own
+            // event says when it happens: a trajectory that spoke for both at
+            // once would be the one place in the request where a finding loses
+            // its source.
             assertEquals(
-                    "BODY_SIGNALS_FOUND",
-                    DecisionTrajectoryNames.kindOf(
+                    "A surface area analysis scan reported signal data for a "
+                            + "planet or rings.",
+                    DecisionTrajectoryDescriptions.descriptionOf(
                             NormalizedEventType.SAA_SIGNALS_FOUND
-                    ),
-                    "both instruments report the same kind of fact"
+                    )
             );
             assertEquals(
-                    DecisionTrajectoryNames.kindOf(
+                    "A full spectrum system scan reported signal data for a "
+                            + "body.",
+                    DecisionTrajectoryDescriptions.descriptionOf(
                             NormalizedEventType.FSS_BODY_SIGNALS_FOUND
-                    ),
-                    DecisionTrajectoryNames.kindOf(
-                            NormalizedEventType.SAA_SIGNALS_FOUND
                     )
             );
         }

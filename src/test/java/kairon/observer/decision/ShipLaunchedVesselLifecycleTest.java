@@ -234,8 +234,9 @@ final class ShipLaunchedVesselLifecycleTest {
                     "biologicalSignals":1},\
                     "navigation":{"flightMode":"LANDED"},\
                     "vehicle":{"kind":"SLV"}},\
-                    "trajectory":{"recent":["BODY_APPROACHED",\
-                    "SUPERCRUISE_EXITED","VEHICLE_LAUNCHED"]}}""",
+                    "trajectory":{"recent":["A ship in supercruise came within a body's orbital-cruise zone.",\
+                    "A ship dropped out of supercruise into normal \
+                    space.","A vehicle was launched from the ship."]}}""",
                     turnFor(pipeline, "Touchdown")
             );
         }
@@ -282,8 +283,8 @@ final class ShipLaunchedVesselLifecycleTest {
                     "occurrenceOnBody":1}],\
                     "context":{"commander":{"presence":"ON_FOOT"},\
                     "vehicle":{"kind":"SLV"}},\
-                    "trajectory":{"recent":["SUPERCRUISE_EXITED",\
-                    "VEHICLE_LAUNCHED","TOUCHDOWN"]}}""",
+                    "trajectory":{"recent":["A ship dropped out of supercruise into normal space.",\
+                    "A vehicle was launched from the ship.","A ship landed on the surface of a planet or moon."]}}""",
                     turnFor(pipeline, "Disembark")
             );
             assertEquals(
@@ -295,8 +296,9 @@ final class ShipLaunchedVesselLifecycleTest {
                     "occurrenceOnBody":1}],\
                     "context":{"commander":{"presence":"SLV"},\
                     "vehicle":{"kind":"SLV"}},\
-                    "trajectory":{"recent":["VEHICLE_LAUNCHED",\
-                    "TOUCHDOWN","DISEMBARKED"]}}""",
+                    "trajectory":{"recent":["A vehicle was launched from the ship.",\
+                    "A ship landed on the surface of a planet or \
+                    moon.","The Commander stepped out of a ship or SRV."]}}""",
                     turnFor(pipeline, "Embark")
             );
         }
@@ -326,8 +328,10 @@ final class ShipLaunchedVesselLifecycleTest {
                     "changes":[{"subject":"commander",\
                     "kind":"UPDATED","fields":{"presence":\
                     {"before":"SLV","after":"SHIP"}}}],\
-                    "trajectory":{"recent":["BIOLOGICAL_SAMPLE_COMPLETED",\
-                    "EMBARKED","LIFTOFF"]}}""",
+                    "trajectory":{"recent":["The organic sampling tool recorded the final scan and completed a \
+                    sampling sequence.",\
+                    "The Commander, on foot, got into a ship or SRV.","A ship took off from the surface of a planet or \
+                    moon."]}}""",
                     recovery
             );
             for (String wrong : List.of(

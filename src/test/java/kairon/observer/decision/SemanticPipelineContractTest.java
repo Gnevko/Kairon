@@ -128,7 +128,8 @@ final class SemanticPipelineContractTest {
                     "SUPERCRUISE_ENTERED"
             );
             assertEquals(
-                    List.of("SUPERCRUISE_JUMP_STARTED"),
+                    List.of("A frame shift drive began charging for "
+                            + "supercruise."),
                     trace.turns().getLast().recent()
             );
             assertSourceOrder(trace);
@@ -289,7 +290,9 @@ final class SemanticPipelineContractTest {
 
             assertTrue(
                     trace.turns().getLast().recent()
-                            .contains("SUPERCRUISE_JUMP_STARTED"),
+                            .contains(DecisionTrajectoryDescriptions
+                                    .descriptionOf(NormalizedEventType
+                                            .SUPERCRUISE_JUMP_STARTED)),
                     "a model-silent observation still names itself in the "
                             + "trajectory of a later turn"
             );

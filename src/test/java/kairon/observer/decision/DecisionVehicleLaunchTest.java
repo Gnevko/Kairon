@@ -111,10 +111,11 @@ final class DecisionVehicleLaunchTest {
     @Test
     void theRememberedLaunchUsesTheSameNameTheEventDoes() {
         assertEquals(
-                DecisionEventCatalog.ruleFor(LaunchFighter.class).kind(),
-                DecisionTrajectoryNames.kindOf(
+                "A vehicle was launched from the ship.",
+                DecisionTrajectoryDescriptions.descriptionOf(
                         NormalizedEventType.AUXILIARY_VEHICLE_LAUNCHED
-                )
+                ),
+                "the remembered launch says what the launch turn said"
         );
 
         DecisionTurnFixture fixture = new DecisionTurnFixture();
@@ -140,9 +141,9 @@ final class DecisionVehicleLaunchTest {
 
         assertEquals(
                 List.of(
-                        "SYSTEM_ENTERED",
-                        "SUPERCRUISE_EXITED",
-                        "VEHICLE_LAUNCHED"
+                        "A ship jumped from one star system to another.",
+                        "A ship dropped out of supercruise into normal space.",
+                        "A vehicle was launched from the ship."
                 ),
                 recent(request),
                 "the launch sits between the drop and the landing"

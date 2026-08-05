@@ -141,10 +141,28 @@ domain kind and one description. Its corpus varies every discriminator, includin
 values this build does not recognise, and asserts that the corpus really splits —
 7 wire event names, 23 classes. It replaces `DecisionRecordRuleTest`.
 
-**The model-facing text is unchanged.** Every variant returns the sentence its
-record returned before the split. Giving each variant its own sentence, and
-moving the trajectory vocabulary onto descriptions rather than identifiers, is
-model-facing work that has not been done.
+**Each variant now says its own step**
+([ADR-0023](decisions/ADR-0023-A-VARIANT-SAYS-ITS-OWN-STEP.md)), which is the one
+part of this work that is not behaviour-preserving: the baseline recording moves
+by exactly four lines, all four a sampling event naming its step. The four
+`ScanOrganic` steps, the nine `LaunchDrone` limpets and
+`EngineerLegacyConvert.Unrecognised` each carry their own constant sentence;
+the last of these stops reporting a conversion for a record that does not say
+whether it was one.
+
+**The trajectory speaks the same sentences.** `DecisionTrajectoryNames` is
+`DecisionTrajectoryDescriptions` and holds statements rather than identifiers,
+and `likelyNext[].kind` is `likelyNext[].event`. A prediction reads the same
+past-tense sentence as a memory of the same event; the field it sits in and its
+probability are what say it has not happened, and the system prompt already said
+so, so no prompt change was needed. The two scanners no longer share one
+remembered name — each says which instrument reported the signals, as their
+events always did. Together with the per-variant sentences the baseline moves by
+48 lines and 50 537 → 53 872 bytes.
+
+One redundancy is left standing **by decision**: `stage` and `complete` are still
+sent for sampling, beside a sentence that now says the same thing. ADR-0023
+records both sides of that and what removing them would take.
 
 **A current event now says what it is, in its own words.**
 `LlmPresentableJournalEvent.modelFacingDescription()` is a second method on the
@@ -1327,11 +1345,15 @@ therefore cannot reach the generic fallback.
   survives; the commander group carries presence and nothing else.
 - The behavior graph reaches provider input only as domain content:
   `trajectory.recent`, `trajectory.likelyNext` and `occurrenceOnBody` on the
-  event. `DecisionTrajectoryNames` maps every declared `NormalizedEventType` to
-  a domain name, and a test requires that name to equal the catalogue kind
-  wherever the type corresponds to a catalogued journal event; an unmapped type
-  (`UNKNOWN_*`, built from a journal wire name) is dropped rather than passed
-  through. `DecisionTrajectoryProjector` reads the situation captured with the
+  event. `DecisionTrajectoryDescriptions` maps every declared
+  `NormalizedEventType` to what that event says, and a test parses a record of
+  each class the type can come from and requires the sentence to be the class's
+  own `modelFacingDescription()`; an unmapped type (`UNKNOWN_*`, built from a
+  journal wire name) is dropped rather than passed through. A prediction reads
+  the same past-tense sentence as a memory of the same event — `likelyNext` and
+  its probability are what say it has not happened, and the prompt says so
+  outright, so there is no second vocabulary in a forward tense to keep in
+  step. `DecisionTrajectoryProjector` reads the situation captured with the
   final trigger and recomputes nothing — order and probabilities are the
   calculation's own. It sends no trajectory at all when every projected event in
   the batch is one of the closed `TRAJECTORY_INDEPENDENT_KINDS` —

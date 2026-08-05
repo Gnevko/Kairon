@@ -95,9 +95,9 @@ final class DecisionSurfaceVehicleContextTest {
             );
             assertEquals(
                     List.of(
-                            "BODY_APPROACHED",
-                            "SUPERCRUISE_EXITED",
-                            "VEHICLE_LAUNCHED"
+                            "A ship in supercruise came within a body's orbital-cruise zone.",
+                            "A ship dropped out of supercruise into normal space.",
+                            "A vehicle was launched from the ship."
                     ),
                     recent(request)
             );

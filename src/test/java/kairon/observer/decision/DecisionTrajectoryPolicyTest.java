@@ -211,7 +211,8 @@ final class DecisionTrajectoryPolicyTest {
                 descriptions(request)
         );
         assertEquals(
-                List.of("SYSTEM_ENTERED", "LIFTOFF"),
+                List.of("A ship jumped from one star system to another.", "A ship took off from the surface of a "
+                        + "planet or moon."),
                 recent(request),
                 "the same history the landing would have had alone"
         );
@@ -230,12 +231,13 @@ final class DecisionTrajectoryPolicyTest {
         )));
 
         assertEquals(
-                List.of("SYSTEM_ENTERED", "LIFTOFF"),
+                List.of("A ship jumped from one star system to another.", "A ship took off from the surface of a "
+                        + "planet or moon."),
                 recent(request)
         );
         JsonNode likelyNext =
                 request.path("trajectory").path("likelyNext").get(0);
-        assertEquals("DISEMBARKED", likelyNext.path("kind").textValue());
+        assertEquals("The Commander stepped out of a ship or SRV.", likelyNext.path("event").textValue());
         assertEquals(
                 1.0,
                 likelyNext.path("probability").doubleValue(),

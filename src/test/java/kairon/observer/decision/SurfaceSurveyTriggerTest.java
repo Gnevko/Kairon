@@ -58,7 +58,7 @@ final class SurfaceSurveyTriggerTest {
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1}]}],\
-                    "trajectory":{"recent":["SYSTEM_ENTERED"]}}""",
+                    "trajectory":{"recent":["A ship jumped from one star system to another."]}}""",
                     lastUserMessage(pipeline)
             );
         }
@@ -166,8 +166,8 @@ final class SurfaceSurveyTriggerTest {
                     {"events":[{"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":2}]}],\
-                    "trajectory":{"recent":["SYSTEM_ENTERED",\
-                    "BODY_SIGNALS_FOUND"]}}""",
+                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
+                    "A surface area analysis scan reported signal data for a planet or rings."]}}""",
                     lastUserMessage(pipeline)
             );
         }

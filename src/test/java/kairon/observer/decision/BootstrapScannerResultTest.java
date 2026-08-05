@@ -100,8 +100,8 @@ final class BootstrapScannerResultTest {
                     {"events":[{"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1}]}],\
-                    "trajectory":{"recent":["SYSTEM_ENTERED",\
-                    "BODY_APPROACHED"]}}""",
+                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
+                    "A ship in supercruise came within a body's orbital-cruise zone."]}}""",
                     lastUserMessage(pipeline),
                     "the trajectory carries no finding from the bootstrap"
             );

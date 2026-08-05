@@ -45,16 +45,15 @@ public sealed interface ScanOrganic extends LlmPresentableJournalEvent {
     String EVENT_TYPE = "ScanOrganic";
 
     /**
-     * What all four steps report, until each is given its own sentence.
+     * What a step reports when the record does not say which step it was.
      *
-     * <p>Deliberately one string. Splitting the class and changing what the
-     * model reads are two changes, and only the first is structural: this one
-     * is behaviour-preserving, and the second has to be argued per step against
-     * the {@code stage} and {@code complete} fields the event already carries.
-     * </p>
+     * <p>The three researched steps each say their own. This one says a step
+     * happened and that Kairon does not know which — never one of the three,
+     * which is the whole reason the variant exists.</p>
      */
-    String SHARED_DESCRIPTION =
-            "The organic sampling tool was used on an organic discovery.";
+    String UNIDENTIFIED_STEP_DESCRIPTION =
+            "The organic sampling tool was used at an unidentified step of a "
+                    + "sampling sequence.";
 
     /**
      * The domain event this record actually is.
@@ -83,7 +82,8 @@ public sealed interface ScanOrganic extends LlmPresentableJournalEvent {
 
         @Override
         public String modelFacingDescription() {
-            return SHARED_DESCRIPTION;
+            return "The organic sampling tool logged the first scan of an "
+                    + "unfinished sampling sequence.";
         }
 
         @Override
@@ -106,7 +106,8 @@ public sealed interface ScanOrganic extends LlmPresentableJournalEvent {
 
         @Override
         public String modelFacingDescription() {
-            return SHARED_DESCRIPTION;
+            return "The organic sampling tool recorded a subsequent scan of an "
+                    + "unfinished sampling sequence.";
         }
 
         @Override
@@ -129,7 +130,8 @@ public sealed interface ScanOrganic extends LlmPresentableJournalEvent {
 
         @Override
         public String modelFacingDescription() {
-            return SHARED_DESCRIPTION;
+            return "The organic sampling tool recorded the final scan and "
+                    + "completed a sampling sequence.";
         }
 
         @Override
@@ -158,7 +160,7 @@ public sealed interface ScanOrganic extends LlmPresentableJournalEvent {
 
         @Override
         public String modelFacingDescription() {
-            return SHARED_DESCRIPTION;
+            return UNIDENTIFIED_STEP_DESCRIPTION;
         }
 
         @Override

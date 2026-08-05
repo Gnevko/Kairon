@@ -205,8 +205,8 @@ public record LlmDecisionRequest(
                         "an empty trajectory is expressed by omitting it"
                 );
             }
-            for (String kind : recent) {
-                requireNonBlank(kind, "recent kind");
+            for (String event : recent) {
+                requireNonBlank(event, "recent event");
             }
         }
     }
@@ -219,10 +219,10 @@ public record LlmDecisionRequest(
      * a context bucket beside a probability is an invitation to re-derive a
      * figure the model was already handed.</p>
      */
-    public record Prediction(String kind, double probability) {
+    public record Prediction(String event, double probability) {
 
         public Prediction {
-            kind = requireNonBlank(kind, "kind");
+            event = requireNonBlank(event, "event");
             if (!Double.isFinite(probability)
                     || probability < 0.0
                     || probability > 1.0) {

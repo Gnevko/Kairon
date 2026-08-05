@@ -112,9 +112,9 @@ final class RepeatedRouteTargetTest {
             JsonNode request = read(serialized);
             assertEquals(
                     List.of(
-                            "VEHICLE_RECOVERED",
-                            "ROUTE_TARGET_SELECTED",
-                            "SUPERCRUISE_JUMP_STARTED"
+                            "A surface vehicle was brought back aboard the ship.",
+                            "A star system was selected to jump to.",
+                            "A frame shift drive began charging for supercruise."
                     ),
                     texts(request.path("trajectory").path("recent")),
                     "the recovery is back in the three the model remembers"
@@ -124,8 +124,9 @@ final class RepeatedRouteTargetTest {
                     {"events":[{"event":"A ship entered supercruise from normal space.",\
                     "system":"Schieni GG-A c3-84"}],\
                     "context":{"navigation":{"flightMode":"SUPERCRUISE"}},\
-                    "trajectory":{"recent":["VEHICLE_RECOVERED",\
-                    "ROUTE_TARGET_SELECTED","SUPERCRUISE_JUMP_STARTED"]}}""",
+                    "trajectory":{"recent":["A surface vehicle was brought back aboard the ship.",\
+                    "A star system was selected to jump to.","A frame shift drive began charging for \
+                    supercruise."]}}""",
                     serialized
             );
         }

@@ -3,9 +3,18 @@ package kairon.observer.decision;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.behavior.normalize.NormalizedEventType;
+import kairon.observation.ObservationDraft.ObservationCaptureMode;
+import kairon.observation.ObservationDraft.ObservationSource;
 import kairon.observation.journal.JournalEventObservation;
+import kairon.observation.journal.JournalLineParser;
+import kairon.observation.journal.JournalObservationAdapter;
+import kairon.observation.journal.LlmPresentableJournalEvent;
 import kairon.observation.journal.event.exploration.FSSAllBodiesFound;
+import kairon.observation.journal.event.exploration.FSSBodySignals;
 import kairon.observation.journal.event.exploration.SAAScanComplete;
+import kairon.observation.journal.event.exploration.SAASignalsFound;
+import kairon.observation.journal.event.exploration.Scan;
+import kairon.observation.journal.event.inventory.MaterialCollected;
 import kairon.observation.journal.event.combat.Interdicted;
 import kairon.observation.journal.event.combat.UnderAttack;
 import kairon.observation.journal.event.mission.MissionAbandoned;
@@ -20,7 +29,12 @@ import kairon.observation.journal.event.trade.RedeemVoucher;
 import kairon.observation.journal.event.travel.ApproachBody;
 import kairon.observation.journal.event.travel.Disembark;
 import kairon.observation.journal.event.travel.Docked;
+import kairon.observation.journal.event.travel.DockingGranted;
+import kairon.observation.journal.event.travel.DockingRequested;
 import kairon.observation.journal.event.travel.Embark;
+import kairon.observation.journal.event.travel.FSDJump;
+import kairon.observation.journal.event.travel.FSDTarget;
+import kairon.observation.journal.event.travel.FuelScoop;
 import kairon.observation.journal.event.travel.LeaveBody;
 import kairon.observation.journal.event.travel.Liftoff;
 import kairon.observation.journal.event.travel.SupercruiseEntry;
@@ -34,6 +48,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -76,19 +91,19 @@ final class DecisionTrajectoryTest {
 
         assertEquals(
                 List.of(
-                        "BIOLOGICAL_SAMPLE_STARTED",
-                        "EMBARKED",
-                        "LIFTOFF"
+                        "The organic sampling tool logged the first scan of an unfinished sampling sequence.",
+                        "The Commander, on foot, got into a ship or SRV.",
+                        "A ship took off from the surface of a planet or moon."
                 ),
                 recent(request),
                 "the three immediate predecessors, temporal order"
         );
         assertFalse(
-                recent(request).contains("TOUCHDOWN"),
+                recent(request).contains("A ship landed on the surface of a planet or moon."),
                 "the event that is happening is not also a predecessor"
         );
         assertFalse(
-                recent(request).contains("SYSTEM_ENTERED"),
+                recent(request).contains("A ship jumped from one star system to another."),
                 "the fourth-oldest is out of range, not summarised"
         );
     }
@@ -101,7 +116,7 @@ final class DecisionTrajectoryTest {
                 NormalizedEventType.TOUCHDOWN
         ));
 
-        assertEquals(List.of("SYSTEM_ENTERED"), recent(request));
+        assertEquals(List.of("A ship jumped from one star system to another."), recent(request));
     }
 
     /**
@@ -158,7 +173,7 @@ final class DecisionTrajectoryTest {
                     "both are current events"
             );
             assertEquals(
-                    List.of("SYSTEM_ENTERED"),
+                    List.of("A ship jumped from one star system to another."),
                     recent(request),
                     "neither current event is repeated as its own predecessor"
             );
@@ -186,7 +201,7 @@ final class DecisionTrajectoryTest {
 
         JsonNode likelyNext = request.path("trajectory").path("likelyNext");
         assertEquals(1, likelyNext.size());
-        assertEquals("DISEMBARKED", likelyNext.get(0).path("kind").textValue());
+        assertEquals("The Commander stepped out of a ship or SRV.", likelyNext.get(0).path("event").textValue());
         assertEquals(
                 1.0,
                 likelyNext.get(0).path("probability").doubleValue(),
@@ -194,7 +209,7 @@ final class DecisionTrajectoryTest {
                 "the transition model's own number, not a rounding of it"
         );
         assertEquals(
-                List.of("kind", "probability"),
+                List.of("event", "probability"),
                 propertyNames(likelyNext.get(0)),
                 "nothing that supports the number travels with it"
         );
@@ -228,9 +243,14 @@ final class DecisionTrajectoryTest {
 
         List<String> predicted = new ArrayList<>();
         request.path("trajectory").path("likelyNext").forEach(prediction ->
-                predicted.add(prediction.path("kind").textValue()));
+                predicted.add(prediction.path("event").textValue()));
         assertEquals(
-                List.of("DISEMBARKED", "EMBARKED", "BODY_LEFT"),
+                List.of(
+                        "The Commander stepped out of a ship or SRV.",
+                        "The Commander, on foot, got into a ship or SRV.",
+                        "A ship flying away from a body rose above its "
+                                + "orbital-cruise altitude."
+                ),
                 predicted
         );
     }
@@ -375,23 +395,30 @@ final class DecisionTrajectoryTest {
                 NormalizedEventType.TOUCHDOWN
         ));
 
-        assertEquals(List.of("SYSTEM_ENTERED", "LIFTOFF"), recent(request));
+        assertEquals(List.of("A ship jumped from one star system to another.", "A ship took off from the surface of a "
+                + "planet or moon."), recent(request));
         assertFalse(request.toString().contains("UNKNOWN"));
     }
 
     // -------------------------------------------------------- the vocabulary
 
     /**
-     * A remembered event is called what the same event is called when it
-     * happens.
+     * A remembered event says what the same event says when it happens.
      *
-     * <p>Two tables name the same things — one keyed by journal class for
-     * current events, one by normalized type for remembered ones — and a model
-     * told a landing is a {@code TOUCHDOWN} and then that it was preceded by
-     * something else spelled differently would be reading two vocabularies.</p>
+     * <p>Two tables describe the same things — the journal classes for current
+     * events, {@link DecisionTrajectoryDescriptions} for remembered and
+     * predicted ones — and a model told a landing in one wording and then that
+     * it was preceded by the same landing in another would be reading two
+     * vocabularies.</p>
+     *
+     * <p>Compared against the sentence the class actually returns, built by
+     * parsing a minimal record of it. That is checkable at all because a class
+     * now means one domain event and its sentence is a constant; while one
+     * class could mean several, there was nothing to compare against but
+     * another identifier.</p>
      */
     @Test
-    void everyRememberedEventUsesTheSameNameTheEventItselfUses() {
+    void everyRememberedEventSaysWhatTheEventItselfSays() {
         Map<NormalizedEventType, Class<? extends JournalEventObservation>>
                 sameConcept = new LinkedHashMap<>();
         sameConcept.put(NormalizedEventType.SUPERCRUISE_ENTRY,
@@ -432,11 +459,65 @@ final class DecisionTrajectoryTest {
         sameConcept.put(NormalizedEventType.MISSION_ABANDONED,
                 MissionAbandoned.class);
 
+        sameConcept.put(NormalizedEventType.BODY_SCANNED, Scan.class);
+        sameConcept.put(NormalizedEventType.FSS_BODY_SIGNALS_FOUND,
+                FSSBodySignals.class);
+        sameConcept.put(NormalizedEventType.SAA_SIGNALS_FOUND,
+                SAASignalsFound.class);
+        sameConcept.put(NormalizedEventType.DOCKING_REQUESTED,
+                DockingRequested.class);
+        sameConcept.put(NormalizedEventType.DOCKING_GRANTED,
+                DockingGranted.class);
+        sameConcept.put(NormalizedEventType.MATERIAL_COLLECTED,
+                MaterialCollected.class);
+        sameConcept.put(NormalizedEventType.FUEL_SCOOPING, FuelScoop.class);
+        sameConcept.put(NormalizedEventType.FSD_TARGET_SELECTED,
+                FSDTarget.class);
+        sameConcept.put(NormalizedEventType.SYSTEM_ENTRY, FSDJump.class);
+
         sameConcept.forEach((eventType, journalType) -> assertEquals(
-                DecisionEventCatalog.ruleFor(journalType).kind(),
-                DecisionTrajectoryNames.kindOf(eventType),
-                eventType + " is named differently when it is remembered"
+                describes(journalType),
+                DecisionTrajectoryDescriptions.descriptionOf(eventType),
+                eventType + " is described differently when it is remembered"
         ));
+    }
+
+    /**
+     * What a journal class says about itself, from a minimal record of it.
+     *
+     * <p>Minimal on purpose: the sentence is a constant of the class and must
+     * not depend on any value the record supplies. A record with fields would
+     * hide a sentence that read one.</p>
+     */
+    private static String describes(
+            Class<? extends JournalEventObservation> journalType
+    ) {
+        String discriminator;
+        try {
+            discriminator = (String) journalType.getField("EVENT_TYPE")
+                    .get(null);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(journalType.getName(), failure);
+        }
+        String rawJson = """
+                {"timestamp":"2026-07-30T10:00:00Z","event":"%s"}
+                """.formatted(discriminator);
+        JournalLineParser.ParsedJournalRecord parsed =
+                (JournalLineParser.ParsedJournalRecord) new JournalLineParser()
+                        .parse(new JournalLineParser.CompleteJournalRecord(
+                                "Journal.trajectory-test.log",
+                                0L,
+                                rawJson.strip()
+                                        .getBytes(StandardCharsets.UTF_8)
+                        ));
+        JournalEventObservation event = new JournalObservationAdapter(
+                new ObservationSource("elite-journal", "trajectory-test")
+        ).adapt(
+                parsed,
+                ObservationCaptureMode.REPLAY,
+                parsed.optionalJournalTimestamp().orElseThrow()
+        ).payload();
+        return ((LlmPresentableJournalEvent) event).modelFacingDescription();
     }
 
     /**
@@ -447,30 +528,35 @@ final class DecisionTrajectoryTest {
      * position is folded into the name. Both still start from the same word.</p>
      */
     @Test
-    void aRememberedSampleKeepsTheKindAndFoldsInTheStage() {
-        String kind = "BIOLOGICAL_SAMPLE";
+    void aRememberedSampleSaysWhichStepItWas() {
         for (NormalizedEventType step : List.of(
                 NormalizedEventType.SCAN_ORGANIC_LOG,
                 NormalizedEventType.SCAN_ORGANIC_SAMPLE,
                 NormalizedEventType.SCAN_ORGANIC_ANALYSE
         )) {
-            String name = DecisionTrajectoryNames.kindOf(step);
-            assertTrue(name.startsWith(kind + "_"), name);
+            String said = DecisionTrajectoryDescriptions.descriptionOf(step);
+            assertTrue(
+                    said.startsWith("The organic sampling tool "),
+                    said + " does not start from the same tool"
+            );
         }
         assertEquals(
                 List.of(
-                        "BIOLOGICAL_SAMPLE_STARTED",
-                        "BIOLOGICAL_SAMPLE_CONTINUED",
-                        "BIOLOGICAL_SAMPLE_COMPLETED"
+                        "The organic sampling tool logged the first scan of "
+                                + "an unfinished sampling sequence.",
+                        "The organic sampling tool recorded a subsequent scan "
+                                + "of an unfinished sampling sequence.",
+                        "The organic sampling tool recorded the final scan "
+                                + "and completed a sampling sequence."
                 ),
                 List.of(
-                        DecisionTrajectoryNames.kindOf(
+                        DecisionTrajectoryDescriptions.descriptionOf(
                                 NormalizedEventType.SCAN_ORGANIC_LOG
                         ),
-                        DecisionTrajectoryNames.kindOf(
+                        DecisionTrajectoryDescriptions.descriptionOf(
                                 NormalizedEventType.SCAN_ORGANIC_SAMPLE
                         ),
-                        DecisionTrajectoryNames.kindOf(
+                        DecisionTrajectoryDescriptions.descriptionOf(
                                 NormalizedEventType.SCAN_ORGANIC_ANALYSE
                         )
                 )
@@ -478,13 +564,13 @@ final class DecisionTrajectoryTest {
     }
 
     /**
-     * Every type the graph can hold has a name here.
+     * Every type the graph can hold says something here.
      *
      * <p>A declared type with no entry would be silently dropped from every
      * trajectory it appeared in, which reads as "nothing happened then".</p>
      */
     @Test
-    void everyDeclaredNormalizedTypeHasADomainName() throws Exception {
+    void everyDeclaredNormalizedTypeSaysSomething() throws Exception {
         List<String> missing = new ArrayList<>();
         for (Field field : NormalizedEventType.class.getDeclaredFields()) {
             if (!Modifier.isStatic(field.getModifiers())
@@ -493,23 +579,40 @@ final class DecisionTrajectoryTest {
             }
             NormalizedEventType declared =
                     (NormalizedEventType) field.get(null);
-            if (DecisionTrajectoryNames.kindOf(declared) == null) {
+            if (DecisionTrajectoryDescriptions.descriptionOf(declared) == null) {
                 missing.add(declared.value());
             }
         }
         assertEquals(List.of(), missing);
     }
 
-    /** Every name is a domain name, in the casing the contract uses. */
+    /**
+     * Every entry is a sentence, and none of them is an internal spelling.
+     *
+     * <p>This used to require the opposite — upper snake case, which is what
+     * the vocabulary was. The check is kept and inverted rather than deleted,
+     * because a single entry left behind as an identifier is exactly what would
+     * otherwise go unnoticed among fifty-four sentences.</p>
+     */
     @Test
-    void everyDomainNameIsUpperSnakeCase() {
-        DecisionTrajectoryNames.names().forEach((eventType, kind) -> {
-            assertNotNull(kind);
-            assertTrue(
-                    kind.matches("[A-Z][A-Z_]*[A-Z]"),
-                    kind + " is not a stable domain-facing name"
-            );
-        });
+    void everyEntryIsASentenceRatherThanAnIdentifier() {
+        DecisionTrajectoryDescriptions.descriptions()
+                .forEach((eventType, said) -> {
+                    assertNotNull(said);
+                    assertTrue(
+                            Character.isUpperCase(said.charAt(0))
+                                    && said.endsWith("."),
+                            eventType + " does not say a sentence: " + said
+                    );
+                    assertFalse(
+                            said.contains("_"),
+                            eventType + " says an internal spelling: " + said
+                    );
+                    assertTrue(
+                            said.contains(" "),
+                            eventType + " says one word: " + said
+                    );
+                });
     }
 
     // ------------------------------------------------------------- fixtures

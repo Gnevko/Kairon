@@ -265,9 +265,9 @@ final class DecisionOccurrenceCountTest {
 
             assertEquals(
                     List.of(
-                            "BIOLOGICAL_SAMPLE_STARTED",
-                            "EMBARKED",
-                            "LIFTOFF"
+                            "The organic sampling tool logged the first scan of an unfinished sampling sequence.",
+                            "The Commander, on foot, got into a ship or SRV.",
+                            "A ship took off from the surface of a planet or moon."
                     ),
                     recent(request),
                     "the three events before this landing, oldest first"

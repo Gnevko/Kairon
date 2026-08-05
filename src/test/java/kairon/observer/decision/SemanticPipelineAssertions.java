@@ -272,11 +272,14 @@ final class SemanticPipelineAssertions {
                     return null;
                 });
         int position = turn.triggerBusSequences().indexOf(busSequence);
-        String kind = turn.eventKinds().get(position);
+        // Both sides say the same sentence, because the trajectory says the
+        // same sentences the events do. It used to be two internal names —
+        // the trajectory's identifier against the catalogue kind — which
+        // agreed with each other and with nothing the model could read.
         assertEquals(
-                DecisionTrajectoryNames.kindOf(expectedType),
-                kind,
-                () -> "the occurrence and the model-facing event are named "
+                DecisionTrajectoryDescriptions.descriptionOf(expectedType),
+                turn.eventDescriptions().get(position),
+                () -> "the occurrence and the model-facing event are described "
                         + "differently\n" + trace.describe()
         );
     }

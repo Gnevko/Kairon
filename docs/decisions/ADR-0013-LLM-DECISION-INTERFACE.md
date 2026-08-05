@@ -199,6 +199,12 @@ same word. An unmapped type is dropped rather than passed through, because the
 only unmapped values are `UNKNOWN_*` names built from the journal's own wire
 event name.
 
+*Amended by [ADR-0023](ADR-0023-A-VARIANT-SAYS-ITS-OWN-STEP.md): the table is
+`DecisionTrajectoryDescriptions` and holds sentences rather than identifiers, so
+agreement is now against the journal class's own `modelFacingDescription()`
+rather than against its catalogue kind. `likelyNext[].kind` is
+`likelyNext[].event`. The dropping rule is unchanged.*
+
 The trajectory is mandatory content for the budget rather than a compaction rung:
 it is six items at most, so it cannot be why a turn overflows, and dropping it
 would buy nothing against the loss of a repeat being recognisable.

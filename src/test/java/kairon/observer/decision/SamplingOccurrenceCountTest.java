@@ -52,7 +52,8 @@ final class SamplingOccurrenceCountTest {
 
             JsonNode event = samplingEvents(pipeline).get(0);
             assertEquals(
-                    "{\"event\":\"The organic sampling tool was used on an organic discovery.\","
+                    "{\"event\":\"The organic sampling tool logged the first scan of an "
+                            + "unfinished sampling sequence.\","
                             + "\"organism\":\"" + ORGANISM + "\","
                             + "\"stage\":\"START\",\"complete\":false}",
                     event.toString()
@@ -79,7 +80,8 @@ final class SamplingOccurrenceCountTest {
 
             JsonNode event = samplingEvents(pipeline).get(1);
             assertEquals(
-                    "{\"event\":\"The organic sampling tool was used on an organic discovery.\","
+                    "{\"event\":\"The organic sampling tool recorded a subsequent scan of an "
+                            + "unfinished sampling sequence.\","
                             + "\"organism\":\"" + ORGANISM + "\","
                             + "\"stage\":\"PROGRESS\",\"complete\":false}",
                     event.toString()
@@ -107,7 +109,8 @@ final class SamplingOccurrenceCountTest {
             sample(pipeline);
 
             List<JsonNode> events = samplingEvents(pipeline);
-            String progress = "{\"event\":\"The organic sampling tool was used on an organic discovery.\","
+            String progress = "{\"event\":\"The organic sampling tool recorded a subsequent scan of an "
+                    + "unfinished sampling sequence.\","
                     + "\"organism\":\"" + ORGANISM + "\","
                     + "\"stage\":\"PROGRESS\",\"complete\":false}";
             assertEquals(progress, events.get(1).toString());
@@ -149,7 +152,8 @@ final class SamplingOccurrenceCountTest {
 
             JsonNode event = samplingEvents(pipeline).get(3);
             assertEquals(
-                    "{\"event\":\"The organic sampling tool was used on an organic discovery.\","
+                    "{\"event\":\"The organic sampling tool recorded the final scan and "
+                            + "completed a sampling sequence.\","
                             + "\"organism\":\"" + ORGANISM + "\","
                             + "\"stage\":\"FINAL\",\"complete\":true}",
                     event.toString()
@@ -208,19 +212,23 @@ final class SamplingOccurrenceCountTest {
 
             assertEquals(
                     List.of(
-                            "{\"event\":\"The organic sampling tool was used on an organic discovery.\","
+                            "{\"event\":\"The organic sampling tool logged the first scan of an "
+                                    + "unfinished sampling sequence.\","
                                     + "\"organism\":\"" + ORGANISM + "\","
                                     + "\"stage\":\"START\","
                                     + "\"complete\":false}",
-                            "{\"event\":\"The organic sampling tool was used on an organic discovery.\","
+                            "{\"event\":\"The organic sampling tool recorded a subsequent scan of an "
+                                    + "unfinished sampling sequence.\","
                                     + "\"organism\":\"" + ORGANISM + "\","
                                     + "\"stage\":\"PROGRESS\","
                                     + "\"complete\":false}",
-                            "{\"event\":\"The organic sampling tool was used on an organic discovery.\","
+                            "{\"event\":\"The organic sampling tool recorded a subsequent scan of an "
+                                    + "unfinished sampling sequence.\","
                                     + "\"organism\":\"" + ORGANISM + "\","
                                     + "\"stage\":\"PROGRESS\","
                                     + "\"complete\":false}",
-                            "{\"event\":\"The organic sampling tool was used on an organic discovery.\","
+                            "{\"event\":\"The organic sampling tool recorded the final scan and "
+                                    + "completed a sampling sequence.\","
                                     + "\"organism\":\"" + ORGANISM + "\","
                                     + "\"stage\":\"FINAL\","
                                     + "\"complete\":true}"
@@ -249,7 +257,7 @@ final class SamplingOccurrenceCountTest {
                     pipeline.graphOccurrenceCount(
                             NormalizedEventType.SCAN_ORGANIC_ANALYSE
                     ),
-                    "BIOLOGICAL_SAMPLE_COMPLETED"
+                    "The organic sampling tool recorded the final scan and completed a sampling sequence."
             );
         }
     }
@@ -273,22 +281,24 @@ final class SamplingOccurrenceCountTest {
 
             JsonNode request = requestsPerTrigger(pipeline).getLast();
             assertEquals(
-                    "{\"event\":\"The organic sampling tool was used on an organic discovery.\","
+                    "{\"event\":\"The organic sampling tool recorded the final scan and "
+                            + "completed a sampling sequence.\","
                             + "\"organism\":\"" + ORGANISM + "\","
                             + "\"stage\":\"FINAL\",\"complete\":true}",
                     request.path("events").get(0).toString()
             );
             assertEquals(
                     List.of(
-                            "TOUCHDOWN",
-                            "DISEMBARKED",
-                            "BIOLOGICAL_SAMPLE_CONTINUED"
+                            "A ship landed on the surface of a planet or moon.",
+                            "The Commander stepped out of a ship or SRV.",
+                            "The organic sampling tool recorded a subsequent scan of an unfinished sampling sequence."
                     ),
                     texts(request.path("trajectory").path("recent"))
             );
             assertFalse(
                     texts(request.path("trajectory").path("recent"))
-                            .contains("BIOLOGICAL_SAMPLE_COMPLETED"),
+                            .contains("The organic sampling tool recorded the final scan and completed a sampling "
+                                    + "sequence."),
                     "the current event is not one of its own predecessors"
             );
         }
@@ -422,20 +432,30 @@ final class SamplingOccurrenceCountTest {
         return List.copyOf(requests);
     }
 
+    /**
+     * Every event of one kind, found by the sentences that kind is told with.
+     *
+     * <p>All of them, not the first: one kind can be several classes, and a
+     * sampling sequence is four sentences under {@code BIOLOGICAL_SAMPLE}.
+     * Matching a single description would silently return one step of four and
+     * leave the assertions below testing a sequence that was never there.</p>
+     */
     private List<JsonNode> eventsOfKind(
             DecisionProductionPipeline pipeline,
             String kind
     ) {
-        String described = pipeline.kindByDescription().entrySet().stream()
+        java.util.Set<String> described = pipeline.kindByDescription()
+                .entrySet().stream()
                 .filter(entry -> entry.getValue().equals(kind))
                 .map(java.util.Map.Entry::getKey)
-                .findFirst()
-                .orElseThrow(() -> new AssertionError(
-                        "no observed event is a " + kind));
+                .collect(java.util.stream.Collectors.toSet());
+        if (described.isEmpty()) {
+            throw new AssertionError("no observed event is a " + kind);
+        }
         return requestsPerTrigger(pipeline).stream()
                 .map(request -> request.path("events").get(0))
                 .filter(event ->
-                        described.equals(event.path("event").textValue()))
+                        described.contains(event.path("event").textValue()))
                 .toList();
     }
 

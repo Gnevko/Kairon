@@ -71,7 +71,7 @@ final class DecisionMessageTurnTest {
         );
         assertFalse(request.has("trajectory"));
         assertFalse(
-                request.toString().contains("SYSTEM_ENTERED"),
+                request.toString().contains("A ship jumped from one star system to another."),
                 "where the ship has been says nothing about a greeting"
         );
     }
@@ -218,7 +218,8 @@ final class DecisionMessageTurnTest {
                 )))
         )));
         assertEquals(
-                List.of("SYSTEM_ENTERED", "LIFTOFF"),
+                List.of("A ship jumped from one star system to another.", "A ship took off from the surface of a "
+                        + "planet or moon."),
                 recent(landing),
                 "an ordinary turn is unaffected"
         );
@@ -243,7 +244,8 @@ final class DecisionMessageTurnTest {
                 descriptions(both)
         );
         assertEquals(
-                List.of("SYSTEM_ENTERED", "LIFTOFF"),
+                List.of("A ship jumped from one star system to another.", "A ship took off from the surface of a "
+                        + "planet or moon."),
                 recent(both),
                 "the landing is exactly what a history might explain"
         );
