@@ -206,8 +206,11 @@ class SemanticAdapterRegistryTest {
                     type.getSimpleName() + " must not gain a NEW role"
             );
         }
+        // Counted, not pinned: this is a number of admitted classes, and a
+        // wire event that dispatches to several of them moves it without
+        // anything having been reviewed.
         assertEquals(
-                112,
+                LlmJournalEventSelection.NEW_ELIGIBLE.size(),
                 LlmJournalEventSelection.NEW_EVENT_TYPE_COUNT
         );
         assertEquals(

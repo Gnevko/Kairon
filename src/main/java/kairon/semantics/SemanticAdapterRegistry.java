@@ -1,5 +1,6 @@
 package kairon.semantics;
 
+import kairon.observation.journal.JournalEventLookup;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.UnknownJournalEvent;
 
@@ -112,7 +113,13 @@ public final class SemanticAdapterRegistry {
     ) {
         Objects.requireNonNull(event, "event");
         Objects.requireNonNull(provenance, "provenance");
-        SemanticEventAdapter adapter = adapters.get(event.getClass());
+        // A variant of a split record uses its record's adapter: which facts a
+        // journal event establishes is a property of the event, and the adapter
+        // reads the raw record either way.
+        SemanticEventAdapter adapter = JournalEventLookup.forType(
+                adapters,
+                event.getClass()
+        );
         if (adapter != null) {
             SemanticEventAdapter.Result result =
                     adapter.adapt(event, provenance);

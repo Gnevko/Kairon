@@ -222,11 +222,11 @@ class JournalEventLlmPresentationTest {
     @Test
     void legacyConversionDistinguishesPreviewFromActualConversion() {
         EngineerLegacyConvert preview =
-                new EngineerLegacyConvert(rawData("""
+                EngineerLegacyConvert.of(rawData("""
                         {"timestamp":"2018-03-04T07:08:27Z","event":"EngineerLegacyConvert","IsPreview":true,"Module":"int_hyperdrive_size5_class5","Module_Localised":"Frame Shift Drive","BlueprintName":"FSD_LongRange","Level":4,"Quality":0.7}
                         """.strip()));
         EngineerLegacyConvert converted =
-                new EngineerLegacyConvert(rawData("""
+                EngineerLegacyConvert.of(rawData("""
                         {"timestamp":"2018-03-04T07:08:28Z","event":"EngineerLegacyConvert","IsPreview":false,"Module":"int_hyperdrive_size5_class5","Module_Localised":"Frame Shift Drive","BlueprintName":"FSD_LongRange","Level":4,"Quality":0.7}
                         """.strip()));
 
@@ -811,7 +811,7 @@ class JournalEventLlmPresentationTest {
                 {"timestamp":"2026-07-24T16:45:15Z","event":"Scan","ScanType":"Detailed","BodyName":"Schieni GG-A c3-84 4 a","BodyID":20,"StarSystem":"Schieni GG-A c3-84","DistanceFromArrivalLS":1081.453145,"PlanetClass":"Icy body","Atmosphere":"thin methane atmosphere","AtmosphereComposition":[{"Name":"Methane","Percent":100.0}],"MassEM":0.000180,"Radius":499610.3125,"SurfaceGravity":0.287597,"SurfaceTemperature":95.505936,"SurfacePressure":4155.584473,"Landable":true,"TidalLock":true,"Composition":{"Ice":0.823731,"Rock":0.175197,"Metal":0.001072},"Materials":[{"Name":"sulphur","Name_Localised":"Sulphur","Percent":27.813265},{"Name":"yttrium","Name_Localised":"Yttrium","Percent":0.752182},{"Name":"invalid","Name_Localised":"Invalid","Percent":-1}],"WasDiscovered":false,"WasMapped":false}
                 """.strip();
 
-        Scan scan = new Scan(rawData(rawJson));
+        Scan scan = Scan.of(rawData(rawJson));
         String presentation = verifiedText(scan.llmPresentation());
 
         assertTrue(presentation.contains("a detailed discovery scan"));
@@ -2540,7 +2540,9 @@ class JournalEventLlmPresentationTest {
     }
 
     private ScanOrganic organic(String scanType, boolean wasLogged) {
-        return new ScanOrganic(rawData("""
+        // ScanOrganic dispatches on ScanType at construction: which step of
+        // the sequence this is, is the identity of the record.
+        return ScanOrganic.of(rawData("""
                 {"timestamp":"2026-07-24T16:53:01Z","event":"ScanOrganic","ScanType":"%s","Genus":"$Codex_Ent_Bacterial_Genus_Name;","Genus_Localised":"Bacterium","Species":"$Codex_Ent_Bacterial_10_Name;","Species_Localised":"Bacterium Bullaris","Variant":"$Codex_Ent_Bacterial_10_Yttrium_Name;","Variant_Localised":"Bacterium Bullaris - Red","WasLogged":%s,"SystemAddress":23155945939738,"Body":20}
                 """.formatted(scanType, wasLogged).strip()));
     }

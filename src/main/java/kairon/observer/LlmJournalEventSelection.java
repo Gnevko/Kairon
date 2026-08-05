@@ -39,21 +39,29 @@ public final class LlmJournalEventSelection {
     /** The {@code ReceiveText} channel carrying ambient NPC chatter. */
     private static final String NPC_CHANNEL = "npc";
 
-    public static final String TARGET_NEW_PROFILE_NAME = "BALANCED-112";
-    public static final String TARGET_CONTEXT_PROFILE_NAME = "CONTEXT-2";
-    public static final int TARGET_NEW_EVENT_TYPE_COUNT = 112;
-    public static final int TARGET_CONTEXT_EVENT_TYPE_COUNT = 2;
+    /**
+     * The profile names, which no longer carry a count.
+     *
+     * <p>They used to: {@code BALANCED-112} pinned the number of admitted
+     * types into the identity of the profile, and class initialisation refused
+     * to start unless the list was exactly that long. That was a review
+     * milestone frozen as an invariant — it said "these many wire types have
+     * been researched" — and it stopped being answerable once a wire type could
+     * dispatch to more than one class. A journal record that carries three
+     * domain events is still one researched wire type and three admitted
+     * classes, and no single number is both.</p>
+     *
+     * <p>What the number was actually protecting is kept below: a class listed
+     * twice is still a defect, and that is checked structurally rather than by
+     * arithmetic against a constant somebody has to remember to bump.</p>
+     */
+    public static final String TARGET_NEW_PROFILE_NAME = "BALANCED";
+    public static final String TARGET_CONTEXT_PROFILE_NAME = "CONTEXT";
 
     public static final String NEW_PROFILE_NAME =
             TARGET_NEW_PROFILE_NAME;
     public static final String CONTEXT_PROFILE_NAME =
             TARGET_CONTEXT_PROFILE_NAME;
-    public static final int NEW_EVENT_TYPE_COUNT =
-            TARGET_NEW_EVENT_TYPE_COUNT;
-    public static final int CONTEXT_EVENT_TYPE_COUNT =
-            TARGET_CONTEXT_EVENT_TYPE_COUNT;
-    public static final int SUBSCRIBED_EVENT_TYPE_COUNT =
-            NEW_EVENT_TYPE_COUNT + CONTEXT_EVENT_TYPE_COUNT;
 
     /**
      * The researched product target, which is what the runtime profile is.
@@ -84,18 +92,27 @@ public final class LlmJournalEventSelection {
     private static final Set<Class<? extends JournalEventObservation>>
             CONTEXT_EVENT_TYPE_SET = Set.copyOf(CONTEXT_ONLY);
 
+    /**
+     * How many classes each profile admits, counted rather than declared.
+     *
+     * <p>Derived from the one list. A count that is read off the thing it
+     * counts cannot disagree with it.</p>
+     */
+    public static final int NEW_EVENT_TYPE_COUNT = NEW_ELIGIBLE.size();
+    public static final int CONTEXT_EVENT_TYPE_COUNT = CONTEXT_ONLY.size();
+    public static final int SUBSCRIBED_EVENT_TYPE_COUNT =
+            NEW_EVENT_TYPE_COUNT + CONTEXT_EVENT_TYPE_COUNT;
+
     static {
-        requireProfile(
+        requireDistinct(
                 NEW_PROFILE_NAME,
                 NEW_ELIGIBLE,
-                NEW_EVENT_TYPE_SET,
-                NEW_EVENT_TYPE_COUNT
+                NEW_EVENT_TYPE_SET
         );
-        requireProfile(
+        requireDistinct(
                 CONTEXT_PROFILE_NAME,
                 CONTEXT_ONLY,
-                CONTEXT_EVENT_TYPE_SET,
-                CONTEXT_EVENT_TYPE_COUNT
+                CONTEXT_EVENT_TYPE_SET
         );
         /*
          * Disjointness is the catalogue's own invariant and is checked where
@@ -185,13 +202,15 @@ public final class LlmJournalEventSelection {
      * never on the message text and never on a localised rendering, either of
      * which would make admission depend on language.</p>
      *
-     * <p>A {@code Scan} that is not the detailed one established nothing: an
-     * automatic scan is the ship noticing a body while flying past, and a basic
-     * one is a name and a distance. A scan filed under no body established
-     * nothing that can be attributed either. One shallow reading is kept: a star
-     * reporting {@code WasDiscovered: false}, which is the only record that ever
-     * says nobody had been to this system. Whether that star is the one this
-     * visit arrived at is not something the record can answer, so it is decided
+     * <p>A {@code Scan.BodyReading} that is not the detailed one established
+     * nothing: an automatic scan is the ship noticing a body while flying past,
+     * and a basic one is a name and a distance. A scan filed under no body
+     * established nothing that can be attributed either. One shallow reading is
+     * kept, and it is the one the parser gave its own class:
+     * {@code Scan.UndiscoveredStar}, a star reporting
+     * {@code WasDiscovered: false}, which is the only record that ever says
+     * nobody had been to this system. Whether that star is the one this visit
+     * arrived at is not something the record can answer, so it is decided
      * afterwards by {@link BodySurveyNoveltyGuard} against the arrival this
      * subscriber saw.</p>
      *
@@ -216,9 +235,13 @@ public final class LlmJournalEventSelection {
                     );
         }
         if (event instanceof Scan scan) {
-            JsonNode raw = scan.raw().parsedJsonObject();
-            return BodySurveyFacts.scanSignature(raw) != null
-                    || BodySurveyFacts.undiscoveredStarReading(raw);
+            // The milestone is admitted by being what it is: which of the two
+            // readings this record is was decided by the parser, from these
+            // same fields, and asking again here is how the two answers drift.
+            return scan instanceof Scan.UndiscoveredStar
+                    || BodySurveyFacts.scanSignature(
+                            scan.raw().parsedJsonObject()
+                    ) != null;
         }
         if (event instanceof FSSBodySignals || event instanceof SAASignalsFound) {
             return BodySurveyFacts.signalSignature(
@@ -228,17 +251,26 @@ public final class LlmJournalEventSelection {
         return true;
     }
 
-    private static void requireProfile(
+    /**
+     * A profile admits each class once.
+     *
+     * <p>What the removed count check was really for. A class listed twice
+     * would be admitted twice and reviewed once, and no arithmetic against a
+     * remembered constant is needed to notice that.</p>
+     */
+    private static void requireDistinct(
             String profileName,
             List<Class<? extends JournalEventObservation>> eventTypes,
-            Set<Class<? extends JournalEventObservation>> eventTypeSet,
-            int expectedCount
+            Set<Class<? extends JournalEventObservation>> eventTypeSet
     ) {
-        if (eventTypes.size() != expectedCount
-                || eventTypeSet.size() != expectedCount) {
+        if (eventTypes.isEmpty()) {
             throw new ExceptionInInitializerError(
-                    profileName + " must contain exactly "
-                            + expectedCount + " distinct event types"
+                    profileName + " admits nothing"
+            );
+        }
+        if (eventTypes.size() != eventTypeSet.size()) {
+            throw new ExceptionInInitializerError(
+                    profileName + " lists an event type more than once"
             );
         }
     }

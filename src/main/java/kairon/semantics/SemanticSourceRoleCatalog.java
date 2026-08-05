@@ -1,5 +1,6 @@
 package kairon.semantics;
 
+import kairon.observation.journal.JournalEventLookup;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.event.carrier.*;
 import kairon.observation.journal.event.colonisation.*;
@@ -212,15 +213,25 @@ public final class SemanticSourceRoleCatalog {
     private SemanticSourceRoleCatalog() {
     }
 
-    /** The role of one journal event type. Never null. */
+    /**
+     * The role of one journal event type. Never null.
+     *
+     * <p>A variant of a split record answers through the record it belongs to:
+     * which source role a journal event has was decided when the event was
+     * researched, and dispatching one record to several classes is not a second
+     * review. See {@link JournalEventLookup}.</p>
+     */
     public static SemanticSourceRole roleOf(
             Class<? extends JournalEventObservation> eventType
     ) {
         Objects.requireNonNull(eventType, "eventType");
-        if (NEW_EVENT_TYPE_SET.contains(eventType)) {
+        if (JournalEventLookup.covers(NEW_EVENT_TYPE_SET, eventType)) {
             return SemanticSourceRole.NEW;
         }
-        if (CONTEXT_ONLY_EVENT_TYPE_SET.contains(eventType)) {
+        if (JournalEventLookup.covers(
+                CONTEXT_ONLY_EVENT_TYPE_SET,
+                eventType
+        )) {
             return SemanticSourceRole.CONTEXT_ONLY;
         }
         return SemanticSourceRole.DIAGNOSTIC_ONLY;

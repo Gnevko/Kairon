@@ -119,9 +119,32 @@ class JournalSourceTest {
             Class<? extends JournalEventObservation> expectedType =
                     JournalEventCatalog.payloadTypeFor(eventType);
 
-            assertSame(expectedType, mapped.getClass(), eventType);
+            // The registered type is the wire event. A record that carries
+            // several domain events registers a sealed interface and the
+            // parser produces one of its variants; every other record is its
+            // own payload type, exactly as before.
+            assertTrue(
+                    expectedType.isAssignableFrom(mapped.getClass()),
+                    eventType
+            );
             assertEquals(eventType, expectedType.getSimpleName(), eventType);
-            assertTrue(expectedType.isRecord(), eventType);
+            assertTrue(
+                    expectedType.isRecord() || expectedType.isSealed(),
+                    eventType + " must be a record or a sealed group of them"
+            );
+            if (expectedType.isSealed()) {
+                assertTrue(
+                        mapped.getClass().isRecord(),
+                        eventType + " must dispatch to a record"
+                );
+                assertSame(
+                        expectedType,
+                        mapped.getClass().getEnclosingClass(),
+                        eventType + " variants belong to their wire event"
+                );
+            } else {
+                assertSame(expectedType, mapped.getClass(), eventType);
+            }
             assertTrue(Modifier.isPublic(expectedType.getModifiers()), eventType);
             assertNull(expectedType.getEnclosingClass(), eventType);
             assertTrue(

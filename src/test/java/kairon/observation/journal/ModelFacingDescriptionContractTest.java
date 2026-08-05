@@ -63,7 +63,7 @@ final class ModelFacingDescriptionContractTest {
         });
         assertEquals(List.of(), missing, "an event with nothing to say");
         assertEquals(
-                LlmJournalEventSelection.TARGET_NEW_EVENT_TYPE_COUNT,
+                LlmJournalEventSelection.NEW_EVENT_TYPE_COUNT,
                 described().size(),
                 "every model-eligible type was asked"
         );
@@ -199,16 +199,16 @@ final class ModelFacingDescriptionContractTest {
     }
 
     /**
-     * One record, two assertions, two fixed phrases.
+     * One wire event, two assertions, two classes.
      *
-     * <p>{@code Scan} is the one class that reports more than one thing, and
-     * the branch reads the same fields the projection reads. Nothing is
-     * interpolated: both phrases are constants, and the arrival-star one says
-     * the star had not been discovered rather than anything about its class.
-     * </p>
+     * <p>{@code Scan} reports two different things and the parser decides which
+     * from the record's own fields, so each phrase is a constant on its own
+     * class rather than a branch inside one description. Nothing is
+     * interpolated, and the arrival-star one says the star had not been
+     * discovered rather than anything about its class.</p>
      */
     @Test
-    void aScanChoosesBetweenTwoFixedPhrases() {
+    void aScanIsTwoClassesWithTwoFixedPhrases() {
         String detailed = description("""
                 {"timestamp":"2026-07-30T10:00:00Z","event":"Scan",
                  "ScanType":"Detailed","SystemAddress":1,"BodyID":4,
@@ -241,17 +241,18 @@ final class ModelFacingDescriptionContractTest {
     }
 
     /**
-     * Both branches of a Scan answer to one underlying predicate.
+     * Both readings of a Scan answer to one underlying predicate.
      *
-     * <p>The record decides which of its two assertions this is, and the
-     * semantic layer asks the record rather than keeping a second copy. Two
-     * implementations of this question would drift, and the drift would be a
-     * milestone reported as an ordinary scan or the reverse — which is exactly
-     * what the observer's admission and the graph's episode policy are keyed
-     * on.</p>
+     * <p>{@code Scan.reportsUndiscoveredStar} is what the parser dispatches on,
+     * and the semantic layer asks the record rather than keeping a second copy —
+     * the layers that track visits hold a stored record rather than the typed
+     * observation, so they still need the predicate. Two implementations of it
+     * would drift, and the drift would be a milestone reported as an ordinary
+     * scan or the reverse, which is exactly what the observer's admission and
+     * the graph's episode policy are keyed on.</p>
      */
     @Test
-    void bothScanBranchesFollowOneSharedPredicate() {
+    void bothScanReadingsFollowOneSharedPredicate() {
         List<String> readings = List.of("""
                 {"timestamp":"2026-07-30T10:00:00Z","event":"Scan",
                  "ScanType":"AutoScan","SystemAddress":1,"BodyID":0,
@@ -300,16 +301,16 @@ final class ModelFacingDescriptionContractTest {
     }
 
     /**
-     * One record, two fixed phrases, chosen by a flag the request never sends.
+     * Two classes, told apart by a flag the request never sends.
      *
      * <p>{@code IsPreview} separates the game showing what a conversion would
      * do from the conversion itself. The semantic adapter does not emit the
      * flag, so a single sentence asserting a conversion would report a preview
-     * as a completed one. Both phrases are constants; neither reads a value
-     * out of the record.</p>
+     * as a completed one. The parser dispatches on it; both phrases are
+     * constants, and neither reads a value out of the record.</p>
      */
     @Test
-    void aLegacyConversionChoosesBetweenTwoFixedPhrases() {
+    void aLegacyConversionIsTwoClassesWithTwoFixedPhrases() {
         String previewed = description("""
                 {"timestamp":"2026-07-30T10:00:00Z",
                  "event":"EngineerLegacyConvert","IsPreview":true,

@@ -956,7 +956,7 @@ final class SpeechOutputTest {
                 Instant.parse("2026-07-28T12:00:01Z"),
                 mode,
                 JournalEventObservation.SCHEMA_VERSION,
-                new ScanOrganic(data)
+                ScanOrganic.of(data)
         );
     }
 

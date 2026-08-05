@@ -279,7 +279,7 @@ final class JournalEventCatalog {
                 registrations,
                 StartJump.EVENT_TYPE,
                 StartJump.class,
-                StartJump::new
+                StartJump::of
         );
         register(
                 registrations,
@@ -411,7 +411,7 @@ final class JournalEventCatalog {
                 registrations,
                 Scan.EVENT_TYPE,
                 Scan.class,
-                Scan::new
+                Scan::of
         );
         register(
                 registrations,
@@ -423,7 +423,7 @@ final class JournalEventCatalog {
                 registrations,
                 ScanOrganic.EVENT_TYPE,
                 ScanOrganic.class,
-                ScanOrganic::new
+                ScanOrganic::of
         );
         register(
                 registrations,
@@ -639,7 +639,7 @@ final class JournalEventCatalog {
                 registrations,
                 LaunchDrone.EVENT_TYPE,
                 LaunchDrone.class,
-                LaunchDrone::new
+                LaunchDrone::of
         );
         register(
                 registrations,
@@ -1053,7 +1053,7 @@ final class JournalEventCatalog {
                 registrations,
                 EngineerLegacyConvert.EVENT_TYPE,
                 EngineerLegacyConvert.class,
-                EngineerLegacyConvert::new
+                EngineerLegacyConvert::of
         );
         register(
                 registrations,

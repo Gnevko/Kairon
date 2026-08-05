@@ -1,5 +1,6 @@
 package kairon.observer.decision;
 
+import kairon.observation.journal.JournalEventLookup;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.event.carrier.*;
 import kairon.observation.journal.event.colonisation.*;
@@ -16,9 +17,7 @@ import kairon.observation.journal.event.ship.*;
 import kairon.observation.journal.event.social.*;
 import kairon.observation.journal.event.trade.*;
 import kairon.observation.journal.event.travel.*;
-import kairon.semantics.BodySurveyFacts;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,66 +34,19 @@ import java.util.Set;
  * <p>Coverage is total and is meant to stay that way. A model-eligible event
  * with no rule here would reach the model under a guessed name, so
  * {@link #ruleFor} returns null and the projection refuses rather than
- * inventing one; a test asserts the table matches
- * {@code LlmJournalEventSelection.TARGET_NEW_ELIGIBLE} exactly, in both
- * directions.</p>
+ * inventing one; a test asserts every type in
+ * {@code LlmJournalEventSelection.TARGET_NEW_ELIGIBLE} resolves to a rule and
+ * that nothing here is unreachable from that profile.</p>
+ *
+ * <p>Keyed by class, and a class is one kind. A record the parser dispatches to
+ * several classes is catalogued once under the record when its variants share a
+ * kind, and per variant when they do not — the exact match wins, so the two
+ * cannot both apply.</p>
  */
 public final class DecisionEventCatalog {
 
     private static final Map<Class<? extends JournalEventObservation>,
             DecisionEventRule> RULES = build();
-
-    /**
-     * The rules a record earns rather than a type.
-     *
-     * <p>The second extension point, and deliberately a separate one.
-     * {@link #RULES} stays exactly one rule per eligible type, because every
-     * other journal class means one thing. A {@code Scan} means two: the
-     * detailed reading is a body established and is catalogued by type; the
-     * shallow reading of the star this visit arrived at, reporting that nobody
-     * had been here, is a different assertion made from the same record — and it
-     * is the only record that ever carries that fact. Filing it under
-     * {@code BODY_SCANNED} would report a scan the Commander did not take; not
-     * filing it at all is what silently dropped the arrival star's class and
-     * discovery flag.</p>
-     *
-     * <p>The kind claims exactly what the record says: this star had not been
-     * discovered before now. It does not claim that a first-discovery credit has
-     * been registered — the journal does not say so, and selling the data is
-     * what would.</p>
-     *
-     * <p>A list rather than a chain of conditions. Every entry is tried, so
-     * declaration order decides nothing; two entries claiming one record is an
-     * error rather than a silent precedence, and a property asserted of "every
-     * rule" can see these too.</p>
-     */
-    private static final List<RecordDecisionRule> RECORD_RULES = List.of(
-            new RecordDecisionRule(
-                    "arrival star reported undiscovered",
-                    event -> event instanceof Scan
-                            && BodySurveyFacts.undiscoveredStarReading(
-                                    event.raw().parsedJsonObject()
-                            ),
-                    DecisionEventRule.of(
-                                    "SYSTEM_UNDISCOVERED_CONFIRMED",
-                                    DecisionMechanism.EXPLORATION
-                            )
-                            // About the system, not about a body: what it says
-                            // of the arrival star is the whole of the turn, and
-                            // that star's survey flags, its distance of zero
-                            // from the arrival point and a coarse type of STAR
-                            // beside its class made a two-sentence turn out of
-                            // a one-sentence fact.
-                            .reading(DecisionContextProfile.SYSTEM_ONLY)
-                            .named("arrivalStar")
-                            .uncounted()
-                            .retaining(
-                                    "system",
-                                    "starType",
-                                    "previouslyDiscovered"
-                            )
-            )
-    );
 
     private DecisionEventCatalog() {
     }
@@ -102,63 +54,40 @@ public final class DecisionEventCatalog {
     /**
      * The rule for a journal type, or null when the type is not catalogued.
      *
-     * <p>The class-keyed extension point. Never ask it about an observation
-     * whose meaning can depend on what the record says — {@link #ruleFor(
-     * JournalEventObservation)} is the question with the record in it, and
-     * asking this one instead is how a record-earned rule gets skipped.</p>
+     * <p>The one extension point. It used to be two: a record whose class meant
+     * more than one thing earned its rule from a predicate over its own fields,
+     * because a class-keyed table could not express "one {@code Scan}, two
+     * kinds". The parser now dispatches such a record to one class per domain
+     * event, so the class says which kind it is and the predicate is asked once,
+     * at parse time, instead of again here.</p>
      */
     public static DecisionEventRule ruleFor(
             Class<? extends JournalEventObservation> eventType
     ) {
-        return RULES.get(Objects.requireNonNull(eventType, "eventType"));
+        // A variant of a split record falls back to its record's rule, so a
+        // wire event whose steps share one kind is catalogued once. Where the
+        // steps are genuinely different kinds — a body reading against the
+        // arrival-star milestone — each variant is registered and the exact
+        // match wins.
+        return JournalEventLookup.forType(
+                RULES,
+                Objects.requireNonNull(eventType, "eventType")
+        );
     }
 
     /**
-     * The rule for one observation, which is the type's unless the record
-     * earns another.
+     * The rule for one observation, which is its class's.
      *
-     * <p>Read from the same fields the observer's admission and the graph's
-     * episode policy read, so the three cannot disagree about what a record is:
-     * a reading admitted as the arrival-star milestone is projected as the
-     * milestone and recorded as the milestone's own occurrence.</p>
-     *
-     * <p>Every record rule is evaluated, not the first matching one. Order is
-     * therefore not a hidden priority, and a record two rules both claim fails
-     * here rather than silently taking whichever was declared first.</p>
+     * <p>The class is what the parser decided from the record's own fields, and
+     * the observer's admission and the graph's episode policy read those same
+     * fields through {@code BodySurveyFacts}, so the three cannot disagree about
+     * what a record is: a reading admitted as the arrival-star milestone is
+     * projected as the milestone and recorded as the milestone's own
+     * occurrence.</p>
      */
     public static DecisionEventRule ruleFor(JournalEventObservation event) {
         Objects.requireNonNull(event, "event");
-        return ruleFor(event, RECORD_RULES);
-    }
-
-    /**
-     * The same lookup against a supplied rule set.
-     *
-     * <p>Exists so the ambiguity failure can be provoked by a test with two
-     * overlapping rules. Production always passes {@link #RECORD_RULES}.</p>
-     */
-    static DecisionEventRule ruleFor(
-            JournalEventObservation event,
-            List<RecordDecisionRule> recordRules
-    ) {
-        Objects.requireNonNull(event, "event");
-        Objects.requireNonNull(recordRules, "recordRules");
-        RecordDecisionRule earned = null;
-        for (RecordDecisionRule candidate : recordRules) {
-            if (!candidate.matches(event)) {
-                continue;
-            }
-            if (earned != null) {
-                throw new IllegalStateException(
-                        "record matches two decision rules: "
-                                + earned.name() + " and " + candidate.name()
-                );
-            }
-            earned = candidate;
-        }
-        return earned != null
-                ? earned.rule()
-                : ruleFor(event.getClass());
+        return ruleFor(event.getClass());
     }
 
     public static Set<Class<? extends JournalEventObservation>> coveredTypes() {
@@ -166,35 +95,16 @@ public final class DecisionEventCatalog {
     }
 
     /**
-     * The record-keyed extension point, enumerated.
+     * Every rule this catalogue can hand out.
      *
-     * <p>A test can ask whether two of them can claim one record; nothing can
-     * ask that of a condition buried in a lookup.</p>
-     */
-    public static List<RecordDecisionRule> recordRules() {
-        return RECORD_RULES;
-    }
-
-    /**
-     * Every rule this catalogue can hand out, however it is keyed.
-     *
-     * <p>{@link #coveredTypes} answers the type question and stays exactly the
-     * eligible profile. This answers the reachability question, which is not the
-     * same one: a rule a record can earn is reachable, and a property asserted
-     * of "every rule" has to see it. The union is built from both sets rather
-     * than from one plus a named constant, so a second record rule joins it by
-     * being declared.</p>
+     * <p>{@link #coveredTypes} answers the type question; this answers the
+     * reachability question, which used to differ because one rule was earned
+     * by a record rather than keyed by a class. It no longer does, and the two
+     * are kept apart anyway: a property asserted of "every rule" should not
+     * have to know how the table happens to be keyed today.</p>
      */
     public static List<DecisionEventRule> declaredRules() {
-        List<DecisionEventRule> declared = new ArrayList<>(RULES.values());
-        for (RecordDecisionRule recordRule : RECORD_RULES) {
-            declared.add(recordRule.rule());
-        }
-        return List.copyOf(declared);
-    }
-
-    public static int size() {
-        return RULES.size();
+        return List.copyOf(RULES.values());
     }
 
     private static Map<Class<? extends JournalEventObservation>,
@@ -420,9 +330,37 @@ public final class DecisionEventCatalog {
         // nothing and are declined before a turn opens. A repeat of the same
         // reading is never recorded, so a body-scoped count could only ever
         // say one.
+        //
+        // Keyed by the record rather than by the reading variant, so a scan
+        // that is not the arrival-star milestone is catalogued once: the
+        // milestone below is the exact match and wins, and everything else
+        // reaches this rule through the record it belongs to.
         put(rules, Scan.class,
                 DecisionEventRule.of("BODY_SCANNED",
                         DecisionMechanism.EXPLORATION).uncounted());
+        // The other thing a scan record reports, and the only record that ever
+        // carries it: this star had not been discovered before now. Filing it
+        // under BODY_SCANNED would report a scan the Commander did not take;
+        // not filing it at all is what silently dropped the arrival star's
+        // class and discovery flag. The kind claims exactly what the record
+        // says — not that a first-discovery credit has been registered, which
+        // the journal does not say and selling the data is what would.
+        //
+        // About the system, not about a body: what it says of the arrival star
+        // is the whole of the turn, and that star's survey flags, its distance
+        // of zero from the arrival point and a coarse type of STAR beside its
+        // class made a two-sentence turn out of a one-sentence fact.
+        put(rules, Scan.UndiscoveredStar.class,
+                DecisionEventRule.of("SYSTEM_UNDISCOVERED_CONFIRMED",
+                                DecisionMechanism.EXPLORATION)
+                        .reading(DecisionContextProfile.SYSTEM_ONLY)
+                        .named("arrivalStar")
+                        .uncounted()
+                        .retaining(
+                                "system",
+                                "starType",
+                                "previouslyDiscovered"
+                        ));
         // One kind for both scanners. What the Commander learned is that this
         // body carries these signals; which instrument said so first is
         // Kairon's bookkeeping, and a second identical reading is not a second

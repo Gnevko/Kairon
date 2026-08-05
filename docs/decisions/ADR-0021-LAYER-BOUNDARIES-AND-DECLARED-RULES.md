@@ -75,6 +75,15 @@ the class-keyed table and the record-keyed list as separate extension points,
 `declaredRules()` is the union of both, every record rule is evaluated rather
 than the first matching one, and a record two rules claim fails fast.
 
+*Amended by [ADR-0022](ADR-0022-VARIANT-DISPATCH-IN-THE-PARSER.md):
+`RecordDecisionRule` is deleted and there is one extension point again. It
+existed because a class-keyed table could not express "one `Scan`, two kinds";
+the parser now dispatches such a record to one class per domain event, so the
+class says which kind it is and the predicate is asked once, at parse time.
+`declaredRules()` remains, as the reachability question kept apart from the type
+question. `DecisionRecordRuleTest` is replaced by
+`JournalEventVariantContractTest`.*
+
 ### A family and a slice are two things
 
 `DecisionContextProfile` holds the context needs and the subjects in scope;

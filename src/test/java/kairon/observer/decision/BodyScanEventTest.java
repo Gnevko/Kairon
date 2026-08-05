@@ -3,6 +3,7 @@ package kairon.observer.decision;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.behavior.normalize.NormalizedEventType;
+import kairon.observation.journal.event.exploration.Scan;
 import kairon.projection.ProjectedObservation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -34,6 +35,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class BodyScanEventTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    /**
+     * The class a scan record parses to here.
+     *
+     * <p>{@code Scan} is one wire event and two domain events, told apart by
+     * the parser; every record in this class is a reading of a body rather than
+     * the arrival-star milestone, and that is the class the triggers carry.</p>
+     */
+    private static final String BODY_READING =
+            Scan.BodyReading.class.getSimpleName();
 
     private final LlmDecisionRequestFactory factory =
             new LlmDecisionRequestFactory();
@@ -107,10 +118,10 @@ final class BodyScanEventTest {
                     "previouslyDiscovered":false,"previouslyMapped":false,\
                     "previouslyFootfalled":false,\
                     "distanceFromArrivalLs":1081.453145}""",
-                    eventJson(pipeline, "Scan")
+                    eventJson(pipeline, BODY_READING)
             );
 
-            String serialized = requestFor(pipeline, "Scan").toString();
+            String serialized = requestFor(pipeline, BODY_READING).toString();
             for (String internal : List.of(
                     "SystemAddress",
                     "BodyID",
@@ -148,7 +159,7 @@ final class BodyScanEventTest {
                     """);
             pipeline.settleProjection();
 
-            JsonNode event = requestFor(pipeline, "Scan")
+            JsonNode event = requestFor(pipeline, BODY_READING)
                     .path("events").get(0);
             assertEquals("STAR", event.path("bodyType").textValue());
             assertEquals("K", event.path("starType").textValue());
@@ -357,7 +368,7 @@ final class BodyScanEventTest {
             );
             assertEquals(
                     List.of("Schieni 4 a", "Schieni 4 b"),
-                    triggersOf(pipeline, "Scan").stream()
+                    triggersOf(pipeline, BODY_READING).stream()
                             .map(trigger -> requestOf(pipeline, trigger)
                                     .path("events").get(0)
                                     .path("body").textValue())

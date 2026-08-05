@@ -709,8 +709,8 @@ to the model.
 | --- | --- |
 | Request | `kairon.observer.decision.LlmDecisionRequest` |
 | Comment attribution | `ObserverTurnCoordinator` — the turn's own `triggerBusSequences`; there is no evidence mapping |
-| Event rules | `kairon.observer.decision.DecisionEventCatalog`, `RecordDecisionRule` |
-| Event description | `LlmPresentableJournalEvent.modelFacingDescription()`, implemented by each journal record |
+| Event rules | `kairon.observer.decision.DecisionEventCatalog`, keyed by journal class |
+| Event description | `LlmPresentableJournalEvent.modelFacingDescription()`, one constant sentence per class |
 | Mechanisms | `kairon.observer.decision.DecisionMechanism` |
 | Context slices | `kairon.observer.decision.DecisionContextProfile` |
 | Already-stated facts | `kairon.observer.decision.StatedFacts` |

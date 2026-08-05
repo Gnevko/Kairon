@@ -27,6 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class SemanticDispositionCoverageTest {
 
+    /**
+     * Counted per wire event name, which is what this catalogue is about.
+     *
+     * <p>These stay literal on purpose. A journal event that dispatches to
+     * several classes is still one entry here — the map is keyed by the name
+     * Frontier writes — so splitting a record does not move them. They move
+     * only when the pinned schema revision does.</p>
+     */
     private static final int CATALOG_EVENT_TYPE_COUNT = 272;
     private static final int NEW_ELIGIBLE_COUNT = 112;
     private static final int CONTEXT_ONLY_COUNT = 2;

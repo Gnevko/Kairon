@@ -2,7 +2,7 @@
 
 ## Evidence basis
 
-This document describes repository behavior as of 2026-08-04. It is factual,
+This document describes repository behavior as of 2026-08-05. It is factual,
 not a phase plan. Statements are based on production source, tests, `pom.xml`,
 the checked-in configuration example, and the current local replay
 configuration.
@@ -76,9 +76,10 @@ behaviour-preserving:
   a visit to a system begins, continues and ends. The behaviour graph and
   `BodySurveyNoveltyGuard` both ask it and keep their own memories; the
   arrival-star rule and the arrival body are shared too.
-- `DecisionEventCatalog` has two enumerable extension points — class-keyed rules
+- `DecisionEventCatalog` had two enumerable extension points — class-keyed rules
   and `RecordDecisionRule` — with `declaredRules()` as their union and a
-  fail-fast on an ambiguous record.
+  fail-fast on an ambiguous record. `RecordDecisionRule` is **removed** by
+  [ADR-0022](decisions/ADR-0022-VARIANT-DISPATCH-IN-THE-PARSER.md); see below.
 - `DecisionContextProfile` is separate from `DecisionMechanism`, and
   `DecisionEventRule.reading(...)` overrides the mechanism's default. `CODEX` and
   `ARRIVAL_DISCOVERY` no longer exist as mechanisms.
@@ -98,6 +99,53 @@ deterministic recording of every turn of a fixed replay with its trigger bus
 sequences, request document, episodes, occurrences, transitions and cursor — so
 a refactor can be compared against itself.
 
+**A wire event name is no longer a unit of meaning**
+([ADR-0022](decisions/ADR-0022-VARIANT-DISPATCH-IN-THE-PARSER.md)), and this is
+behaviour-preserving: the baseline recording is byte-identical before and after.
+Five journal records whose wire event carries more than one domain event are now
+sealed interfaces with one nested record per domain event and a single
+`of(RawJournalData)` factory registered in `JournalEventCatalog` — `ScanOrganic`
+(`Logged`, `Sampled`, `Analysed`, `Unrecognised`), `StartJump` (`Hyperspace`,
+`Supercruise`, `Unrecognised`), `EngineerLegacyConvert` (`Previewed`,
+`Converted`, `Unrecognised`), `LaunchDrone` (eight researched limpet kinds plus
+`Unspecified`) and `Scan` (`BodyReading`, `UndiscoveredStar`). The parser is the
+only thing that dispatches: `BehaviorEventNormalizer` lost its four per-record
+`switch` branches and its `Scan` branch, and its only remaining `instanceof` is
+the `FSDJump` boundary guard.
+
+`kairon.observation.journal.JournalEventLookup` answers a class-keyed registry
+for a variant through the record it belongs to — exact match, then one level of
+declared interfaces, never deeper. The registries that ask *what kind of journal
+event is this* (`SemanticSourceRoleCatalog`, `EventSignificancePolicy`,
+`SemanticAdapterRegistry`) keep the wire record as their key; the registries that
+ask *which domain event is this* (`BehaviorEventNormalizer`,
+`DecisionEventCatalog`) key on the variant, and a variant sharing its record's
+kind is catalogued once under the record.
+
+`UnrecognisedEventVariant` marks a variant whose discriminator this build does
+not know. It keeps its record's attribute list and takes
+`NormalizedEventType.unknown(originalEventName)` rather than a researched type.
+`Scan` has none: its discriminator is a shape rather than a vocabulary.
+
+`RecordDecisionRule` and `DecisionEventCatalog.size()` are **removed**.
+`Scan.UndiscoveredStar` is catalogued by class with the milestone's unchanged
+kind, mechanism, context profile, object name, uncounted claim and retained
+qualifiers, so there is nothing left for a record-earned rule to express.
+`DecisionEventCatalogCoverageTest` now asserts coverage rather than sizes: every
+admitted type resolves to a rule, and every catalogued type is an admitted type
+or a variant of one.
+
+`JournalEventVariantContractTest` (in `kairon.observation.journal`) is the
+cross-layer contract: for one parsed class there is one structural type, one
+domain kind and one description. Its corpus varies every discriminator, including
+values this build does not recognise, and asserts that the corpus really splits —
+7 wire event names, 23 classes. It replaces `DecisionRecordRuleTest`.
+
+**The model-facing text is unchanged.** Every variant returns the sentence its
+record returned before the split. Giving each variant its own sentence, and
+moving the trajectory vocabulary onto descriptions rather than identifiers, is
+model-facing work that has not been done.
+
 **A current event now says what it is, in its own words.**
 `LlmPresentableJournalEvent.modelFacingDescription()` is a second method on the
 contract that already marks the 119 researched records, and every one of them
@@ -109,11 +157,12 @@ no `switch` — and `events[*].event` carries the answer where `events[*].kind`
 used to be. The internal kind is unchanged and still drives selection, the
 behaviour graph, the trajectory vocabulary, diagnostics and the tests; it simply
 stops being serialized, because a name only this process shares is not an answer
-to what happened. `Scan` is the one record that reports two different things and
-chooses between two fixed phrases, reading the same
-`Scan.reportsUndiscoveredStar` predicate the projection reads — the one
+to what happened. `Scan` reports two different things, and since
+[ADR-0022](decisions/ADR-0022-VARIANT-DISPATCH-IN-THE-PARSER.md) that is two
+classes with one constant sentence each rather than one class choosing between
+two phrases. The parser dispatches on `Scan.reportsUndiscoveredStar` — the one
 implementation, which `BodySurveyFacts` delegates to, so no record reads the
-semantic layer to describe itself. A
+semantic layer to describe itself and no layer re-derives the reading. A
 trigger that cannot describe itself fails the turn through the existing
 preparation-failure path: no provider call, and the internal kind is never a
 fallback. `llmPresentation()` is untouched and is still not called in
@@ -363,7 +412,7 @@ The five newly researched neutral event records
 (`DockingRequested`, `DockingGranted`, `LaunchDrone`,
 `MaterialCollected`, and `FuelScoop`) now own conservative English
 presentations. They remain `DIAGNOSTIC_ONLY`; behavior-graph admission does
-not silently add LLM calls or alter `BALANCED-112`.
+not silently add LLM calls or alter `BALANCED`.
 
 The current exploration policy treats a scanner **result** as structural
 while refusing to count the same result twice. `Scan` and `FSSBodySignals`
@@ -413,7 +462,7 @@ topology reflects the old admission. `LeaveBody` is structural and
 records crossing above orbital-cruise altitude as a distinct planetary-route
 departure. All these event classes retain independently reviewed
 `LlmPresentableJournalEvent` implementations; graph classification does not
-change their `BALANCED-112` or `CONTEXT-2` observer roles.
+change their `BALANCED` or `CONTEXT` observer roles.
 
 The live Status path preserves each exact validated snapshot as immutable raw
 external evidence. `StatusStateDeltaAdapter` is state owned by the behavior
@@ -517,12 +566,14 @@ The checked-in runtime catalogue is pinned to
 `jixxed/ed-journal-schemas` revision
 `33a8f35e81868b168b4bbd647b5e13dbd8de062a`.
 
-It contains 272 known journal discriminators represented by 272 small public
-record classes in 15 category packages. Each record is a typed transport
-identity around the same exact `RawJournalData`; it is not a field-by-field
-domain model. The 114 records selected by `BALANCED-112` and `CONTEXT-2`
-additionally implement `LlmPresentableJournalEvent` and own researched,
-event-specific English presentations.
+It contains 272 known journal discriminators represented by 272 typed identities
+in 15 category packages: 267 small public record classes and 5 sealed interfaces
+whose 21 nested record variants are the domain events those wire names carry
+([ADR-0022](decisions/ADR-0022-VARIANT-DISPATCH-IN-THE-PARSER.md)). Each is a
+typed transport identity around the same exact `RawJournalData`; it is not a
+field-by-field domain model. The 114 identities selected by `BALANCED` and
+`CONTEXT` additionally implement `LlmPresentableJournalEvent` and own
+researched, event-specific English presentations.
 
 Unknown, missing, and non-string event discriminators use
 `UnknownJournalEvent`. Unknown fields on known events remain in raw JSON.
@@ -538,10 +589,18 @@ source of truth.
 
 `LlmJournalEventSelection` exposes these active researched profiles:
 
-- `BALANCED-112`: 112 reviewed types for the `NEW` FIFO,
+- `BALANCED`: 112 reviewed types for the `NEW` FIFO,
   including `Commander`, `Friends`, `ApproachBody`, `ReceiveText`, `DockSRV`,
   `Scan`, `FSSBodySignals`, `SAASignalsFound`, and `LeaveBody`;
-- `CONTEXT-2`: two context types: `FSDTarget` and `Location`.
+- `CONTEXT`: two context types: `FSDTarget` and `Location`.
+
+The counts left the profile names in
+[ADR-0022](decisions/ADR-0022-VARIANT-DISPATCH-IN-THE-PARSER.md). `BALANCED-112`
+pinned how many wire types had been researched into the identity of the profile,
+and stopped being answerable once one wire type could dispatch to several
+classes. `NEW_EVENT_TYPE_COUNT` and `CONTEXT_EVENT_TYPE_COUNT` are derived from
+the lists, and class initialisation checks what the constant was really
+protecting: a class listed twice.
 
 All 114 selected records implement the researched presentation contract.
 Every other known or unknown event currently has the runtime role
@@ -564,18 +623,18 @@ Four admission rules narrow NEW eligibility below the type level.
 particular. The decision reads the `Channel` field only — never the message
 text and never a localised rendering, either of which would make admission
 depend on the game's display language. `ReceiveText` remains in
-`BALANCED-112`, every other channel is unaffected, and a declined
+`BALANCED`, every other channel is unaffected, and a declined
 observation is still parsed, projected into canonical state and the graph,
 recorded as a semantic effect for the next turn, traced and shown in the GUI.
 When a batch would have consisted only of declined observations, no batch
 exists and the provider is not called.
 
-The same method declines a `Scan` whose depth is not `Detailed` or which
-names no body, and a signal record from either scanner reporting no positive
-count of anything: neither established a result. One shallow `Scan` is admitted
-— a star reading with `WasDiscovered: false`, which
-`Scan.reportsUndiscoveredStar` identifies from the record's shape
-alone. A fourth, stateful check
+The same method declines a `Scan.BodyReading` whose depth is not `Detailed` or
+which names no body, and a signal record from either scanner reporting no
+positive count of anything: neither established a result. One shallow reading is
+admitted — a star with `WasDiscovered: false`, which the parser has already given
+its own class, `Scan.UndiscoveredStar`, from the record's shape alone. A fourth,
+stateful check
 follows it. `BodySurveyNoveltyGuard`, owned by `LlmJournalObserverSubscriber`,
 declines a scanner result identical to the one the model was already given for
 that body **during this visit**. It applies the same rule as the graph

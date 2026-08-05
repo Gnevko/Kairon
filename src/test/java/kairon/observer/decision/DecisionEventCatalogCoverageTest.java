@@ -1,5 +1,6 @@
 package kairon.observer.decision;
 
+import kairon.observation.journal.JournalEventLookup;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observer.LlmJournalEventSelection;
 import org.junit.jupiter.api.Test;
@@ -39,12 +40,20 @@ final class DecisionEventCatalogCoverageTest {
                 "a model-eligible event with no rule would reach the model "
                         + "under a guessed name"
         );
-        assertEquals(
-                LlmJournalEventSelection.TARGET_NEW_EVENT_TYPE_COUNT,
-                DecisionEventCatalog.size()
-        );
     }
 
+    /**
+     * Nothing is catalogued that no admitted observation can reach.
+     *
+     * <p>Coverage rather than a count. The two used to be the same question —
+     * one entry per admitted type, so comparing sizes proved the table held
+     * nothing else. A record that dispatches to several classes broke that
+     * arithmetic without breaking anything real: the profile admits the record
+     * and the table may hold an entry per variant, so the sizes differ by
+     * however many variants happen to need their own kind. What still has to
+     * hold is that every entry is reachable, and reachable means the entry is
+     * an admitted type or a variant of one.</p>
+     */
     @Test
     void theCatalogueCoversNothingBeyondTheSelectionProfile() {
         Set<Class<? extends JournalEventObservation>> eligible =
@@ -52,7 +61,7 @@ final class DecisionEventCatalogCoverageTest {
         List<String> extra = new ArrayList<>();
         for (Class<? extends JournalEventObservation> covered
                 : DecisionEventCatalog.coveredTypes()) {
-            if (!eligible.contains(covered)) {
+            if (!JournalEventLookup.covers(eligible, covered)) {
                 extra.add(covered.getSimpleName());
             }
         }
@@ -90,13 +99,7 @@ final class DecisionEventCatalogCoverageTest {
         }
     }
 
-    /**
-     * Only mechanisms that are actually reachable are declared.
-     *
-     * <p>Over every declared rule rather than every covered type: one rule is
-     * earned by a record rather than keyed by a class, and a mechanism reachable
-     * only through it is still reachable.</p>
-     */
+    /** Only mechanisms that are actually reachable are declared. */
     @Test
     void everyMechanismIsUsedByAtLeastOneEvent() {
         Set<DecisionMechanism> used = new LinkedHashSet<>();

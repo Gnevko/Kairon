@@ -78,11 +78,12 @@ final class DecisionContextProfileContractTest {
         );
         assertEquals(
                 DecisionMechanism.EXPLORATION,
-                DecisionEventCatalog.recordRules().getFirst().rule().mechanism()
+                DecisionEventCatalog.ruleFor(Scan.UndiscoveredStar.class)
+                        .mechanism()
         );
         assertEquals(
                 DecisionContextProfile.SYSTEM_ONLY,
-                DecisionEventCatalog.recordRules().getFirst().rule()
+                DecisionEventCatalog.ruleFor(Scan.UndiscoveredStar.class)
                         .contextProfile()
         );
     }

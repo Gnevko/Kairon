@@ -57,7 +57,7 @@ class JournalEventOperationalLlmPresentationTest {
 
     @Test
     void launchDronePreservesUnknownSourceTypeAndClaimsNoOutcome() {
-        LaunchDrone event = new LaunchDrone(rawData("""
+        LaunchDrone event = LaunchDrone.of(rawData("""
                 {"timestamp":"2025-10-24T18:38:21Z","event":"LaunchDrone","Type":"Recon"}
                 """.strip()));
 

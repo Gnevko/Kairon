@@ -22,31 +22,56 @@ import static kairon.observation.journal.LlmPresentableJournalEvent.textual;
  * Typed identity and sourced LLM presentation for the Elite Dangerous
  * {@code Scan} journal event.
  *
+ * <p>One wire event, two domain events. A reading establishes what a body is;
+ * a shallower reading of a star that reports nobody had discovered it is a
+ * different assertion made from the same record, and it is the only record that
+ * ever carries that fact. The dispatch happens once, here, at parse time.</p>
+ *
+ * <p>It is the one split whose variants are genuinely different domain events
+ * downstream — {@code BODY_SCANNED} against
+ * {@code SYSTEM_UNDISCOVERED_CONFIRMED} — and before the split every layer that
+ * needed to tell them apart re-read the record to do it: the behaviour
+ * normalizer, the decision catalogue through a record-earned rule, and the
+ * description through a ternary of its own. Three readings of one predicate,
+ * each of which could have been the one that drifted.</p>
+ *
+ * <p>The sealed interface stays the record as far as everything that asks
+ * <em>what kind of journal event is this</em> is concerned — source role,
+ * structural significance, the semantic adapter. Those were decided once when
+ * the event was researched, and one research answer does not become two because
+ * the parser learned to dispatch.</p>
+ *
  * @see <a href="https://hosting.zaonce.net/community/journal/v37/Journal_Manual_v37.pdf">
  * Frontier Player Journal Manual v37, section 6.3</a>
  */
-public record Scan(RawJournalData raw)
-        implements LlmPresentableJournalEvent {
+public sealed interface Scan extends LlmPresentableJournalEvent {
 
-    public static final String EVENT_TYPE = "Scan";
+    String EVENT_TYPE = "Scan";
 
-    private static final BigDecimal KELVIN_OFFSET =
-            new BigDecimal("273.15");
-    private static final BigDecimal STANDARD_GRAVITY =
-            new BigDecimal("9.80665");
-    private static final BigDecimal METRES_PER_KILOMETRE =
-            new BigDecimal("1000");
-    private static final BigDecimal PASCALS_PER_KILOPASCAL =
-            new BigDecimal("1000");
-    private static final BigDecimal FRACTION_TO_PERCENT =
-            new BigDecimal("100");
+    BigDecimal KELVIN_OFFSET = new BigDecimal("273.15");
+    BigDecimal STANDARD_GRAVITY = new BigDecimal("9.80665");
+    BigDecimal METRES_PER_KILOMETRE = new BigDecimal("1000");
+    BigDecimal PASCALS_PER_KILOPASCAL = new BigDecimal("1000");
+    BigDecimal FRACTION_TO_PERCENT = new BigDecimal("100");
 
-    public Scan {
-        raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
+    /**
+     * The domain event this record actually is.
+     *
+     * <p>The single dispatch, and the only place {@link
+     * #reportsUndiscoveredStar} decides anything about a parsed observation.
+     * There is no unrecognised arm: the discriminator is not a vocabulary
+     * Frontier can extend but a shape the record either has or does not, and
+     * every reading that is not the star milestone is a reading of a body.</p>
+     */
+    static Scan of(RawJournalData raw) {
+        JournalEventObservation.requireEvent(raw, EVENT_TYPE);
+        return reportsUndiscoveredStar(raw.parsedJsonObject())
+                ? new UndiscoveredStar(raw)
+                : new BodyReading(raw);
     }
 
     /**
-     * Whether this record is a star reading that reports no prior discovery.
+     * Whether a record is a star reading that reports no prior discovery.
      *
      * <p>Shape only, and deliberately not "is this the arrival star": the
      * record cannot say which body a system was entered at. What it can say is
@@ -54,42 +79,80 @@ public record Scan(RawJournalData raw)
      * body, whose {@code WasDiscovered} is explicitly false. Which visit that
      * star belongs to is decided by the layers that track visits.</p>
      *
-     * <p>This is the one implementation. {@code BodySurveyFacts} delegates to
-     * it, so the observer's admission, the graph's episode policy, the model
-     * facing projection and the sentence below all read the same fields the
-     * same way — and the record owns the shape of its own JSON rather than
-     * borrowing it from a layer above.</p>
+     * <p>This is the one implementation, and since the split it is asked of a
+     * parsed observation exactly once — by {@link #of}. It stays public because
+     * the layers that track visits hold a stored record rather than the typed
+     * observation: {@code BodySurveyFacts} delegates to it, so the graph's
+     * episode policy and the observer's arrival memory read the same fields the
+     * same way as the parser did.</p>
      *
      * <p>An absent or true {@code WasDiscovered} establishes nothing: the flag
      * is a claim the record either makes or does not, and a missing one is
      * silence rather than a denial. Detailed readings are excluded because they
      * establish the body in full and are reported as a scan result.</p>
      */
-    public static boolean reportsUndiscoveredStar(JsonNode raw) {
+    static boolean reportsUndiscoveredStar(JsonNode raw) {
         return !"DETAILED".equals(scanDepth(raw))
                 && !text(raw, "StarType").isEmpty()
                 && isFalse(raw, "WasDiscovered")
                 && namesABody(raw);
     }
 
+    /** A reading of what a star, planet or moon is. */
+    record BodyReading(RawJournalData raw) implements Scan {
+
+        public BodyReading {
+            raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
+        }
+
+        @Override
+        public String modelFacingDescription() {
+            return "A discovery scan reported a star, planet or moon's "
+                    + "properties.";
+        }
+    }
+
     /**
-     * One record, two different things it can report.
+     * A star reported as never having been discovered.
      *
-     * <p>A detailed reading establishes what a body is. A shallower reading of
-     * a star that reports nobody had discovered it is a different assertion
-     * made from the same record, and it is the only record that ever carries
-     * that fact. The choice is between two fixed phrases decided by
-     * {@link #reportsUndiscoveredStar}, so the record and the projection cannot
-     * disagree about which assertion this is. Neither phrase says which star
-     * it is or which visit it belongs to — the record does not establish
-     * either, and the named fields beside the sentence carry what it does.</p>
+     * <p>The sentence does not say which star it is or which visit it belongs
+     * to — the record establishes neither, and the named fields beside the
+     * sentence carry what it does.</p>
+     */
+    record UndiscoveredStar(RawJournalData raw) implements Scan {
+
+        public UndiscoveredStar {
+            raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
+        }
+
+        @Override
+        public String modelFacingDescription() {
+            return "A scan reported a star as not previously discovered.";
+        }
+    }
+
+    // ----------------------------------------------------------- presentation
+
+    /**
+     * One presentation for both variants, deliberately.
+     *
+     * <p>What differs between the two is the assertion the record makes, which
+     * is {@link #modelFacingDescription()}. The facts themselves are the
+     * record's own fields, read the same way whichever assertion this is, and
+     * an override per variant would be the same body written twice.</p>
      */
     @Override
-    public String modelFacingDescription() {
-        return reportsUndiscoveredStar(raw().parsedJsonObject())
-                ? "A scan reported a star as not previously discovered."
-                : "A discovery scan reported a star, planet or moon's "
-                        + "properties.";
+    default LlmEventPresentation llmPresentation() {
+        JsonNode event = raw().parsedJsonObject();
+        List<String> sentences = new ArrayList<>();
+        sentences.add(scanIdentity(event));
+        classification(event).ifPresent(sentences::add);
+        physicalProperties(event).ifPresent(sentences::add);
+        atmosphereComposition(event).ifPresent(sentences::add);
+        bodyComposition(event).ifPresent(sentences::add);
+        scanFlags(event).ifPresent(sentences::add);
+        materialOccurrences(event).ifPresent(sentences::add);
+        return new LlmEventPresentation(sentences);
     }
 
     private static String scanDepth(JsonNode raw) {
@@ -122,20 +185,6 @@ public record Scan(RawJournalData raw)
         return value != null && value.isTextual()
                 ? value.textValue().strip()
                 : "";
-    }
-
-    @Override
-    public LlmEventPresentation llmPresentation() {
-        JsonNode event = raw.parsedJsonObject();
-        List<String> sentences = new ArrayList<>();
-        sentences.add(scanIdentity(event));
-        classification(event).ifPresent(sentences::add);
-        physicalProperties(event).ifPresent(sentences::add);
-        atmosphereComposition(event).ifPresent(sentences::add);
-        bodyComposition(event).ifPresent(sentences::add);
-        scanFlags(event).ifPresent(sentences::add);
-        materialOccurrences(event).ifPresent(sentences::add);
-        return new LlmEventPresentation(sentences);
     }
 
     private static String scanIdentity(JsonNode event) {
@@ -443,8 +492,7 @@ public record Scan(RawJournalData raw)
     }
 
     private static boolean isPercentage(String value) {
-        java.math.BigDecimal percentage = new java.math.BigDecimal(value);
-        return isPercentage(percentage);
+        return isPercentage(new BigDecimal(value));
     }
 
     private static boolean isPercentage(BigDecimal percentage) {

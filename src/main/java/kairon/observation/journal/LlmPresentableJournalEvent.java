@@ -36,10 +36,11 @@ public interface LlmPresentableJournalEvent
      * supposed cause or next step, and it never assembles a sentence out of
      * body names, systems, coordinates or counts.</p>
      *
-     * <p>A record whose class carries more than one distinct model-facing
-     * assertion may choose between fixed canonical phrases by reading its own
-     * fields. Choosing is all it may do: a value is never interpolated, and the
-     * branch has to answer a real difference in what the record reports.</p>
+     * <p>It never chooses. A wire event whose records carry more than one
+     * distinct model-facing assertion is dispatched to one class per assertion
+     * by the parser, and each class answers with its own constant sentence — so
+     * a description that read the record's own fields to pick a phrase would be
+     * a second dispatch, made where nothing else can see it.</p>
      *
      * <p>This is not a shorter {@link #llmPresentation()}. That method renders
      * the facts of one record as prose and is a separate contract; this one

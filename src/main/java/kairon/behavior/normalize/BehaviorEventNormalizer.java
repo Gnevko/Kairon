@@ -41,7 +41,6 @@ import kairon.observation.journal.event.travel.SupercruiseEntry;
 import kairon.observation.journal.event.travel.SupercruiseExit;
 import kairon.observation.journal.event.travel.Touchdown;
 import kairon.observation.journal.event.travel.Undocked;
-import kairon.semantics.BodySurveyFacts;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -58,30 +57,6 @@ public final class BehaviorEventNormalizer {
             Class<? extends JournalEventObservation>,
             DirectRule
             > DIRECT_RULES = directRules();
-
-    /**
-     * Every attribute a scan's admission policy compares, and nothing that only
-     * the raw record needs: the occurrence is what a later scan of the same body
-     * is compared against, and the arrival-star milestone is compared against
-     * the same fields.
-     */
-    private static final List<String> SCAN_ATTRIBUTES = List.of(
-            "SystemAddress",
-            "BodyID",
-            "BodyName",
-            "StarSystem",
-            "ScanType",
-            "PlanetClass",
-            "StarType",
-            "Landable",
-            "TerraformState",
-            "Atmosphere",
-            "Volcanism",
-            "WasDiscovered",
-            "WasMapped",
-            "WasFootfalled",
-            "DistanceFromArrivalLS"
-    );
 
     public NormalizedBehaviorEvent normalize(
             PublishedObservation<? extends JournalEventObservation> observation
@@ -113,23 +88,15 @@ public final class BehaviorEventNormalizer {
 
         JsonNode raw = event.raw().parsedJsonObject();
         String originalEventName = originalEventName(event);
-        if (event instanceof ScanOrganic) {
-            return normalizeScanOrganic(raw, timestamp, originalEventName);
-        }
-        if (event instanceof Scan) {
-            return normalizeScan(raw, timestamp, originalEventName);
-        }
-        if (event instanceof StartJump) {
-            return normalizeStartJump(raw, timestamp, originalEventName);
-        }
-        if (event instanceof LaunchDrone) {
-            return normalizeLaunchDrone(raw, timestamp, originalEventName);
-        }
-
         DirectRule rule = DIRECT_RULES.get(event.getClass());
         if (rule != null) {
             return event(
-                    rule.eventType(),
+                    // A variant whose discriminator this build does not
+                    // recognise keeps its wire event's attribute list — it is
+                    // the same record — but never borrows a researched type.
+                    rule.eventType() == null
+                            ? NormalizedEventType.unknown(originalEventName)
+                            : rule.eventType(),
                     timestamp,
                     raw,
                     originalEventName,
@@ -187,125 +154,68 @@ public final class BehaviorEventNormalizer {
         );
     }
 
-    private static NormalizedBehaviorEvent normalizeScanOrganic(
-            JsonNode raw,
-            Instant timestamp,
-            String originalEventName
-    ) {
-        NormalizedEventType eventType = switch (text(raw, "ScanType")) {
-            case "Log" -> NormalizedEventType.SCAN_ORGANIC_LOG;
-            case "Sample" -> NormalizedEventType.SCAN_ORGANIC_SAMPLE;
-            case "Analyse" -> NormalizedEventType.SCAN_ORGANIC_ANALYSE;
-            default -> NormalizedEventType.unknown(originalEventName);
+    /**
+     * What every step of a sampling sequence records; one wire event.
+     *
+     * <p>A method rather than a constant: {@code DIRECT_RULES} is built by a
+     * static field declared above every attribute constant in this class, so a
+     * constant read while that map is being built would still be null.</p>
+     */
+    private static String[] scanOrganicAttributes() {
+        return new String[]{
+                "SystemAddress",
+                "Body",
+                "ScanType",
+                "Genus",
+                "Genus_Localised",
+                "Species",
+                "Species_Localised",
+                "Variant",
+                "Variant_Localised",
+                "WasLogged"
         };
-        return event(
-                eventType,
-                timestamp,
-                raw,
-                originalEventName,
-                List.of(
-                        "SystemAddress",
-                        "Body",
-                        "ScanType",
-                        "Genus",
-                        "Genus_Localised",
-                        "Species",
-                        "Species_Localised",
-                        "Variant",
-                        "Variant_Localised",
-                        "WasLogged"
-                )
-        );
     }
 
     /**
-     * A scan is two structural things, told apart by what the record says.
+     * Every attribute a scan's admission policy compares, and nothing that only
+     * the raw record needs: the occurrence is what a later scan of the same body
+     * is compared against, and the arrival-star milestone is compared against
+     * the same fields. Both readings of the record keep the same list — they
+     * differ in what they assert, not in which fields they were read from.
      *
-     * <p>A detailed reading establishes a body, and that is
-     * {@link NormalizedEventType#BODY_SCANNED}. A shallower reading of a star
-     * that reports no prior discovery establishes something else entirely —
-     * that nobody had been here — and it is the only record in the journal that
-     * carries the arrival star's class and discovery flag at all. Giving it the
-     * scan's own type would file a milestone as a scan result; leaving it
-     * unrecorded is what lost the fact.</p>
-     *
-     * <p>Only the shape is decided here. Whether the star is the one this visit
-     * arrived at, and whether the visit has already been told, are episode
-     * questions and belong to {@code BodySurveySelectionPolicy}.</p>
+     * <p>A method rather than a constant, for the reason
+     * {@link #scanOrganicAttributes()} gives.</p>
      */
-    private static NormalizedBehaviorEvent normalizeScan(
-            JsonNode raw,
-            Instant timestamp,
-            String originalEventName
-    ) {
-        return event(
-                BodySurveyFacts.undiscoveredStarReading(raw)
-                        ? NormalizedEventType.SYSTEM_UNDISCOVERED_CONFIRMED
-                        : NormalizedEventType.BODY_SCANNED,
-                timestamp,
-                raw,
-                originalEventName,
-                SCAN_ATTRIBUTES
-        );
+    private static String[] scanAttributes() {
+        return new String[]{
+                "SystemAddress",
+                "BodyID",
+                "BodyName",
+                "StarSystem",
+                "ScanType",
+                "PlanetClass",
+                "StarType",
+                "Landable",
+                "TerraformState",
+                "Atmosphere",
+                "Volcanism",
+                "WasDiscovered",
+                "WasMapped",
+                "WasFootfalled",
+                "DistanceFromArrivalLS"
+        };
     }
 
-    private static NormalizedBehaviorEvent normalizeStartJump(
-            JsonNode raw,
-            Instant timestamp,
-            String originalEventName
-    ) {
-        NormalizedEventType eventType = switch (text(raw, "JumpType")) {
-            case "Hyperspace" -> NormalizedEventType.HYPERSPACE_JUMP_STARTED;
-            case "Supercruise" ->
-                    NormalizedEventType.SUPERCRUISE_JUMP_STARTED;
-            default -> NormalizedEventType.unknown(originalEventName);
+    /** What either charge records; one wire event. */
+    private static String[] startJumpAttributes() {
+        return new String[]{
+                "JumpType",
+                "StarSystem",
+                "SystemAddress",
+                "StarClass"
         };
-        return event(
-                eventType,
-                timestamp,
-                raw,
-                originalEventName,
-                List.of(
-                        "JumpType",
-                        "StarSystem",
-                        "SystemAddress",
-                        "StarClass"
-                )
-        );
     }
 
-    private static NormalizedBehaviorEvent normalizeLaunchDrone(
-            JsonNode raw,
-            Instant timestamp,
-            String originalEventName
-    ) {
-        NormalizedEventType eventType = switch (text(raw, "Type")) {
-            case "Hatchbreaker" ->
-                    NormalizedEventType.HATCH_BREAKER_LIMPET_LAUNCHED;
-            case "FuelTransfer" ->
-                    NormalizedEventType.FUEL_TRANSFER_LIMPET_LAUNCHED;
-            case "Collection" ->
-                    NormalizedEventType.COLLECTION_LIMPET_LAUNCHED;
-            case "Prospector" ->
-                    NormalizedEventType.PROSPECTOR_LIMPET_LAUNCHED;
-            case "Repair" ->
-                    NormalizedEventType.REPAIR_LIMPET_LAUNCHED;
-            case "Research" ->
-                    NormalizedEventType.RESEARCH_LIMPET_LAUNCHED;
-            case "Decontamination" ->
-                    NormalizedEventType.DECONTAMINATION_LIMPET_LAUNCHED;
-            case "Recon" ->
-                    NormalizedEventType.RECON_LIMPET_LAUNCHED;
-            default -> NormalizedEventType.LIMPET_LAUNCHED;
-        };
-        return event(
-                eventType,
-                timestamp,
-                raw,
-                originalEventName,
-                List.of("Type")
-        );
-    }
 
     private static NormalizedBehaviorEvent event(
             NormalizedEventType eventType,
@@ -399,6 +309,91 @@ public final class BehaviorEventNormalizer {
                 "ProbesUsed",
                 "EfficiencyTarget"
         );
+        // The two things a scan record reports. A reading establishes what a
+        // body is; a shallower reading of a star that reports no prior
+        // discovery establishes that nobody had been here, and is the only
+        // record in the journal carrying the arrival star's class and
+        // discovery flag at all. Giving the second one the scan's own type
+        // would file a milestone as a scan result; leaving it unrecorded is
+        // what lost the fact. Whether that star is the one this visit arrived
+        // at, and whether the visit has already been told, are episode
+        // questions and belong to BodySurveySelectionPolicy.
+        register(
+                rules,
+                Scan.BodyReading.class,
+                NormalizedEventType.BODY_SCANNED,
+                scanAttributes()
+        );
+        register(
+                rules,
+                Scan.UndiscoveredStar.class,
+                NormalizedEventType.SYSTEM_UNDISCOVERED_CONFIRMED,
+                scanAttributes()
+        );
+        // The four steps of an organic sampling sequence. Ordinary rules now:
+        // the parser has already told them apart, so there is nothing left
+        // here to switch on.
+        register(
+                rules,
+                ScanOrganic.Logged.class,
+                NormalizedEventType.SCAN_ORGANIC_LOG,
+                scanOrganicAttributes()
+        );
+        register(
+                rules,
+                ScanOrganic.Sampled.class,
+                NormalizedEventType.SCAN_ORGANIC_SAMPLE,
+                scanOrganicAttributes()
+        );
+        register(
+                rules,
+                ScanOrganic.Analysed.class,
+                NormalizedEventType.SCAN_ORGANIC_ANALYSE,
+                scanOrganicAttributes()
+        );
+        registerUnrecognised(
+                rules,
+                ScanOrganic.Unrecognised.class,
+                scanOrganicAttributes()
+        );
+        // Charging for another system, or for supercruise.
+        register(
+                rules,
+                StartJump.Hyperspace.class,
+                NormalizedEventType.HYPERSPACE_JUMP_STARTED,
+                startJumpAttributes()
+        );
+        register(
+                rules,
+                StartJump.Supercruise.class,
+                NormalizedEventType.SUPERCRUISE_JUMP_STARTED,
+                startJumpAttributes()
+        );
+        registerUnrecognised(
+                rules,
+                StartJump.Unrecognised.class,
+                startJumpAttributes()
+        );
+        // The eight researched limpet kinds, plus a launch the journal did not
+        // name canonically. Ordinary rules now; the parser told them apart.
+        register(rules, LaunchDrone.HatchBreaker.class,
+                NormalizedEventType.HATCH_BREAKER_LIMPET_LAUNCHED, "Type");
+        register(rules, LaunchDrone.FuelTransfer.class,
+                NormalizedEventType.FUEL_TRANSFER_LIMPET_LAUNCHED, "Type");
+        register(rules, LaunchDrone.Collection.class,
+                NormalizedEventType.COLLECTION_LIMPET_LAUNCHED, "Type");
+        register(rules, LaunchDrone.Prospector.class,
+                NormalizedEventType.PROSPECTOR_LIMPET_LAUNCHED, "Type");
+        register(rules, LaunchDrone.Repair.class,
+                NormalizedEventType.REPAIR_LIMPET_LAUNCHED, "Type");
+        register(rules, LaunchDrone.Research.class,
+                NormalizedEventType.RESEARCH_LIMPET_LAUNCHED, "Type");
+        register(rules, LaunchDrone.Decontamination.class,
+                NormalizedEventType.DECONTAMINATION_LIMPET_LAUNCHED, "Type");
+        register(rules, LaunchDrone.Recon.class,
+                NormalizedEventType.RECON_LIMPET_LAUNCHED, "Type");
+        register(rules, LaunchDrone.Unspecified.class,
+                NormalizedEventType.LIMPET_LAUNCHED, "Type");
         register(
                 rules,
                 SAASignalsFound.class,
@@ -684,6 +679,21 @@ public final class BehaviorEventNormalizer {
         };
     }
 
+    /**
+     * The unrecognised variant of a split record.
+     *
+     * <p>Same wire event, same attributes, no researched type. Registering it
+     * keeps the attribute list with the record it belongs to instead of
+     * dropping the occurrence onto the generic fallback.</p>
+     */
+    private static void registerUnrecognised(
+            Map<Class<? extends JournalEventObservation>, DirectRule> rules,
+            Class<? extends JournalEventObservation> payloadType,
+            String... attributeNames
+    ) {
+        register(rules, payloadType, null, attributeNames);
+    }
+
     private static void register(
             Map<Class<? extends JournalEventObservation>, DirectRule> rules,
             Class<? extends JournalEventObservation> payloadType,
@@ -702,12 +712,18 @@ public final class BehaviorEventNormalizer {
         }
     }
 
+    /**
+     * @param eventType the structural type, or {@code null} for a variant whose
+     *                  discriminator this build does not recognise. Null is the
+     *                  only way to say "this record's attributes, but no
+     *                  researched type", and it is reachable only through
+     *                  {@link #registerUnrecognised}.
+     */
     private record DirectRule(
             NormalizedEventType eventType,
             List<String> attributeNames
     ) {
         private DirectRule {
-            Objects.requireNonNull(eventType, "eventType");
             attributeNames = List.copyOf(attributeNames);
         }
     }

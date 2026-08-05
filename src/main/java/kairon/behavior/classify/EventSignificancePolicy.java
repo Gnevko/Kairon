@@ -1,5 +1,6 @@
 package kairon.behavior.classify;
 
+import kairon.observation.journal.JournalEventLookup;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.event.combat.Interdicted;
 import kairon.observation.journal.event.combat.UnderAttack;
@@ -160,13 +161,16 @@ public final class EventSignificancePolicy {
             Class<? extends JournalEventObservation> eventType
     ) {
         Objects.requireNonNull(eventType, "eventType");
-        if (BOUNDARY_TYPES.contains(eventType)) {
+        // A variant answers through its record: whether a journal event is
+        // structurally significant is a property of the event, not of which
+        // step of it this instance turned out to be.
+        if (JournalEventLookup.covers(BOUNDARY_TYPES, eventType)) {
             return EventSignificance.BOUNDARY;
         }
-        if (SIGNIFICANT_TYPES.contains(eventType)) {
+        if (JournalEventLookup.covers(SIGNIFICANT_TYPES, eventType)) {
             return EventSignificance.SIGNIFICANT;
         }
-        if (CONTEXT_TYPES.contains(eventType)) {
+        if (JournalEventLookup.covers(CONTEXT_TYPES, eventType)) {
             return EventSignificance.CONTEXT;
         }
         return EventSignificance.NOISE;
