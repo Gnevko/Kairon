@@ -116,6 +116,13 @@ beyond their own invariants, needed by two packages that must not depend on each
 other. The compactor's typed failure projects itself into `ContextOverflow`, so
 the sizing is not restated by whoever records it.
 
+*Amended by [ADR-0013](ADR-0013-LLM-DECISION-INTERFACE.md)'s second amendment:
+`DecisionEvidence` is deleted. It shared a citation between the request
+projection and the response validator, and the response no longer cites
+anything, so `kairon.llm` needs nothing from either side.
+`kairon.turn.overflow.ContextOverflow` is unchanged and remains the reason the
+package exists.*
+
 ### One body identity
 
 `kairon.semantics.BodyIdentity` is the value every layer means by "this body":

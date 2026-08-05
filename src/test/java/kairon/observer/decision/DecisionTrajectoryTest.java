@@ -147,7 +147,7 @@ final class DecisionTrajectoryTest {
                             triggers.get(triggers.size() - 2),
                             triggers.getLast()
                     ))
-            ).request()));
+            )));
 
             assertEquals(
                     List.of(
@@ -182,7 +182,7 @@ final class DecisionTrajectoryTest {
                         ),
                         List.of(NormalizedEventType.DISEMBARK)
                 )))
-        ).request()));
+        )));
 
         JsonNode likelyNext = request.path("trajectory").path("likelyNext");
         assertEquals(1, likelyNext.size());
@@ -224,7 +224,7 @@ final class DecisionTrajectoryTest {
                                 NormalizedEventType.LIFTOFF
                         )
                 )))
-        ).request()));
+        )));
 
         List<String> predicted = new ArrayList<>();
         request.path("trajectory").path("likelyNext").forEach(prediction ->
@@ -253,7 +253,7 @@ final class DecisionTrajectoryTest {
         DecisionTurnFixture fixture = new DecisionTurnFixture();
         String serialized = serializer.serialize(factory.create(
                 fixture.inputs(List.of(fixture.graphDisabled(touchdown())))
-        ).request());
+        ));
 
         assertFalse(serialized.contains("trajectory"));
         assertFalse(serialized.contains("recent"));
@@ -286,7 +286,7 @@ final class DecisionTrajectoryTest {
                         ),
                         List.of(NormalizedEventType.DISEMBARK)
                 )))
-        ).request());
+        ));
 
         for (String internal : List.of(
                 "occurrenceId",
@@ -344,7 +344,7 @@ final class DecisionTrajectoryTest {
                         ),
                         List.of(NormalizedEventType.DISEMBARK)
                 )))
-        ).request());
+        ));
 
         for (String spelling : List.of(
                 "SYSTEM_ENTRY",
@@ -520,7 +520,7 @@ final class DecisionTrajectoryTest {
                 fixture.inputs(List.of(
                         fixture.graphed(touchdown(), trajectory, true, 0)
                 ))
-        ).request()));
+        )));
     }
 
     private static String touchdown() {

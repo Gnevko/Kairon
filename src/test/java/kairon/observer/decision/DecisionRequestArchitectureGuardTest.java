@@ -62,6 +62,14 @@ final class DecisionRequestArchitectureGuardTest {
             "contextKey",
             "observedTransitionCount",
             "contextObservedTransitionCount",
+            // The event id, the pointer at it, and the citation both existed
+            // for. All three were real properties of this contract; none is
+            // sent now. Checked at every depth, so a change cannot reintroduce
+            // the pointer while the events stay clean.
+            "id",
+            "eventId",
+            "evidence",
+            "evidenceIds",
             "omittedOccurrenceCount",
             "totalOccurrenceCount",
             "activeEventCounts",
@@ -220,22 +228,55 @@ final class DecisionRequestArchitectureGuardTest {
         }
     }
 
-    /** Local ids are dense, ordered and start at one in every request. */
+    /**
+     * No request identifies an event to the model.
+     *
+     * <p>The projection still numbers its events {@code 1..n} — the trace, the
+     * change attribution and the turn's own bookkeeping all key on that — but
+     * the number is not written. A model handed an identity it cannot verify
+     * can only cite it, and there is nothing on its side of the exchange to
+     * check a citation against.</p>
+     *
+     * <p>Checked against every spelling the number could come back under, not
+     * just {@code id}: the guard walks the whole event object, so a future
+     * field cannot reintroduce the identity as {@code eventId} or
+     * {@code index}.</p>
+     */
     @Test
-    void everyRequestNumbersItsEventsFromOne() {
+    void noRequestIdentifiesAnEventToTheModel() {
         for (Fixture fixture : fixtures()) {
             JsonNode events = read(fixture.json()).path("events");
             assertTrue(
                     events.size() >= 1,
                     () -> fixture.name() + " sent no events"
             );
-            List<Integer> ids = new ArrayList<>();
-            events.forEach(event -> ids.add(event.path("id").intValue()));
-            List<Integer> expected = new ArrayList<>();
-            for (int index = 1; index <= events.size(); index++) {
-                expected.add(index);
+            for (JsonNode event : events) {
+                for (String identity
+                        : List.of("id", "eventId", "index", "position")) {
+                    assertFalse(
+                            event.has(identity),
+                            () -> fixture.name() + " identifies an event as "
+                                    + identity + ": " + fixture.json()
+                    );
+                }
             }
-            assertEquals(expected, ids, fixture.name());
+        }
+    }
+
+    /** The events section is exactly the descriptions and their fields. */
+    @Test
+    void everyEventStartsWithWhatHappened() {
+        for (Fixture fixture : fixtures()) {
+            for (JsonNode event : read(fixture.json()).path("events")) {
+                List<String> names = new ArrayList<>();
+                event.fieldNames().forEachRemaining(names::add);
+                assertEquals(
+                        "event",
+                        names.getFirst(),
+                        () -> fixture.name() + " leads with something other "
+                                + "than what happened: " + fixture.json()
+                );
+            }
         }
     }
 
@@ -288,6 +329,113 @@ final class DecisionRequestArchitectureGuardTest {
                     "the prompt must not name " + internal
             );
         }
+    }
+
+    /**
+     * The prompt asks for no identity, because it offers none.
+     *
+     * <p>The instructions and the document have to agree: an output contract
+     * that asks the model to name the events it used would be asking for
+     * numbers the request stopped carrying, and there would be nothing to check
+     * the answer against. Both halves went at once.</p>
+     *
+     * <p>What is banned is the mechanism, never the vocabulary. "Evidence" and
+     * "cite" are ordinary English words and the prompt is free to use them —
+     * the context rule warns against reading standing background as evidence of
+     * a first time, and the grounding rule says not to recite what you were
+     * given. Both are about how to think, not about a property to return, and a
+     * guard that failed on them would be forcing the prompt to write around a
+     * test.</p>
+     *
+     * <p>So every entry below is a shape only the removed contract produces:
+     * the response property in its JSON spelling, its bracket, its old
+     * alternative name, an instruction to cite events, and the three phrases
+     * that named the ids themselves.</p>
+     */
+    @Test
+    void thePromptAsksTheModelToCiteNothing() {
+        String prompt = DecisionPromptFactory.SYSTEM_PROMPT.toLowerCase();
+        for (String citation : List.of(
+                // Quoted: a JSON property name, never the English word. The
+                // prose "as evidence that this is the first time" carries no
+                // quotes and is not what this is looking for.
+                "\"evidence\"",
+                "\"evidence\":[",
+                "evidenceids",
+                // "cite" alone also matches "recite", which is a different word
+                // in a rule that has nothing to do with citation. What a
+                // citation instruction actually looks like is a verb with an
+                // object.
+                "cite event",
+                "cite events",
+                "event id",
+                "event ids",
+                "id values",
+                "unique and ascending"
+        )) {
+            assertFalse(
+                    prompt.contains(citation.toLowerCase()),
+                    "the prompt still states a citation contract: " + citation
+            );
+        }
+    }
+
+    /**
+     * The ordinary words are allowed, and the guard above proves it.
+     *
+     * <p>Written down because the previous version of that guard banned the
+     * bare words and the prompt was edited to satisfy it — a test dictating
+     * prose. If a future change makes the guard over-broad again, this fails
+     * first and says why.</p>
+     */
+    @Test
+    void thePromptMayStillUseEvidenceAndReciteAsOrdinaryEnglish() {
+        String prompt = DecisionPromptFactory.SYSTEM_PROMPT;
+        assertTrue(
+                prompt.contains("read it as evidence that this is the first"),
+                "the context rule keeps its own wording"
+        );
+        assertTrue(
+                prompt.contains("do not recite what you were given"),
+                "the grounding rule keeps its own wording"
+        );
+    }
+
+    /** The prompt states both response shapes, and only those two. */
+    @Test
+    void thePromptStatesTheCurrentOutputContract() {
+        String prompt = DecisionPromptFactory.SYSTEM_PROMPT;
+        assertTrue(
+                prompt.contains("{\"decision\":\"SILENT\"}"),
+                "the silent form is stated"
+        );
+        assertTrue(
+                prompt.contains(
+                        "{\"decision\":\"COMMENT\",\"comment\":\"...\"}"
+                ),
+                "the comment form is a decision and a sentence, and no more"
+        );
+        assertEquals(
+                2,
+                countOccurrences(prompt, "{\"decision\":"),
+                "two shapes are offered, and no third one"
+        );
+        for (String property : List.of("decision", "comment")) {
+            assertTrue(
+                    prompt.contains("\"" + property + "\""),
+                    "the contract names " + property
+            );
+        }
+    }
+
+    private static int countOccurrences(String text, String needle) {
+        int count = 0;
+        int from = text.indexOf(needle);
+        while (from >= 0) {
+            count++;
+            from = text.indexOf(needle, from + needle.length());
+        }
+        return count;
     }
 
     // ------------------------------------------------------------- fixtures
@@ -430,7 +578,7 @@ final class DecisionRequestArchitectureGuardTest {
         return new Fixture(
                 name,
                 serializer.serialize(
-                        factory.create(fixture.inputs(projected)).request()
+                        factory.create(fixture.inputs(projected))
                 )
         );
     }
@@ -460,7 +608,7 @@ final class DecisionRequestArchitectureGuardTest {
                 List.of(NormalizedEventType.DISEMBARK)
         );
         return serializer.serialize(
-                factory.create(fixture.inputs(List.of(touchdown))).request()
+                factory.create(fixture.inputs(List.of(touchdown)))
         );
     }
 

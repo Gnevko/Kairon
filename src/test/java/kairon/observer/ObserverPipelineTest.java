@@ -106,7 +106,7 @@ final class ObserverPipelineTest {
                     ),
                     eventDescriptions(request)
             );
-            assertEquals(List.of(1, 2), eventIds(request));
+            assertEquals(2, eventCount(request));
             assertEquals(
                     "SUPERCRUISE",
                     request.path("context")
@@ -204,8 +204,8 @@ final class ObserverPipelineTest {
             );
             for (ModelInput input : llm.inputs) {
                 assertEquals(
-                        List.of(1, 2),
-                        eventIds(turn(input)),
+                        2,
+                        eventCount(turn(input)),
                         "each turn carries exactly the configured bound"
                 );
             }
@@ -225,9 +225,8 @@ final class ObserverPipelineTest {
             harness.finishReplay();
 
             assertEquals(2, llm.inputs.size());
-            assertEquals(List.of(1, 2, 3),
-                    eventIds(turn(llm.inputs.getFirst())));
-            assertEquals(List.of(1), eventIds(turn(llm.inputs.getLast())));
+            assertEquals(3, eventCount(turn(llm.inputs.getFirst())));
+            assertEquals(1, eventCount(turn(llm.inputs.getLast())));
             // Nothing was dropped: the trace still holds the internal
             // identities the local ids stood for, in arrival order.
             List<JsonNode> lines = traceLines(trace);
@@ -264,8 +263,8 @@ final class ObserverPipelineTest {
             second.completeSilent();
             harness.coordinator.awaitIdle().toCompletableFuture()
                     .get(2, TimeUnit.SECONDS);
-            assertEquals(List.of(1), eventIds(turn(llm.inputs.getFirst())));
-            assertEquals(List.of(1), eventIds(turn(llm.inputs.getLast())));
+            assertEquals(1, eventCount(turn(llm.inputs.getFirst())));
+            assertEquals(1, eventCount(turn(llm.inputs.getLast())));
             assertEquals(
                     List.of(List.of(1L), List.of(2L)),
                     traceLines(trace).stream()
@@ -290,9 +289,8 @@ final class ObserverPipelineTest {
         AtomicInteger call = new AtomicInteger();
         RecordingLlmClient llm = new RecordingLlmClient(input -> {
             int index = call.getAndIncrement();
-            int lastEventId = eventIds(turn(input)).getLast();
             if (index < comments.size()) {
-                return comment(comments.get(index), lastEventId);
+                return comment(comments.get(index));
             }
             return silent();
         });
@@ -331,19 +329,23 @@ final class ObserverPipelineTest {
         }
     }
 
+    /**
+     * A comment from a batch is attributed to the whole batch.
+     *
+     * <p>The model was shown three events and no identity for any of them, so
+     * it could not have singled one out. The turn records every trigger it was
+     * built from, and the trace still holds the internal mapping the request's
+     * event order stands for — that mapping is now the only place the numbering
+     * is written down.</p>
+     */
     @Test
-    void multiTriggerEvidenceIsValidatedAgainstThatExactTurn(
+    void aCommentIsAttributedToEveryTriggerOfItsOwnTurn(
             @TempDir Path directory
     ) throws Exception {
-        Path trace = directory.resolve("multi-evidence.jsonl");
-        RecordingLlmClient llm = new RecordingLlmClient(input -> {
-            List<Integer> ids = eventIds(turn(input));
-            return comment(
-                    "The route observations support this comment.",
-                    ids.getFirst(),
-                    ids.getLast()
-            );
-        });
+        Path trace = directory.resolve("multi-trigger.jsonl");
+        RecordingLlmClient llm = new RecordingLlmClient(input ->
+                comment("The route observations support this comment.")
+        );
         try (Harness harness = new Harness(trace, llm, policy(8))) {
             harness.publish(scanOrganic(1));
             harness.publish(scanOrganic(2));
@@ -351,6 +353,7 @@ final class ObserverPipelineTest {
             harness.finishReplay();
 
             assertEquals(1, llm.inputs.size());
+            assertEquals(3, eventCount(turn(llm.inputs.getFirst())));
             JsonNode traceLine = JSON.readTree(
                     Files.readAllLines(trace, StandardCharsets.UTF_8)
                             .getFirst()
@@ -366,21 +369,15 @@ final class ObserverPipelineTest {
                             .textValue()
             );
             assertEquals(
-                    List.of(1, 3),
-                    intValues(traceLine.path("validatedDecision")
-                            .path("evidence")),
-                    "the trace records what the model actually cited"
-            );
-            assertEquals(
-                    List.of(1L, 3L),
-                    longValues(traceLine.path("validatedDecision")
-                            .path("evidenceTriggerBusSequences")),
-                    "and what those citations resolved to"
+                    List.of("comment", "decision", "failure", "status",
+                            "violations"),
+                    propertyNames(traceLine.path("validatedDecision")),
+                    "the traced response describes the answer and no more"
             );
             assertEquals(
                     List.of(1L, 2L, 3L),
-                    localEvidenceSequences(traceLine),
-                    "the mapping itself is recorded, not re-derived"
+                    longValues(traceLine.path("triggerBusSequences")),
+                    "the whole batch, recorded once, at the turn level"
             );
             assertEquals(
                     "DELIVERED",
@@ -389,24 +386,27 @@ final class ObserverPipelineTest {
         }
     }
 
+    /**
+     * The removed citation is rejected, and the next turn is unaffected.
+     *
+     * <p>A model still answering the old contract sends a third property. That
+     * is one invalid response — not a bad id, because there is no id to be bad
+     * — and it neither delivers a comment nor spoils the turn after it.</p>
+     */
     @Test
-    void invalidEvidenceDoesNotLeakIntoTheFollowingTurn(
+    void aRemovedCitationDoesNotLeakIntoTheFollowingTurn(
             @TempDir Path directory
     ) throws Exception {
-        Path trace = directory.resolve("evidence-recovery.jsonl");
+        Path trace = directory.resolve("citation-recovery.jsonl");
         AtomicInteger call = new AtomicInteger();
         RecordingLlmClient llm = new RecordingLlmClient(input -> {
-            int currentEventId = eventIds(turn(input)).getFirst();
             if (call.getAndIncrement() == 0) {
-                return comment(
-                        "This references an event outside the turn.",
-                        currentEventId + 100
+                return commentCitingRemovedEvidence(
+                        "This still answers the removed contract.",
+                        1
                 );
             }
-            return comment(
-                    "This references the current turn only.",
-                    currentEventId
-            );
+            return comment("This answers the current contract.");
         });
         try (Harness harness = new Harness(trace, llm, policy(1))) {
             harness.publish(scanOrganic(1));
@@ -428,12 +428,13 @@ final class ObserverPipelineTest {
                             .path("status")
                             .textValue()
             );
-            assertTrue(
-                    invalid.path("validatedDecision")
-                            .path("violations")
-                            .toString()
-                            .contains("UNKNOWN_EVIDENCE_EVENT_ID")
+            assertEquals(
+                    List.of("INVALID_PROPERTIES"),
+                    textList(invalid.path("validatedDecision")
+                            .path("violations")),
+                    "a removed property is refused as a property, not as an id"
             );
+            assertFalse(invalid.path("commentDelivered").booleanValue());
             assertEquals(
                     "VALID",
                     recovered.path("validatedDecision")
@@ -442,8 +443,7 @@ final class ObserverPipelineTest {
             );
             assertEquals(
                     List.of(3L),
-                    longValues(recovered.path("validatedDecision")
-                            .path("evidenceTriggerBusSequences"))
+                    longValues(recovered.path("triggerBusSequences"))
             );
         }
     }
@@ -462,7 +462,12 @@ final class ObserverPipelineTest {
             String prompt = input.systemMessage();
             assertTrue(prompt.contains("SILENT"));
             assertTrue(prompt.contains("COMMENT"));
-            assertTrue(prompt.contains("unique and ascending"));
+            assertTrue(
+                    prompt.contains(
+                            "{\"decision\":\"COMMENT\",\"comment\":\"...\"}"
+                    ),
+                    "the comment response is a decision and a sentence"
+            );
             assertTrue(
                     prompt.contains(
                             "A missing field means unknown or not relevant"
@@ -565,7 +570,7 @@ final class ObserverPipelineTest {
                     eventDescriptions(request),
                     "only the squadron message is a trigger"
             );
-            assertEquals(List.of(1), eventIds(request));
+            assertEquals(1, eventCount(request));
             assertEquals(
                     "SQUADRON",
                     request.path("events").get(0).path("channel").textValue(),
@@ -611,12 +616,9 @@ final class ObserverPipelineTest {
         return textValues(request.path("events"), "event");
     }
 
-    /** The only identity the model is given, and it is local to the turn. */
-    private static List<Integer> eventIds(JsonNode request) {
-        List<Integer> values = new ArrayList<>();
-        request.path("events").forEach(event ->
-                values.add(event.path("id").intValue()));
-        return List.copyOf(values);
+    /** How many events the batch actually carried. */
+    private static int eventCount(JsonNode request) {
+        return request.path("events").size();
     }
 
     private static List<JsonNode> traceLines(Path trace) throws Exception {
@@ -628,17 +630,16 @@ final class ObserverPipelineTest {
         return List.copyOf(lines);
     }
 
-    private static List<Integer> intValues(JsonNode array) {
-        List<Integer> values = new ArrayList<>();
-        array.forEach(value -> values.add(value.intValue()));
+    private static List<String> textList(JsonNode array) {
+        List<String> values = new ArrayList<>();
+        array.forEach(value -> values.add(value.textValue()));
         return List.copyOf(values);
     }
 
-    private static List<Long> localEvidenceSequences(JsonNode traceLine) {
-        List<Long> values = new ArrayList<>();
-        traceLine.path("localEvidence").forEach(entry ->
-                values.add(entry.path("busSequence").longValue()));
-        return List.copyOf(values);
+    private static List<String> propertyNames(JsonNode object) {
+        List<String> names = new ArrayList<>();
+        object.fieldNames().forEachRemaining(names::add);
+        return List.copyOf(names);
     }
 
     private static List<Long> longValues(JsonNode array) {
@@ -660,15 +661,22 @@ final class ObserverPipelineTest {
         return "{\"decision\":\"SILENT\"}";
     }
 
-    /** Cites events by their local ids, which is all the model ever sees. */
-    private static String comment(String text, int... eventIds) {
+    /** A decision and a sentence: the whole of the response contract. */
+    private static String comment(String text) {
+        return "{\"decision\":\"COMMENT\",\"comment\":\"" + text + "\"}";
+    }
+
+    /**
+     * The response a model still running the removed contract would send.
+     *
+     * <p>Written out rather than assembled from a constant so the removal is
+     * visible here: a third property, whatever it holds, is one property too
+     * many.</p>
+     */
+    private static String commentCitingRemovedEvidence(String text, int id) {
         return "{\"decision\":\"COMMENT\",\"comment\":\""
                 + text
-                + "\",\"evidence\":["
-                + java.util.Arrays.stream(eventIds)
-                .mapToObj(Integer::toString)
-                .collect(java.util.stream.Collectors.joining(","))
-                + "]}";
+                + "\",\"evidence\":[" + id + "]}";
     }
 
     private static final class Harness implements AutoCloseable {

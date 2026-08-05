@@ -210,7 +210,6 @@ final class DecisionOccurrenceCountTest {
             JsonNode event = request.path("events").get(0);
             assertEquals(
                     List.of(
-                            "id",
                             "event",
                             "body",
                             "playerControlled",
@@ -339,7 +338,7 @@ final class DecisionOccurrenceCountTest {
         }
         return read(serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(triggers.getLast()))
-        ).request()));
+        )));
     }
 
     private JsonNode lastEvent(DecisionProductionPipeline pipeline) {

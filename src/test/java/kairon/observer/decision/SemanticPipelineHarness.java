@@ -77,6 +77,21 @@ final class SemanticPipelineHarness implements AutoCloseable {
     private final DecisionProductionPipeline pipeline;
     private final boolean graphEnabled;
 
+    /**
+     * The production factory and serializer, for recovering the request as an
+     * object rather than as text.
+     *
+     * <p>See {@link #syncInternalRequests()}. Nothing is asserted against these
+     * until the object they produce has been proved to be the one that was
+     * sent.</p>
+     */
+    private final LlmDecisionRequestFactory requestFactory =
+            new LlmDecisionRequestFactory();
+    private final JacksonDecisionRequestSerializer requestSerializer =
+            new JacksonDecisionRequestSerializer();
+    private final List<LlmDecisionRequest> internalRequests =
+            new ArrayList<>();
+
     private SemanticPipelineHarness(
             DecisionProductionPipeline pipeline,
             boolean graphEnabled
@@ -384,6 +399,7 @@ final class SemanticPipelineHarness implements AutoCloseable {
                         .add(effect.busSequence());
             }
         }
+        syncInternalRequests(inputs, decisions, triggersByTurn);
         Map<String, String> kindByDescription = pipeline.kindByDescription();
         List<PipelineTrace.TurnView> views = new ArrayList<>(inputs.size());
         for (int index = 0; index < inputs.size(); index++) {
@@ -398,10 +414,18 @@ final class SemanticPipelineHarness implements AutoCloseable {
             long turnSequence = index < decisions.size()
                     ? decisions.get(index).turnSequence()
                     : -1L;
+            // The document carries no event id: it numbers its events 1..n
+            // internally and sends none of those numbers. The position is that
+            // numbering, read back off the array the projection built.
             List<Integer> ids = new ArrayList<>();
             List<String> descriptions = new ArrayList<>();
             parsed.path("events").forEach(event -> {
-                ids.add(event.path("id").intValue());
+                if (event.has("id")) {
+                    throw new IllegalStateException(
+                            "an event still carries an id: " + document
+                    );
+                }
+                ids.add(ids.size() + 1);
                 descriptions.add(event.path("event").textValue());
             });
             // The request no longer names the event Kairon's way, so the kind
@@ -414,6 +438,7 @@ final class SemanticPipelineHarness implements AutoCloseable {
                     turnSequence,
                     document,
                     parsed,
+                    internalRequests.get(index),
                     ids,
                     descriptions,
                     kinds,
@@ -421,5 +446,76 @@ final class SemanticPipelineHarness implements AutoCloseable {
             ));
         }
         return List.copyOf(views);
+    }
+
+    /**
+     * Recovers each sent request as the object it was, before serialization.
+     *
+     * <p>Some contracts are about a field the document deliberately does not
+     * carry. A change's {@code eventId} is the one that matters here: it says
+     * whether one of the turn's own events caused the change or a hidden
+     * observation did, it is what {@link DecisionChangeSelector} reconciles on,
+     * and it is not serialized. Reading it back out of the JSON is impossible by
+     * construction — so the object is rebuilt instead.</p>
+     *
+     * <p>Rebuilt from production parts and then <em>proved</em>: the triggers
+     * come from the coordinator's own {@code NEW_IN_FLIGHT} port, the semantic
+     * effects from the same accumulator draining in the same turn order, the
+     * request from the same {@link LlmDecisionRequestFactory}, and the result
+     * must serialize byte-for-byte to the message the provider received. If it
+     * does not, this throws rather than asserting against a lookalike.</p>
+     *
+     * <p>Incremental and idempotent, because a test may take a trace between
+     * batches: only turns not yet recovered are processed, and always in the
+     * order they ran, so the accumulator drains exactly as the coordinator's
+     * did.</p>
+     */
+    private void syncInternalRequests(
+            List<LlmClient.ModelInput> inputs,
+            List<ObserverTurnListener.DecisionResolved> decisions,
+            Map<Long, List<Long>> triggersByTurn
+    ) {
+        Map<Long, ProjectedObservation> byBusSequence = new HashMap<>();
+        for (ProjectedObservation projected : pipeline.capturedProjections()) {
+            byBusSequence.put(projected.busSequence(), projected);
+        }
+        for (int index = internalRequests.size();
+                index < inputs.size();
+                index++) {
+            if (index >= decisions.size()) {
+                throw new IllegalStateException(
+                        "a provider call with no resolved decision: " + index
+                );
+            }
+            List<Long> busSequences = triggersByTurn.get(
+                    decisions.get(index).turnSequence()
+            );
+            if (busSequences == null || busSequences.isEmpty()) {
+                throw new IllegalStateException(
+                        "turn " + decisions.get(index).turnSequence()
+                                + " reached the provider with no bound triggers"
+                );
+            }
+            List<ProjectedObservation> triggers =
+                    new ArrayList<>(busSequences.size());
+            for (Long busSequence : busSequences) {
+                triggers.add(Objects.requireNonNull(
+                        byBusSequence.get(busSequence),
+                        () -> "no projection for trigger " + busSequence
+                ));
+            }
+            LlmDecisionRequest request =
+                    requestFactory.create(pipeline.inputsFor(triggers));
+            String userMessage = inputs.get(index).userMessage();
+            String rebuilt = requestSerializer.serialize(request);
+            if (!rebuilt.equals(userMessage)) {
+                throw new IllegalStateException(
+                        "the recovered request is not the one that was sent"
+                                + "\n  sent:      " + userMessage
+                                + "\n  recovered: " + rebuilt
+                );
+            }
+            internalRequests.add(request);
+        }
     }
 }

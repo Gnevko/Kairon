@@ -75,12 +75,12 @@ final class DecisionTrajectoryPolicyTest {
                 fixture.inputs(List.of(
                         fixture.graphed(friends("KotyaGaw"), EPISODE, true, 0)
                 ))
-        ).request()));
+        )));
 
         assertEquals(List.of("events"), propertyNames(request));
         JsonNode event = request.path("events").get(0);
         assertEquals(
-                List.of("id", "event", "friend", "status"),
+                List.of("event", "friend", "status"),
                 propertyNames(event),
                 "the event itself is exactly what it was"
         );
@@ -111,12 +111,10 @@ final class DecisionTrajectoryPolicyTest {
                                 0
                         )
                 ))
-        ).request()));
+        )));
 
         assertEquals(List.of("events"), propertyNames(request));
         assertEquals(2, request.path("events").size());
-        assertEquals(1, request.path("events").get(0).path("id").intValue());
-        assertEquals(2, request.path("events").get(1).path("id").intValue());
         assertEquals(
                 List.of("KotyaGaw", "Alysianfolly"),
                 values(request, "friend")
@@ -135,7 +133,7 @@ final class DecisionTrajectoryPolicyTest {
      * Both notifications are still two events.
      *
      * <p>This rule is about the flight history, not about repetition: two
-     * friends coming online at once stay two events with two ids, and a second
+     * friends coming online at once stay two entries in the array, and a second
      * identical status is never folded into the first.</p>
      */
     @Test
@@ -146,15 +144,16 @@ final class DecisionTrajectoryPolicyTest {
                         fixture.graphDisabled(friends("KotyaGaw")),
                         fixture.graphDisabled(friends("KotyaGaw"))
                 ))
-        ).request()));
+        )));
 
         assertEquals(2, request.path("events").size());
         assertEquals(
                 List.of("KotyaGaw", "KotyaGaw"),
                 values(request, "friend")
         );
-        assertEquals(1, request.path("events").get(0).path("id").intValue());
-        assertEquals(2, request.path("events").get(1).path("id").intValue());
+        for (JsonNode event : request.path("events")) {
+            assertFalse(event.has("id"));
+        }
     }
 
     /** Everything in the batch is off the flight path, so the rule applies. */
@@ -171,7 +170,7 @@ final class DecisionTrajectoryPolicyTest {
                         ),
                         fixture.graphed(message(), EPISODE, true, 0)
                 ))
-        ).request()));
+        )));
 
         assertEquals(
                 List.of(
@@ -202,7 +201,7 @@ final class DecisionTrajectoryPolicyTest {
                         ),
                         fixture.graphed(touchdown(), EPISODE, true, 0)
                 ))
-        ).request()));
+        )));
 
         assertEquals(
                 List.of(
@@ -228,7 +227,7 @@ final class DecisionTrajectoryPolicyTest {
                         episodeEntries(),
                         List.of(NormalizedEventType.DISEMBARK)
                 )))
-        ).request()));
+        )));
 
         assertEquals(
                 List.of("SYSTEM_ENTERED", "LIFTOFF"),
@@ -256,7 +255,7 @@ final class DecisionTrajectoryPolicyTest {
                                 List.of(NormalizedEventType.DISEMBARK)
                         )
                 ))
-        ).request());
+        ));
 
         for (String absent : List.of(
                 "trajectory",

@@ -80,7 +80,7 @@ public interface KaironGuiHub extends AutoCloseable {
             String status,
             String decision,
             String text,
-            List<Long> evidenceTriggerBusSequences,
+            List<Long> triggerBusSequences,
             List<String> violations,
             String failure,
             String rawModelOutput,
@@ -100,10 +100,10 @@ public interface KaironGuiHub extends AutoCloseable {
                 );
             }
             status = requireNonBlank(status, "status");
-            evidenceTriggerBusSequences = List.copyOf(
+            triggerBusSequences = List.copyOf(
                     Objects.requireNonNull(
-                            evidenceTriggerBusSequences,
-                            "evidenceTriggerBusSequences"
+                            triggerBusSequences,
+                            "triggerBusSequences"
                     )
             );
             violations = List.copyOf(

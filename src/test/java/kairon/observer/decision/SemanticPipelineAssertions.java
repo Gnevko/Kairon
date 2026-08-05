@@ -290,10 +290,17 @@ final class SemanticPipelineAssertions {
      * a change registers its field as already stated, it also displaces the
      * correct value from the context.</p>
      *
-     * <p>Compared as typed {@link SemanticValue}: the final canonical value is
-     * read through {@link CurrentGameStateSemantics}, the same reader the
-     * projector uses, and matched against the serialized {@code after} by
-     * variant. Not by rendered text.</p>
+     * <p>Asserted on the request as an object, before serialization. The
+     * attribution this contract turns on is {@code eventId}, which is internal
+     * and never sent; reading it back out of the document is impossible by
+     * construction, and keeping it on the wire so that a test could read it
+     * would be shaping the provider contract around the test. The object is the
+     * one that was sent — {@code SemanticPipelineHarness} proves that by
+     * re-serializing it — so nothing is asserted against a lookalike.</p>
+     *
+     * <p>Both sides are typed {@link SemanticValue}: the final canonical value
+     * is read through {@link CurrentGameStateSemantics}, the same reader the
+     * projector uses, and compared by variant. Not by rendered text.</p>
      */
     static void assertNoStaleChanges(PipelineTrace trace) {
         CurrentGameStateSnapshot finalState = trace.finalState().orElseThrow(
@@ -302,32 +309,67 @@ final class SemanticPipelineAssertions {
                 )
         );
         for (PipelineTrace.TurnView turn : trace.turns()) {
-            for (JsonNode change : turn.changes()) {
-                if (change.has("eventId")) {
+            for (LlmDecisionRequest.Change change
+                    : turn.request().changes()) {
+                if (change.eventId() != null) {
                     continue;
                 }
-                String subject = change.path("subject").textValue();
-                JsonNode fields = change.path("fields");
-                fields.fieldNames().forEachRemaining(name -> {
-                    SemanticField field = fieldFor(subject, name);
-                    if (field == null) {
-                        return;
+                for (LlmDecisionRequest.FieldChange field : change.fields()) {
+                    SemanticField canonical =
+                            fieldFor(change.subject(), field.name());
+                    if (canonical == null) {
+                        continue;
                     }
-                    JsonNode after = fields.path(name).path("after");
-                    SemanticValue current =
-                            CurrentGameStateSemantics.valueOf(
-                                    field,
-                                    finalState
-                            );
+                    SemanticValue current = CurrentGameStateSemantics.valueOf(
+                            canonical,
+                            finalState
+                    );
                     assertTrue(
-                            matches(current, after),
-                            () -> "background change " + subject + "." + name
-                                    + " says " + after
+                            matches(current, field.after()),
+                            () -> "background change " + change.subject() + "."
+                                    + field.name() + " says " + field.after()
                                     + " but the final canonical value is "
                                     + current + "\n" + trace.describe()
                     );
-                });
+                }
             }
+        }
+    }
+
+    /**
+     * Attribution is decided, and it never reaches the provider.
+     *
+     * <p>The other half of the contract above. A change is attributed to one of
+     * this request's own events or to nothing at all, and the position it names
+     * must be a position the request actually has — a pointer past the end of
+     * {@code events} would make the reconciliation above skip a change it
+     * should have checked. None of it is serialized.</p>
+     */
+    static void assertChangeAttributionStaysInternal(PipelineTrace trace) {
+        for (PipelineTrace.TurnView turn : trace.turns()) {
+            int events = turn.request().events().size();
+            for (LlmDecisionRequest.Change change
+                    : turn.request().changes()) {
+                Integer eventId = change.eventId();
+                if (eventId != null) {
+                    assertTrue(
+                            eventId >= 1 && eventId <= events,
+                            () -> "a change is attributed to event " + eventId
+                                    + ", which this request does not have\n"
+                                    + trace.describe()
+                    );
+                }
+            }
+            assertFalse(
+                    turn.userMessage().contains("\"eventId\""),
+                    () -> "the request identifies a change's cause to the "
+                            + "model\n" + trace.describe()
+            );
+            assertFalse(
+                    turn.userMessage().contains("\"id\""),
+                    () -> "the request identifies an event to the model\n"
+                            + trace.describe()
+            );
         }
     }
 
@@ -604,31 +646,41 @@ final class SemanticPipelineAssertions {
      * to the text that happens to spell it and an integral zero is not equal to
      * a missing field.</p>
      */
-    private static boolean matches(SemanticValue value, JsonNode node) {
-        if (node == null || node.isMissingNode() || node.isNull()) {
-            return !value.known();
+    /**
+     * Two canonical values agree, compared by variant rather than by identity.
+     *
+     * <p>Deliberately not {@code equals}: a quantity carries a unit the
+     * projection may have normalized, and what this contract is about is
+     * whether the model was told the value the world now holds.</p>
+     */
+    private static boolean matches(SemanticValue current, SemanticValue after) {
+        if (!after.known()) {
+            return !current.known();
         }
-        return switch (value) {
+        return switch (current) {
             case SemanticValue.UnknownValue ignored -> false;
             case SemanticValue.TextValue text ->
-                    node.isTextual() && text.value().equals(node.textValue());
+                    after instanceof SemanticValue.TextValue other
+                            && text.value().equals(other.value());
             case SemanticValue.SymbolicValue symbol ->
-                    node.isTextual()
-                            && symbol.symbol().equals(node.textValue());
+                    after instanceof SemanticValue.SymbolicValue other
+                            && symbol.symbol().equals(other.symbol());
             case SemanticValue.BooleanValue flag ->
-                    node.isBoolean() && flag.value() == node.booleanValue();
+                    after instanceof SemanticValue.BooleanValue other
+                            && flag.value() == other.value();
             case SemanticValue.IntegralValue integral ->
-                    node.isIntegralNumber()
-                            && integral.value() == node.longValue();
+                    after instanceof SemanticValue.IntegralValue other
+                            && integral.value() == other.value();
             case SemanticValue.DecimalValue decimal ->
-                    node.isNumber()
+                    after instanceof SemanticValue.DecimalValue other
                             && Double.compare(
                                     decimal.value(),
-                                    node.doubleValue()
+                                    other.value()
                             ) == 0;
             // Signal sets and identities are not canonical snapshot fields, so
             // CurrentGameStateSemantics never produces one here.
             default -> true;
         };
     }
+
 }

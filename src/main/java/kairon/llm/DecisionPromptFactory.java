@@ -16,7 +16,21 @@ import java.util.Objects;
  * Kairon produced them — no schema, no bus, no projection, no learned model of
  * the Commander's habits. A model told about internal machinery can only guess
  * at it. What the trajectory is <em>for</em> is stated instead: which half is
- * fact, which half is a forecast, and that neither is citable evidence.</p>
+ * fact and which half is a forecast, that neither is happening now, and that
+ * the run of earlier events may still be read — carefully — for what it says
+ * about the present.</p>
+ *
+ * <p>The response asks for a decision and, when it is a comment, the sentence
+ * itself — nothing more. There was once a third property naming the events the
+ * comment rested on by their local ids; both halves of that contract are gone.
+ * The ids are no longer sent, so a citation could not be checked against
+ * anything the model was shown, and nothing downstream ever branched on which
+ * subset came back. Attribution is Kairon's to make from the batch it built.</p>
+ *
+ * <p>What was removed is the citation mechanism, not the vocabulary. "Evidence"
+ * and "cite" are ordinary English and the prompt uses them where they are the
+ * right words; only the response property, the id references and the
+ * instructions to name events by number are gone.</p>
  */
 public final class DecisionPromptFactory {
 
@@ -42,10 +56,10 @@ public final class DecisionPromptFactory {
             </objective>
 
             <reading>
-            events are what just happened. They are the only evidence you may
-            cite. Each one carries event, a plain statement of what took place,
-            and its remaining fields say what it took place to. Read the two
-            together and claim nothing the statement does not say.
+            events are what just happened, and the primary factual basis for a
+            comment. Each one carries event, a plain statement of what took
+            place, and its remaining fields say what it took place to. Read the
+            two together and claim nothing the statement does not say.
 
             changes are what those events altered, and appear only where that is
             not already clear from the events themselves.
@@ -56,8 +70,9 @@ public final class DecisionPromptFactory {
             read it as evidence that this is the first time.
 
             trajectory.recent lists real earlier events, oldest first. They
-            already happened; they are not happening now, and they are not
-            evidence. Use them to notice a repeat or a sequence.
+            already happened and are not happening now, so never report one as
+            current. Their sequence may help you read the present situation
+            cautiously: a repeat, or a run of related steps.
 
             trajectory.likelyNext is a forecast of what usually follows, with
             how often it has. It has not happened. Never say or imply that a
@@ -102,11 +117,7 @@ public final class DecisionPromptFactory {
             {"decision":"SILENT"}
 
             For a comment:
-            {"decision":"COMMENT","comment":"...","evidence":[1]}
-
-            evidence lists the id values of the events the comment rests on,
-            unique and ascending. Cite events only; changes, context and
-            trajectory are never evidence.
+            {"decision":"COMMENT","comment":"..."}
 
             When no worthwhile fully supported comment exists, return SILENT.
             </output>

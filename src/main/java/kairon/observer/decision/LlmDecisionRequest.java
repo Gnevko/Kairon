@@ -16,9 +16,15 @@ import java.util.Objects;
  * <p>Nothing here identifies Kairon to the model. There is no schema version,
  * no turn, no bus sequence, no timestamp, no source role and no raw event name.
  * Those all still exist inside the pipeline and in the trace; they simply stop
- * being sent. The one identifier the model does see is an {@link Event#id()
- * event id}, which is local to a single request and is mapped back to a bus
- * sequence by {@link DecisionEvidence}.</p>
+ * being sent. The {@link Event#id() event id} is one of them, and so is the
+ * {@link Change#eventId() eventId} that points at it: together they number the
+ * events {@code 1..n} and say which of them caused each change, and neither is
+ * serialized. A number the model can neither verify nor act on is Kairon's own
+ * bookkeeping, exactly like the schema version.</p>
+ *
+ * <p>The turn's trigger bus sequences carry the same ordering outside this
+ * record, in the same order the events are in, so nothing is lost by keeping
+ * the numbering internal.</p>
  *
  * <p>{@link Trajectory} is the one part derived from Kairon's memory of this
  * system visit rather than from the current observations. It is projected the
@@ -69,12 +75,14 @@ public record LlmDecisionRequest(
      * only the attributes that mechanism actually has — no subject, no default
      * actor, no completion flag on an atomic action, no unnamed quantity.</p>
      *
-     * <p>{@code kind} stays here and is <strong>not serialized</strong>. It is
-     * Kairon's own name for the event and the projection reads it — the
-     * trajectory asks which kinds a batch consists of, the tests name events by
-     * it — but a model told both a name and a description would be told the
-     * same thing twice, once in a vocabulary that means nothing outside this
-     * process.</p>
+     * <p>{@code kind} and {@code id} both stay here and are <strong>not
+     * serialized</strong>. {@code kind} is Kairon's own name for the event and
+     * the projection reads it — the trajectory asks which kinds a batch
+     * consists of, the tests name events by it — but a model told both a name
+     * and a description would be told the same thing twice, once in a
+     * vocabulary that means nothing outside this process. {@code id} is this
+     * event's position in the turn, which the pipeline, the trace and the
+     * change attribution all key on and the model has no use for.</p>
      */
     public record Event(
             int id,
@@ -111,10 +119,19 @@ public record LlmDecisionRequest(
      * A canonical change worth knowing about, attributed to its cause.
      *
      * <p>{@code eventId} is present when one of this request's own events
-     * caused the change and absent when a hidden observation did — which is the
-     * only thing the model is told about that observation. The internal bus
-     * sequence, wire event name, selection role and write-path origin stay
-     * inside Kairon.</p>
+     * caused the change and absent when a hidden observation did. It is the
+     * causing event's position in {@code events}, counting from one, and like
+     * that position it is <strong>not serialized</strong>: a pointer is worth
+     * only as much as what it points at, and the events carry no identity for
+     * it to name.</p>
+     *
+     * <p>It stays on the record because two things read it, and neither is the
+     * model. {@link DecisionChangeSelector} decides on it — a change one of
+     * this request's own events caused is never reconciled against later state,
+     * because its {@code eventId} says whose step it was — and the contract
+     * tests read it to tell a background change from an attributed one before
+     * anything is serialized. The internal bus sequence, wire event name,
+     * selection role and write-path origin stay inside Kairon too.</p>
      */
     public record Change(
             Integer eventId,

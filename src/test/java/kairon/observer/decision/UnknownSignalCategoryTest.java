@@ -9,6 +9,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 
 import static kairon.observer.decision.SemanticPipelineAssertions
+        .assertChangeAttributionStaysInternal;
+import static kairon.observer.decision.SemanticPipelineAssertions
         .assertChangesAndContextPartition;
 import static kairon.observer.decision.SemanticPipelineAssertions
         .assertNoProviderTurn;
@@ -63,7 +65,7 @@ final class UnknownSignalCategoryTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
+                    {"events":[{"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1}]}],\
                     "trajectory":{"recent":["SYSTEM_ENTERED",\
@@ -158,7 +160,7 @@ final class UnknownSignalCategoryTest {
 
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A surface area analysis scan reported \
+                    {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\
@@ -196,7 +198,7 @@ final class UnknownSignalCategoryTest {
 
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A surface area analysis scan reported \
+                    {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\
@@ -230,6 +232,7 @@ final class UnknownSignalCategoryTest {
             assertEquals(1, state.biologicalSignalCount(), "still counted");
             assertEquals(2, state.geologicalSignalCount(), "now counted too");
             assertNoStaleChanges(trace);
+            assertChangeAttributionStaysInternal(trace);
             assertChangesAndContextPartition(trace);
             assertSourceOrder(trace);
             assertOccurrenceAndEventAgree(

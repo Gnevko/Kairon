@@ -4,6 +4,7 @@ import kairon.llm.ObserverResponseValidator.ValidatedObserverResponse;
 import kairon.output.CommentSink.CommentDeliveryResult;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -88,10 +89,18 @@ public interface ObserverTurnListener {
         }
     }
 
+    /**
+     * @param triggerBusSequences the observations this turn was built from, in
+     *                            bus order. A fact about the batch, computed by
+     *                            the coordinator — the response says nothing
+     *                            about which observations it answered, and is
+     *                            given no way to.
+     */
     record DecisionResolved(
             long turnSequence,
             Instant resolvedAt,
             int eventCount,
+            List<Long> triggerBusSequences,
             ValidatedObserverResponse validatedResponse,
             String rawModelOutput,
             long latencyMs
@@ -109,6 +118,10 @@ public interface ObserverTurnListener {
                         "eventCount must be positive"
                 );
             }
+            triggerBusSequences = List.copyOf(Objects.requireNonNull(
+                    triggerBusSequences,
+                    "triggerBusSequences"
+            ));
             validatedResponse = Objects.requireNonNull(
                     validatedResponse,
                     "validatedResponse"

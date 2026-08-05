@@ -1,6 +1,5 @@
 package kairon.observer.decision;
 
-import kairon.turn.evidence.DecisionEvidence;
 import kairon.turn.overflow.ContextOverflow;
 
 import java.util.ArrayList;
@@ -56,14 +55,12 @@ public final class LlmDecisionRequestCompactor {
 
     public Result prepare(DecisionTurnInputs inputs) {
         Objects.requireNonNull(inputs, "inputs");
-        LlmDecisionRequestFactory.Prepared prepared = factory.create(inputs);
-        LlmDecisionRequest full = prepared.request();
+        LlmDecisionRequest full = factory.create(inputs);
         String serialized = serializer.serialize(full);
         int original = serialized.length();
         if (original <= characterBudget) {
             return new Result.Fitted(
                     full,
-                    prepared.evidence(),
                     serialized,
                     false,
                     original
@@ -75,7 +72,6 @@ public final class LlmDecisionRequestCompactor {
         if (serialized.length() <= characterBudget) {
             return new Result.Fitted(
                     mandatory,
-                    prepared.evidence(),
                     serialized,
                     true,
                     original
@@ -96,7 +92,7 @@ public final class LlmDecisionRequestCompactor {
     /** The request with its one optional rung already dropped. */
     public LlmDecisionRequest mandatoryOnly(DecisionTurnInputs inputs) {
         Objects.requireNonNull(inputs, "inputs");
-        return withoutContext(factory.create(inputs).request());
+        return withoutContext(factory.create(inputs));
     }
 
     /** What that mandatory request costs, in characters. */
@@ -150,7 +146,6 @@ public final class LlmDecisionRequestCompactor {
         /** A request that fits, and the exact JSON that will be sent. */
         record Fitted(
                 LlmDecisionRequest request,
-                DecisionEvidence evidence,
                 String serializedJson,
                 boolean compactionApplied,
                 int originalCharacterCount
@@ -158,7 +153,6 @@ public final class LlmDecisionRequestCompactor {
 
             public Fitted {
                 Objects.requireNonNull(request, "request");
-                Objects.requireNonNull(evidence, "evidence");
                 Objects.requireNonNull(serializedJson, "serializedJson");
             }
 

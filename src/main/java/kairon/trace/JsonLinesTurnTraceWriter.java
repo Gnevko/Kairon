@@ -25,17 +25,26 @@ import java.util.Objects;
 public final class JsonLinesTurnTraceWriter implements AutoCloseable {
 
     /**
-     * Bumped from {@code v4} at the decision-contract cutover.
+     * Bumped from {@code v5} when event ids stopped being sent.
      *
-     * <p>Two shape changes, either of which would break a {@code v4} reader.
-     * {@code localEvidence} is new and required, because the provider input now
-     * identifies events by ids that are local to one request and a reader
-     * cannot interpret a citation without the mapping. And
-     * {@code validatedDecision} gained {@code evidence}, the ids the model
-     * actually returned, beside the bus sequences they resolved to.</p>
+     * <p>Everything the word "evidence" named is gone, because none of it was
+     * evidence any more. {@code validatedDecision} no longer carries the ids the
+     * model returned, nor the bus sequences they resolved to: the response
+     * contract has no citation, so {@code validatedDecision} now describes the
+     * answer and only the answer.</p>
+     *
+     * <p>{@code localEvidence} is gone too, and nothing replaced it. It mapped
+     * event position {@code 1..n} onto a trigger bus sequence, and
+     * {@code triggerBusSequences} is that same list in that same order — the
+     * {@code v5} record even asserted the two were equal. One list is the
+     * mapping; a second copy of it under a name that no longer meant anything
+     * was a field nothing read.</p>
+     *
+     * <p>So a reader still answers "which observation was the request's third
+     * event?" the way it always could: {@code triggerBusSequences[2]}.</p>
      */
     public static final String TRACE_SCHEMA_VERSION =
-            "kairon-turn-trace-v5";
+            "kairon-turn-trace-v6";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(
             JsonLinesTurnTraceWriter.class
@@ -147,13 +156,18 @@ public final class JsonLinesTurnTraceWriter implements AutoCloseable {
      * The invocation flags are recorded rather than inferred, so a reader never
      * has to deduce from an absent response whether the provider was
      * called.</p>
+     *
+     * <p>{@code triggerBusSequences} is the turn's batch in bus order, and it
+     * is also the request's internal event numbering: the nth event was
+     * projected from the nth entry. It is what a delivered comment is
+     * attributed to, and it is written for every turn, including one that never
+     * reached the provider.</p>
      */
     public record TurnTrace(
             String traceSchemaVersion,
             String contextSchema,
             String turnOutcome,
             List<Long> triggerBusSequences,
-            List<LocalEvidenceTrace> localEvidence,
             String situationTurn,
             int situationCharacterCount,
             ContextOverflowTrace contextOverflow,
@@ -203,23 +217,14 @@ public final class JsonLinesTurnTraceWriter implements AutoCloseable {
                         "triggerBusSequences must be positive and nonempty"
                 );
             }
-            localEvidence = List.copyOf(Objects.requireNonNull(
-                    localEvidence,
-                    "localEvidence"
-            ));
-            if (localEvidence.isEmpty() != (situationTurn == null)) {
-                throw new IllegalArgumentException(
-                        "a request and its local evidence appear together"
-                );
-            }
-            if (!localEvidence.isEmpty()
-                    && !localEvidence.stream()
-                    .map(LocalEvidenceTrace::busSequence)
-                    .toList()
-                    .equals(triggerBusSequences)) {
-                throw new IllegalArgumentException(
-                        "local evidence must map ids 1..n onto the triggers"
-                );
+            long previousTrigger = 0L;
+            for (Long triggerBusSequence : triggerBusSequences) {
+                if (triggerBusSequence <= previousTrigger) {
+                    throw new IllegalArgumentException(
+                            "triggerBusSequences must be unique and ascending"
+                    );
+                }
+                previousTrigger = triggerBusSequence;
             }
             if (situationTurn != null && situationTurn.isBlank()) {
                 throw new IllegalArgumentException(
@@ -299,23 +304,6 @@ public final class JsonLinesTurnTraceWriter implements AutoCloseable {
         }
     }
 
-    /**
-     * One local event id and the observation it stood for.
-     *
-     * <p>The model never sees a bus sequence and Kairon never keys anything on
-     * a local id. This is the only record of the translation, and it is written
-     * for every turn that reached the provider.</p>
-     */
-    public record LocalEvidenceTrace(int localId, long busSequence) {
-
-        public LocalEvidenceTrace {
-            if (localId < 1 || busSequence < 1) {
-                throw new IllegalArgumentException(
-                        "local evidence identities must be positive"
-                );
-            }
-        }
-    }
 
     /** Why no model request was made, and by how much. */
     public record ContextOverflowTrace(

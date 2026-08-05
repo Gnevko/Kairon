@@ -153,7 +153,7 @@ final class EstablishedBodyTypeTest {
         fixture.inputs(List.of(fixture.graphDisabled(exit("Planet", 0))));
         JsonNode request = read(serializer.serialize(factory.create(
                 fixture.inputs(List.of(fixture.graphDisabled(exit("Star", 1))))
-        ).request()));
+        )));
 
         JsonNode body = null;
         for (JsonNode change : request.path("changes")) {
@@ -198,7 +198,7 @@ final class EstablishedBodyTypeTest {
                 """);
         return factory.create(fixture.inputs(List.of(
                 fixture.graphDisabled(exit("Planet", 3))
-        ))).request();
+        )));
     }
 
     private JsonNode supercruiseExit() {

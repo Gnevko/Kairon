@@ -12,6 +12,8 @@ import java.util.List;
 import static kairon.observer.decision.SemanticPipelineAssertions
         .assertChangesAndContextPartition;
 import static kairon.observer.decision.SemanticPipelineAssertions
+        .assertChangeAttributionStaysInternal;
+import static kairon.observer.decision.SemanticPipelineAssertions
         .assertDuplicateSuppressed;
 import static kairon.observer.decision.SemanticPipelineAssertions
         .assertNewStructuralTrigger;
@@ -322,6 +324,7 @@ final class SemanticPipelineContractTest {
             PipelineTrace trace = harness.trace();
 
             assertNoStaleChanges(trace);
+            assertChangeAttributionStaysInternal(trace);
             assertChangesAndContextPartition(trace);
         }
     }

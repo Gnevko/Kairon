@@ -156,7 +156,7 @@ final class NonPositiveSignalCountTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A surface area analysis scan reported \
+                    {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\
@@ -203,7 +203,7 @@ final class NonPositiveSignalCountTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A surface area analysis scan reported \
+                    {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}],\

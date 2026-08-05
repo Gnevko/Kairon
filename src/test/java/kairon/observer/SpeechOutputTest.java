@@ -225,7 +225,7 @@ final class SpeechOutputTest {
         Path trace = directory.resolve("playback-failure.jsonl");
         ObserverTurnCoordinator coordinator = coordinator(
                 trace,
-                new FixedLlmClient(commentResponse("Not heard.", 1)),
+                new FixedLlmClient(commentResponse("Not heard.")),
                 sink
         );
         try {
@@ -396,7 +396,7 @@ final class SpeechOutputTest {
         SpeechGateway sink = speechGateway(synthesis, player, false);
         ObserverTurnCoordinator coordinator = coordinator(
                 Files.createTempFile("speech-bus-", ".jsonl"),
-                new FixedLlmClient(commentResponse("Bus stays free.", 1)),
+                new FixedLlmClient(commentResponse("Bus stays free.")),
                 sink
         );
         InProcessObservationBus bus = new InProcessObservationBus();
@@ -481,7 +481,7 @@ final class SpeechOutputTest {
             SpeechGateway sink = speechGateway(synthesis, player, false);
             ObserverTurnCoordinator coordinator = coordinator(
                     directory.resolve(mode.name() + ".jsonl"),
-                    new FixedLlmClient(commentResponse(mode.name(), 1)),
+                    new FixedLlmClient(commentResponse(mode.name())),
                     sink,
                     10L,
                     50L
@@ -526,7 +526,7 @@ final class SpeechOutputTest {
         Path trace = directory.resolve("safe-failure.jsonl");
         ObserverTurnCoordinator coordinator = coordinator(
                 trace,
-                new FixedLlmClient(commentResponse("Safe failure.", 1)),
+                new FixedLlmClient(commentResponse("Safe failure.")),
                 sink
         );
         PrintStream originalError = System.err;
@@ -1038,12 +1038,11 @@ final class SpeechOutputTest {
         );
     }
 
-    private static String commentResponse(String text, int eventId) {
+    /** A decision and a sentence: the whole of the response contract. */
+    private static String commentResponse(String text) {
         return "{\"decision\":\"COMMENT\",\"comment\":"
                 + '"' + text + '"'
-                + ",\"evidence\":["
-                + eventId
-                + "]}";
+                + "}";
     }
 
     private static JsonNode firstTrace(Path trace) throws Exception {

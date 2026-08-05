@@ -43,7 +43,7 @@ final class DecisionRequestProjectionTest {
         assertEquals(List.of("events"), propertyNames(request));
 
         JsonNode first = request.path("events").get(0);
-        assertEquals(1, first.path("id").intValue());
+        assertFalse(first.has("id"), "an event is not identified to the model");
         assertEquals(
                     "Information about a friend's status was received.",
                     first.path("event").textValue());
@@ -54,11 +54,11 @@ final class DecisionRequestProjectionTest {
                 "a closed vocabulary is sent in the contract's own casing"
         );
         assertEquals(
-                List.of("id", "event", "friend", "status"),
+                List.of("event", "friend", "status"),
                 propertyNames(first),
                 "the event reports a current status and nothing else"
         );
-        assertEquals(2, request.path("events").get(1).path("id").intValue());
+        assertFalse(request.path("events").get(1).has("id"));
     }
 
     /**
@@ -134,7 +134,7 @@ final class DecisionRequestProjectionTest {
                 "a bare name leaves the model to work out whose it is"
         );
         assertEquals(
-                List.of("id", "event", "commander"),
+                List.of("event", "commander"),
                 propertyNames(event)
         );
         assertEquals(
@@ -247,7 +247,7 @@ final class DecisionRequestProjectionTest {
                     "The organic sampling tool was used on an organic discovery.",
                     log.path("event").textValue());
         assertEquals(
-                List.of("id", "event", "organism", "stage", "complete"),
+                List.of("event", "organism", "stage", "complete"),
                 propertyNames(log),
                 "where the sequence stands is stage and completion, once"
         );
@@ -294,7 +294,7 @@ final class DecisionRequestProjectionTest {
                     fixture.inputs(List.of(
                             fixture.graphDisabled(scanOrganic(scanType, index++))
                     ))
-            ).request());
+            ));
 
             assertFalse(serialized.contains("step"), scanType + " sent a step");
             assertFalse(serialized.contains("scanType"));
@@ -347,7 +347,7 @@ final class DecisionRequestProjectionTest {
         assertEquals("base", event.path("loadout").textValue());
         assertTrue(event.path("playerControlled").booleanValue());
         assertEquals(
-                List.of("id", "event", "loadout", "playerControlled"),
+                List.of("event", "loadout", "playerControlled"),
                 propertyNames(event)
         );
         assertFalse(event.has("vehicle"));
@@ -439,7 +439,7 @@ final class DecisionRequestProjectionTest {
                     "The Commander stepped out of a ship or SRV.",
                     disembark.path("event").textValue());
         assertEquals(
-                List.of("id", "event", "system", "body", "onStation", "onPlanet"),
+                List.of("event", "system", "body", "onStation", "onPlanet"),
                 propertyNames(disembark)
         );
         assertEquals(
@@ -503,7 +503,7 @@ final class DecisionRequestProjectionTest {
                     "The Commander, on foot, got into a ship or SRV.",
                     embark.path("event").textValue());
         assertEquals(
-                List.of("id", "event", "system", "body", "onStation", "onPlanet"),
+                List.of("event", "system", "body", "onStation", "onPlanet"),
                 propertyNames(embark)
         );
         assertEquals(
@@ -672,7 +672,7 @@ final class DecisionRequestProjectionTest {
         );
         assertTrue(event.path("playerControlled").booleanValue());
         assertEquals(
-                List.of("id", "event", "body", "playerControlled"),
+                List.of("event", "body", "playerControlled"),
                 propertyNames(event)
         );
 
@@ -762,7 +762,7 @@ final class DecisionRequestProjectionTest {
         assertFalse(left.toString().contains("BODY_APPROACHED"));
         assertFalse(left.toString().contains("ApproachBody"));
         assertEquals(
-                List.of("id", "event", "body", "system"),
+                List.of("event", "body", "system"),
                 propertyNames(left),
                 "the event keeps everything that is not the relationship");
 
@@ -837,7 +837,7 @@ final class DecisionRequestProjectionTest {
             List<ProjectedObservation> triggers
     ) {
         return serializer.serialize(
-                factory.create(fixture.inputs(triggers)).request()
+                factory.create(fixture.inputs(triggers))
         );
     }
 

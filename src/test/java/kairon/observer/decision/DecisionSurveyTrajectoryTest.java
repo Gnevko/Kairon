@@ -300,7 +300,7 @@ final class DecisionSurveyTrajectoryTest {
         }
         return read(serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(triggers.getLast()))
-        ).request()));
+        )));
     }
 
     private static ProjectedObservation triggerOf(

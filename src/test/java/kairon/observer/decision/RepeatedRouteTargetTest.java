@@ -121,7 +121,7 @@ final class RepeatedRouteTargetTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A ship entered supercruise from normal space.",\
+                    {"events":[{"event":"A ship entered supercruise from normal space.",\
                     "system":"Schieni GG-A c3-84"}],\
                     "context":{"navigation":{"flightMode":"SUPERCRUISE"}},\
                     "trajectory":{"recent":["VEHICLE_RECOVERED",\
@@ -356,7 +356,7 @@ final class RepeatedRouteTargetTest {
         }
         return serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(wanted))
-        ).request());
+        ));
     }
 
     private static List<String> texts(JsonNode array) {

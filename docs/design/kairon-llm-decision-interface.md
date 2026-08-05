@@ -41,7 +41,7 @@ identity of any kind.
 
 | Part | Presence | Meaning |
 | --- | --- | --- |
-| `events` | always, never empty | what just happened, each stating in its own words what it is; the only citable evidence |
+| `events` | always, never empty | what just happened, each stating in its own words what it is; the primary factual basis for a comment |
 | `changes` | when a change adds decision-relevant novelty | what those events altered |
 | `context` | when the events need it to be understood | what else is true right now |
 | `trajectory` | when this system visit has a remembered run of events, and the batch is not entirely trajectory-independent kinds | what led here, and what usually follows |
@@ -54,30 +54,33 @@ The model is told the five names above and nothing about how they were built.
 
 ---
 
-## 3. Local evidence identity
+## 3. Local event identity — internal only
 
-One current trigger becomes exactly one event. Events carry ids `1, 2, 3, …`
-that exist only inside one request.
+One current trigger becomes exactly one event. Events are numbered `1, 2, 3, …`
+inside one request, and **no part of that numbering is serialized** — neither
+`events[].id` nor the `changes[].eventId` that points at it. The provider
+receives an ordered array whose entries start with what happened, and a changes
+array that says what changed without saying which entry did it.
 
-```
-local event id  ──(DecisionEvidence)──>  trigger busSequence
-```
+An identity the model can neither verify nor act on is Kairon's own bookkeeping,
+exactly like the schema version — so it stays with the schema version, inside
+the process. Two things read it there:
 
-`DecisionEvidence` (in `kairon.turn.evidence`, so the request projection and the
-response validator can share it without importing each other) is minted by the
-factory beside the request, travels with the
-prepared turn, and is consulted twice: the validator refuses an id the request
-never offered, and then translates the surviving ids to bus sequences before
-anything downstream sees them. The model never sees a bus sequence; Kairon never
-keys anything on a local id.
+| Reader | Why |
+| --- | --- |
+| `DecisionChangeSelector` | a change one of the request's own events caused is never reconciled against later state; `eventId` is how it knows |
+| the cross-layer contract tests | they read `LlmDecisionRequest` before serialization, because a field that is deliberately not on the wire cannot be asserted from the wire |
 
-The mapping is recorded in the trace as `localEvidence`, so a reader diagnosing a
-citation never has to re-derive it from array order.
+Outside the record the same ordering exists as the turn's trigger bus sequences,
+in the same order: **the nth event was projected from the nth trigger**. That is
+what the trace writes and what a delivered comment is attributed to, so nothing
+needs a second copy of the mapping under a name of its own.
 
-This also makes the current-trigger-only evidence rule structural rather than
+Because nothing is sent, the current-trigger-only rule is structural rather than
 enforced: a hidden observation, a context fact, a remembered predecessor, a
-prediction and a previous comment have no id at all, so there is nothing to
-cite.
+prediction and a previous comment have no position in `events`, so nothing can
+point at them — and neither can the model, which is given no way to point at
+anything.
 
 ---
 
@@ -344,14 +347,15 @@ and still reaches the trace and diagnostics untouched. Only what a decision
 needs is sent, and the default is no.
 
 ```json
-{"eventId": 1, "subject": "body", "kind": "ACTIVATED_FROM_CONTEXT",
+{"subject": "body", "kind": "ACTIVATED_FROM_CONTEXT",
  "fields": {"planetClass": {"after": "Icy body"}, "landable": {"after": true}}}
 ```
 
-`eventId` is present when one of this request's own events caused the change and
-absent when a hidden observation did — which is the only thing the model is told
-about that observation. `busSequence`, the wire event name, the selection role
-and the write-path origin all stay inside Kairon.
+A change says what changed and about what. It does not say which event caused
+it: `eventId` is internal (§3), and a pointer is worth only as much as what it
+points at — the events carry no identity for it to name. `busSequence`, the wire
+event name, the selection role and the write-path origin all stay inside Kairon
+too.
 
 `kind` is retained because `ESTABLISHED` and `UPDATED` are different news:
 learning a body's class for the first time is not the same as it changing.
@@ -625,33 +629,77 @@ previous-comment memory untouched, batch consumed exactly once.
 ```
 
 ```json
-{"decision":"COMMENT","comment":"…","evidence":[1,2]}
+{"decision":"COMMENT","comment":"…"}
 ```
 
 - `SILENT` carries exactly one property.
-- `COMMENT` requires a non-blank comment and non-empty evidence.
-- `evidence` contains only local ids of this request, unique and ascending.
-- an unknown local id is rejected.
-- changes, context and trajectory are never evidence.
+- `COMMENT` carries exactly two, and requires a non-blank comment.
+- any third property is `INVALID_PROPERTIES`, including the removed `evidence`.
+- the response names nothing, because the request identifies nothing.
 
-The validator maps surviving ids to bus sequences. The GUI, the novelty guard,
-the trace and speech continue to work in bus sequences after that mapping.
+There was once a third property listing the events a comment rested on by their
+local ids. Both halves went together: with no ids in the request, a citation
+could not be checked against anything the model had been shown, and no reader
+downstream ever branched on which subset came back.
+
+`ValidatedObserverResponse` is `status`, `decision`, `comment`, `violations`,
+`failure` — the parsed answer and Kairon's verdict on it. Nothing on it comes
+from the request. That separation is deliberate: a record that mixed the answer
+with facts about the question invites a reader to treat the second as though the
+model had asserted it, which is exactly how a comment ends up "citing" events
+nobody ever showed it. `validate` takes the raw output and the previous
+comments; it is given nothing about the request because it needs nothing.
+
+Attribution is computed separately, by `ObserverTurnCoordinator`, from the batch
+it built: `triggerBusSequences`, the turn's own triggers in bus order. It travels
+beside the response on `DecisionResolved`, is retained on
+`DeliveredModelComment`, and is what the GUI shows and the trace records. The
+novelty guard and speech continue to work as they always did.
 
 ---
 
 ## 11. The trace
 
-`kairon-turn-trace-v5`, context schema `kairon-llm-decision-v1`.
+`kairon-turn-trace-v6`, context schema `kairon-llm-decision-v1`.
 
-The version moved because the record shape changed in two ways a `v4` reader
-cannot absorb: `localEvidence` is new and required, and `validatedDecision`
-gained `evidence` beside `evidenceTriggerBusSequences`.
+The version moved because nothing called evidence is left, and a `v5` reader
+expects all of it. `validatedDecision` lost both the ids the model returned and
+the bus sequences they resolved to: it now describes the answer and only the
+answer, so no reader can mistake a fact about the batch for something the model
+asserted.
 
-The trace keeps `turnSequence`, trigger bus sequences, the local-id mapping, the
-exact provider input, the exact raw provider output, the mapped internal
-evidence, and provider, speech and outcome diagnostics. The provider input and
-the traced document are byte-identical. No trace-only metadata is sent to the
-model.
+`localEvidence` is gone too, with nothing in its place. It mapped event position
+`1..n` onto a trigger bus sequence, and `triggerBusSequences` is that same list
+in that same order — the `v5` record even asserted the two were equal. One list
+is the mapping; a second copy of it under a name that no longer meant anything
+was a field nothing read. "Which observation was the third event?" is
+`triggerBusSequences[2]`.
+
+The trace keeps `turnSequence`, `triggerBusSequences`, the exact provider input,
+the exact raw provider output, the validated answer, and provider, speech and
+outcome diagnostics. The provider input and the traced document are
+byte-identical. `triggerBusSequences` is written for every turn, including one
+that failed closed before reaching the provider. No trace-only metadata is sent
+to the model.
+
+```json
+{"traceSchemaVersion": "kairon-turn-trace-v6",
+ "contextSchema": "kairon-llm-decision-v1",
+ "turnOutcome": "COMMENT",
+ "triggerBusSequences": [1041, 1042],
+ "situationTurn": "{\"events\":[…]}",
+ "situationCharacterCount": 383,
+ "contextOverflow": null,
+ "providerInvoked": true, "commentDelivered": true, "speechInvoked": false,
+ "provider": {"profileName": "…", "type": "…", "baseUrl": "…", "model": "…"},
+ "modelInput": {"systemMessage": "…", "userMessage": "{\"events\":[…]}"},
+ "rawModelResponse": "{\"decision\":\"COMMENT\",\"comment\":\"…\"}",
+ "validatedDecision": {"status": "VALID", "decision": "COMMENT",
+                       "comment": "…", "violations": [], "failure": null},
+ "tokenUsage": {…}, "latencyMs": 812,
+ "consoleOutcome": "DELIVERED", "speechEnabled": false, "…": "…",
+ "deliveredComment": "…"}
+```
 
 ---
 
@@ -660,7 +708,7 @@ model.
 | Concern | Class |
 | --- | --- |
 | Request | `kairon.observer.decision.LlmDecisionRequest` |
-| Evidence mapping | `kairon.turn.evidence.DecisionEvidence` |
+| Comment attribution | `ObserverTurnCoordinator` — the turn's own `triggerBusSequences`; there is no evidence mapping |
 | Event rules | `kairon.observer.decision.DecisionEventCatalog`, `RecordDecisionRule` |
 | Event description | `LlmPresentableJournalEvent.modelFacingDescription()`, implemented by each journal record |
 | Mechanisms | `kairon.observer.decision.DecisionMechanism` |

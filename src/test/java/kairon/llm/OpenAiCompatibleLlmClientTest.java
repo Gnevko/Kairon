@@ -115,9 +115,7 @@ class OpenAiCompatibleLlmClientTest {
                         exchange,
                         200,
                         "{\"choices\":[{\"message\":{\"content\":"
-                                + "\"{\\\"decision\\\":\\\"SILENT\\\","
-                                + "\\\"comment\\\":null,"
-                                + "\\\"evidenceTriggerBusSequences\\\":[]}"
+                                + "\"{\\\"decision\\\":\\\"SILENT\\\"}"
                                 + "\"}}]"
                                 + usage
                                 + '}'

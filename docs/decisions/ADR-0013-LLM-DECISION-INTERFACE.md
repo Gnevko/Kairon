@@ -4,7 +4,9 @@
 
 Accepted and implemented as `kairon.observer.decision`. `kairon-llm-decision-v1`
 is the only production model input; `kairon-llm-situation-v2.1` is deleted from
-source. The turn trace moved to `kairon-turn-trace-v5`.
+source. The turn trace moved to `kairon-turn-trace-v5`, and then to
+`kairon-turn-trace-v6` when event ids stopped being sent — see the second
+amendment.
 
 ## Context
 
@@ -58,7 +60,8 @@ or account identifier appears anywhere.
 bus sequences; the validator refuses an unknown id and translates the rest
 before anything downstream sees them. This makes the current-trigger-only
 evidence rule structural rather than enforced: a hidden observation, a context
-fact and a previous comment have no id at all.
+fact and a previous comment have no id at all. *Superseded by the second
+amendment: the number is no longer sent, and nothing is cited.*
 
 **Projection is organised by mechanism, not by event.** Eighteen mechanisms
 cover the 109 model-eligible types. A mechanism decides two things an individual
@@ -95,7 +98,8 @@ to three named predictions with their calculated probabilities — plus
 `occurrenceOnBody` on the event itself. See the amendment below.
 
 **The response is minimal.** `{"decision":"SILENT"}` or
-`{"decision":"COMMENT","comment":"…","evidence":[1,2]}`.
+`{"decision":"COMMENT","comment":"…","evidence":[1,2]}`. *Superseded by the
+second amendment: `{"decision":"COMMENT","comment":"…"}`.*
 
 ## Consequences
 
@@ -107,12 +111,15 @@ to three named predictions with their calculated probabilities — plus
   carry an unprovable caveat, a typed uncertainty field carries it instead.
 - The evidence contract is now schema-independent in a stronger sense than
   before: the validator takes a mapping, not a document, and the citable set has
-  no members that were never offered.
+  no members that were never offered. *The second amendment removes citation
+  entirely; the validator still takes the mapping, now as the turn's own
+  attribution.*
 - `kairon.observer.context` no longer exists. `DeliveredModelComment` moved
   unchanged; the policy lost its three graph-related bounds because the sections
   they bounded no longer reach the model.
 - The trace version had to move: `localEvidence` is required, and
   `validatedDecision` gained `evidence` beside the resolved bus sequences.
+  *Both are removed by the second amendment, and the version moved again.*
 - The compaction ladder shrank to one rung. Events and their selected changes
   are mandatory, so `CONTEXT_TOO_LARGE` remains reachable and still fails
   closed.
@@ -196,16 +203,86 @@ The trajectory is mandatory content for the budget rather than a compaction rung
 it is six items at most, so it cannot be why a turn overflows, and dropping it
 would buy nothing against the loss of a repeat being recognisable.
 
+## Amendment — the event id stops being sent
+
+The original decision kept one identifier in the document: the local event id,
+so that a comment could name the events it rested on. Both halves of that
+arrangement are now removed.
+
+**The number fails the ADR's own rule.** *Which decision or which sentence does
+this field improve?* An id improves neither. It is not a fact about the game, it
+cannot be spoken, and the model has no way to check it against anything — the
+one thing it enables is a citation, and a citation is not a decision.
+
+**The citation it existed for was never load-bearing.** Nothing in production
+branched on which subset came back. The validator refused an id outside the
+turn, mapped the rest to bus sequences, and the result went to the trace, the
+GUI and the delivered-comment memory — three readers that record it and none
+that act on it. A structural check that can only be failed by an answer nobody
+uses is a way for a good comment to be thrown away, not a safeguard.
+
+**So both halves go together, and neither could go alone.** A document that kept
+`id` while the prompt stopped asking for it would be sending an identifier for
+nothing; a prompt that kept asking after `id` was removed would be demanding
+numbers the model was never shown. What remains is
+`{"decision":"COMMENT","comment":"…"}` — a decision and a sentence.
+
+**Attribution is Kairon's, and it was always Kairon's.** A delivered comment now
+carries every trigger bus sequence of the turn that produced it. That is a fact
+about the batch rather than an answer that could be wrong, and it is strictly
+more information than the model's subset: what a comment came out of is knowable
+without asking.
+
+**`changes[].eventId` goes with it.** It named the causing event by the position
+the events no longer carry, so on the wire it was a reference to nothing — and
+an unexplained number beside a change reads as an index the model is meant to
+follow. Keeping it because a contract test read it would have been shaping the
+provider contract around the test; the test reads the request as an object
+instead, which is where the field lives.
+
+**The numbering itself is untouched.** `Event.id()` still runs `1..n` and
+`changes[].eventId` still points at the causing event's position.
+`DecisionChangeSelector` decides on it — a change one of the request's own events
+caused is never reconciled against later state — and
+`SemanticPipelineAssertions` reads it off `LlmDecisionRequest` before
+serialization. `SemanticPipelineHarness` recovers that object from production
+parts and proves it by re-serializing it to the exact bytes the provider
+received, so nothing is asserted against a lookalike.
+
+**`DecisionEvidence` is deleted, and so is the trace's `localEvidence`.** The
+first existed to check a citation and translate it; with no citation there was
+nothing to check. The second mapped position `1..n` onto a trigger bus sequence
+— and `triggerBusSequences` is that same list in that same order, which the `v5`
+record even asserted. One list is the mapping. A second copy under a name that
+no longer meant anything was a field nothing read, so the trace version moved to
+`kairon-turn-trace-v6` and the word "evidence" appears nowhere in it.
+
+**And the response record stops carrying facts about the question.**
+`ValidatedObserverResponse` is now `status`, `decision`, `comment`,
+`violations`, `failure`. Its `evidenceTriggerBusSequences` had become
+request-derived data on a record describing the model's answer, which is the
+same confusion in a new place: a reader cannot tell what the model said from
+what it was asked. Attribution moved to `ObserverTurnCoordinator`, which
+computes the batch it already holds and passes it beside the response as
+`triggerBusSequences` — on `DecisionResolved` for the GUI, on
+`DeliveredModelComment` for diagnosis, and at the top of the trace.
+
+Verified against `ModelFacingReplayBaselineTest` at both steps: across ten
+replays the recording is byte-identical once the `id` lines are removed, and
+then byte-identical again once the `eventId` lines are. Same turns, same
+triggers, same `changes`, `context`, `trajectory` and `contextIncomplete`, same
+episodes, occurrences, transitions and cursor.
+
 ## Relevant implementation references
 
-`kairon/observer/decision/` — the request, the evidence mapping, the catalogue,
-the mechanisms, the three projections, the serializer and the compactor.
+`kairon/observer/decision/` — the request, the catalogue, the mechanisms, the
+three projections, the serializer and the compactor.
 
 `kairon/llm/DecisionPromptFactory.java` and
 `kairon/llm/ObserverResponseValidator.java` — the prompt and the response
 contract.
 
-`kairon/trace/JsonLinesTurnTraceWriter.java` — `kairon-turn-trace-v5`.
+`kairon/trace/JsonLinesTurnTraceWriter.java` — `kairon-turn-trace-v6`.
 
 Design: `docs/design/kairon-llm-decision-interface.md`. Audit:
 `target/audit/kairon-llm-provider-field-audit.csv`,

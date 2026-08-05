@@ -157,7 +157,7 @@ final class SessionRestoreEpisodeTest {
             // and displace the correct value from the context.
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A ship entered supercruise from normal space.",\
+                    {"events":[{"event":"A ship entered supercruise from normal space.",\
                     "system":"Restore A"}],\
                     "context":{"navigation":{"flightMode":"SUPERCRUISE"}},\
                     "trajectory":{"recent":["SUPERCRUISE_JUMP_STARTED"]}}""",
@@ -446,7 +446,7 @@ final class SessionRestoreEpisodeTest {
         }
         return read(serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(wanted))
-        ).request()));
+        )));
     }
 
     private static ProjectedObservation triggerOf(

@@ -6,7 +6,6 @@ import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kairon.turn.evidence.DecisionEvidence;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -20,22 +19,26 @@ import java.util.regex.Pattern;
 import static java.util.regex.Pattern.UNICODE_CHARACTER_CLASS;
 
 /**
- * Strict local SILENT/COMMENT response validation against the turn that was
- * actually sent to the provider.
+ * Strict local SILENT/COMMENT response validation.
  *
- * <p>A response cites local event ids, which mean nothing outside the request
- * they came from. Validation therefore does two jobs that must not be split: it
- * refuses an id the request never offered, and it translates the surviving ids
- * back to the bus sequences everything downstream is keyed on. Nothing outside
- * this class ever sees an unmapped local id.</p>
+ * <p>A response says what it decided and, for a comment, what to say. It cites
+ * nothing: the request carries no event ids, so a citation could only name a
+ * number the model was never shown, and no reader downstream ever branched on
+ * which subset of a batch came back.</p>
+ *
+ * <p>The validator therefore needs the response and the repetition memory, and
+ * nothing about the request. What it produces is a description of the answer
+ * and only of the answer. Attribution — which observations a comment was
+ * produced from — is a fact about the batch that the coordinator already holds,
+ * and it is attached there rather than smuggled through a response record that
+ * would then be part model and part Kairon.</p>
  */
 public final class ObserverResponseValidator {
 
     private static final Set<String> SILENT_PROPERTIES = Set.of("decision");
     private static final Set<String> COMMENT_PROPERTIES = Set.of(
             "decision",
-            "comment",
-            "evidence"
+            "comment"
     );
     private static final Pattern SENTENCE_TERMINATOR =
             Pattern.compile(
@@ -56,18 +59,14 @@ public final class ObserverResponseValidator {
     }
 
     /**
-     * Validates one raw model response against the turn's evidence.
+     * Validates one raw model response.
      *
-     * @param evidence         the local ids this request offered, and what they
-     *                         stand for
      * @param previousComments delivered comment texts, for repetition only
      */
     public ValidatedObserverResponse validate(
             String rawOutput,
-            DecisionEvidence evidence,
             List<String> previousComments
     ) {
-        Objects.requireNonNull(evidence, "evidence");
         Objects.requireNonNull(previousComments, "previousComments");
 
         List<String> violations = new ArrayList<>();
@@ -113,22 +112,8 @@ public final class ObserverResponseValidator {
                     Decision.SILENT,
                     null,
                     List.of(),
-                    List.of(),
-                    List.of(),
                     null
             );
-        }
-
-        List<Integer> cited = parseEvidence(root.get("evidence"), violations);
-        validateEvidenceOrder(cited, violations);
-        if (cited.size() > evidence.size()) {
-            violations.add("EVIDENCE_EXCEEDS_EVENT_COUNT");
-        }
-        if (cited.stream().anyMatch(id -> !evidence.contains(id))) {
-            violations.add("UNKNOWN_EVIDENCE_EVENT_ID");
-        }
-        if (cited.isEmpty()) {
-            violations.add("COMMENT_EVIDENCE_EMPTY");
         }
 
         JsonNode commentNode = root.get("comment");
@@ -155,8 +140,6 @@ public final class ObserverResponseValidator {
                 Status.VALID,
                 Decision.COMMENT,
                 comment,
-                cited,
-                evidence.resolve(cited),
                 List.of(),
                 null
         );
@@ -168,8 +151,6 @@ public final class ObserverResponseValidator {
                 Status.MODEL_CALL_FAILED,
                 null,
                 null,
-                List.of(),
-                List.of(),
                 List.of(),
                 failure.getClass().getSimpleName()
         );
@@ -193,57 +174,8 @@ public final class ObserverResponseValidator {
                 null,
                 null,
                 List.of(),
-                List.of(),
-                List.of(),
                 detail
         );
-    }
-
-    private static List<Integer> parseEvidence(
-            JsonNode evidenceNode,
-            List<String> violations
-    ) {
-        if (evidenceNode == null || !evidenceNode.isArray()) {
-            violations.add("EVIDENCE_MISSING_OR_NOT_ARRAY");
-            return List.of();
-        }
-        List<Integer> cited = new ArrayList<>(evidenceNode.size());
-        for (JsonNode item : evidenceNode) {
-            if (!item.isIntegralNumber() || !item.canConvertToInt()) {
-                violations.add("EVIDENCE_EVENT_ID_NOT_INTEGER");
-                continue;
-            }
-            int localId = item.intValue();
-            if (localId < 1) {
-                violations.add("EVIDENCE_EVENT_ID_NOT_POSITIVE");
-            } else {
-                cited.add(localId);
-            }
-        }
-        return List.copyOf(cited);
-    }
-
-    private static void validateEvidenceOrder(
-            List<Integer> cited,
-            List<String> violations
-    ) {
-        Set<Integer> seen = new HashSet<>();
-        Integer previous = null;
-        for (Integer localId : cited) {
-            boolean duplicate = !seen.add(localId);
-            if (duplicate && !violations.contains(
-                    "DUPLICATE_EVIDENCE_EVENT_ID"
-            )) {
-                violations.add("DUPLICATE_EVIDENCE_EVENT_ID");
-            }
-            boolean notAscending = previous != null && localId <= previous;
-            if (notAscending && !violations.contains(
-                    "EVIDENCE_EVENT_IDS_NOT_ASCENDING"
-            )) {
-                violations.add("EVIDENCE_EVENT_IDS_NOT_ASCENDING");
-            }
-            previous = localId;
-        }
     }
 
     private static int countSentences(String text) {
@@ -271,8 +203,6 @@ public final class ObserverResponseValidator {
                 Status.INVALID,
                 null,
                 null,
-                List.of(),
-                List.of(),
                 List.copyOf(violations),
                 null
         );
@@ -297,54 +227,39 @@ public final class ObserverResponseValidator {
     }
 
     /**
-     * One validated response, in both vocabularies.
+     * One validated response, and nothing but the response.
      *
-     * <p>{@code evidence} is what the model said; {@code
-     * evidenceTriggerBusSequences} is what it means. Both are recorded so the
-     * trace can show the mapping rather than assert it.</p>
+     * <p>Every component here was read out of what the model returned, or is
+     * Kairon's verdict on it. Nothing is derived from the request or the batch.
+     * That separation is the point: a record that mixed the answer with facts
+     * about the question invites a reader to treat the second as though the
+     * model had asserted it, which is how a comment ends up "citing" events
+     * nobody ever showed it.</p>
      */
     public record ValidatedObserverResponse(
             Status status,
             Decision decision,
             String comment,
-            List<Integer> evidence,
-            List<Long> evidenceTriggerBusSequences,
             List<String> violations,
             String failure
     ) {
 
         public ValidatedObserverResponse {
             status = Objects.requireNonNull(status, "status");
-            evidence = List.copyOf(
-                    Objects.requireNonNull(evidence, "evidence")
-            );
-            evidenceTriggerBusSequences = List.copyOf(
-                    Objects.requireNonNull(
-                            evidenceTriggerBusSequences,
-                            "evidenceTriggerBusSequences"
-                    )
-            );
             violations = List.copyOf(Objects.requireNonNull(
                     violations,
                     "violations"
             ));
-            if (evidence.size() != evidenceTriggerBusSequences.size()) {
-                throw new IllegalArgumentException(
-                        "every cited event id must resolve to one bus sequence"
-                );
-            }
             switch (status) {
                 case VALID -> requireValidDecision(
                         decision,
                         comment,
-                        evidence,
                         violations,
                         failure
                 );
                 case INVALID -> {
                     if (decision != null
                             || comment != null
-                            || !evidence.isEmpty()
                             || violations.isEmpty()
                             || failure != null) {
                         throw new IllegalArgumentException(
@@ -355,7 +270,6 @@ public final class ObserverResponseValidator {
                 case MODEL_CALL_FAILED, CONTEXT_TOO_LARGE -> {
                     if (decision != null
                             || comment != null
-                            || !evidence.isEmpty()
                             || !violations.isEmpty()
                             || failure == null
                             || failure.isBlank()) {
@@ -376,7 +290,6 @@ public final class ObserverResponseValidator {
         private static void requireValidDecision(
                 Decision decision,
                 String comment,
-                List<Integer> evidence,
                 List<String> violations,
                 String failure
         ) {
@@ -387,27 +300,17 @@ public final class ObserverResponseValidator {
                 );
             }
             if (decision == Decision.SILENT) {
-                if (comment != null || !evidence.isEmpty()) {
+                if (comment != null) {
                     throw new IllegalArgumentException(
                             "valid SILENT response is inconsistent"
                     );
                 }
                 return;
             }
-            if (comment == null || comment.isBlank() || evidence.isEmpty()) {
+            if (comment == null || comment.isBlank()) {
                 throw new IllegalArgumentException(
                         "valid COMMENT response is inconsistent"
                 );
-            }
-            int previous = 0;
-            for (Integer localId : evidence) {
-                if (localId == null || localId <= previous) {
-                    throw new IllegalArgumentException(
-                            "valid COMMENT evidence must be positive, "
-                                    + "unique, and ascending"
-                    );
-                }
-                previous = localId;
             }
         }
     }

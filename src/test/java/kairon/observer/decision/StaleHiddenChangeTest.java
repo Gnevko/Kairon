@@ -12,6 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * An observation the model is not shown can still explain a later one — but
@@ -68,7 +69,9 @@ final class StaleHiddenChangeTest {
                     """);
             pipeline.settleProjection();
 
-            JsonNode request = requestFor(pipeline, "LaunchFighter");
+            LlmDecisionRequest prepared =
+                    requestFor(pipeline, "LaunchFighter");
+            JsonNode request = sent(prepared);
             String serialized = request.toString();
             assertFalse(
                     serialized.contains("\"kind\":{\"after\":\"SRV\"}"),
@@ -84,10 +87,14 @@ final class StaleHiddenChangeTest {
                     request.path("changes").get(0).path("fields")
                             .path("presence").path("after").textValue()
             );
-            assertFalse(
-                    request.path("changes").get(0).has("eventId"),
+            assertNull(
+                    prepared.changes().getFirst().eventId(),
                     "a hidden observation established it, and says so by "
                             + "carrying no event id"
+            );
+            assertFalse(
+                    serialized.contains("eventId"),
+                    "and the attribution stays internal either way"
             );
         }
     }
@@ -117,8 +124,9 @@ final class StaleHiddenChangeTest {
                     """);
             pipeline.settleProjection();
 
-            JsonNode request = requestFor(pipeline, "ApproachBody");
-            JsonNode change = request.path("changes").get(0);
+            LlmDecisionRequest prepared =
+                    requestFor(pipeline, "ApproachBody");
+            JsonNode change = sent(prepared).path("changes").get(0);
             assertEquals("navigation", change.path("subject").textValue());
             assertEquals(
                     "NORMAL_SPACE",
@@ -126,7 +134,7 @@ final class StaleHiddenChangeTest {
                             .path("after").textValue(),
                     "nothing has moved the flight mode since the restore"
             );
-            assertFalse(change.has("eventId"));
+            assertNull(prepared.changes().getFirst().eventId());
         }
     }
 
@@ -157,7 +165,7 @@ final class StaleHiddenChangeTest {
                     """);
             pipeline.settleProjection();
 
-            JsonNode request = requestFor(pipeline, "ApproachBody");
+            JsonNode request = sent(requestFor(pipeline, "ApproachBody"));
             String serialized = request.toString();
             assertEquals(
                     1,
@@ -207,12 +215,13 @@ final class StaleHiddenChangeTest {
             pipeline.settleProjection();
 
             List<ProjectedObservation> triggers = pipeline.capturedTriggers();
-            JsonNode request = read(serializer.serialize(factory.create(
+            LlmDecisionRequest prepared = factory.create(
                     pipeline.inputsFor(List.of(
                             triggers.get(triggers.size() - 2),
                             triggers.getLast()
                     ))
-            ).request()));
+            );
+            JsonNode request = sent(prepared);
 
             assertEquals(
                     List.of(
@@ -221,18 +230,22 @@ final class StaleHiddenChangeTest {
                     ),
                     descriptions(request)
             );
-            JsonNode vehicle = changeFor(request, "vehicle");
+            LlmDecisionRequest.Change vehicle = changeOf(prepared, "vehicle");
             assertEquals(
                     1,
-                    vehicle.path("eventId").intValue(),
-                    "the jump owns it, and says so"
+                    vehicle.eventId(),
+                    "the jump owns it, and the selector reads that here"
             );
             assertEquals(
                     "SHIP",
-                    vehicle.path("fields").path("kind").path("after")
-                            .textValue(),
+                    changeFor(request, "vehicle").path("fields").path("kind")
+                            .path("after").textValue(),
                     "the launch has since cleared the class, and that does "
                             + "not delete what the jump reported"
+            );
+            assertFalse(
+                    request.toString().contains("eventId"),
+                    "the attribution that kept it is not sent with it"
             );
         }
     }
@@ -249,7 +262,15 @@ final class StaleHiddenChangeTest {
 
     // -------------------------------------------------------------- reading
 
-    private JsonNode requestFor(
+    /**
+     * The turn as an object, because attribution is not on the wire.
+     *
+     * <p>{@code eventId} says whether one of the turn's own events caused a
+     * change, and it is internal — the provider is shown no identity to point
+     * at. Every assertion about it therefore reads the request the factory
+     * built; the ones about what the model was told serialize it first.</p>
+     */
+    private LlmDecisionRequest requestFor(
             DecisionProductionPipeline pipeline,
             String payloadSimpleName
     ) {
@@ -266,9 +287,24 @@ final class StaleHiddenChangeTest {
             }
             pipeline.inputsFor(List.of(trigger));
         }
-        return read(serializer.serialize(factory.create(
-                pipeline.inputsFor(List.of(wanted))
-        ).request()));
+        return factory.create(pipeline.inputsFor(List.of(wanted)));
+    }
+
+    /** The same request, as the model would have received it. */
+    private JsonNode sent(LlmDecisionRequest request) {
+        return read(serializer.serialize(request));
+    }
+
+    private static LlmDecisionRequest.Change changeOf(
+            LlmDecisionRequest request,
+            String subject
+    ) {
+        return request.changes().stream()
+                .filter(change -> change.subject().equals(subject))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(
+                        "no change for " + subject + ": " + request.changes()
+                ));
     }
 
     private static List<String> subjects(JsonNode request) {

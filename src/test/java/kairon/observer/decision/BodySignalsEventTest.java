@@ -60,7 +60,7 @@ final class BodySignalsEventTest {
 
             assertEquals(
                     """
-                    {"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
+                    {"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1}]}""",
                     eventJson(pipeline, "FSSBodySignals")
@@ -91,7 +91,7 @@ final class BodySignalsEventTest {
 
             assertEquals(
                     """
-                    {"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
+                    {"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"GEOLOGICAL","count":2}]}""",
                     eventJson(pipeline, "FSSBodySignals")
@@ -122,7 +122,7 @@ final class BodySignalsEventTest {
 
             assertEquals(
                     """
-                    {"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
+                    {"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1},\
                     {"type":"GEOLOGICAL","count":2},\
@@ -155,7 +155,7 @@ final class BodySignalsEventTest {
                     .toString();
             assertEquals(
                     """
-                    {"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
+                    {"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"OTHER","label":"Guardian",\
                     "count":1}]}""",
@@ -364,7 +364,7 @@ final class BodySignalsEventTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A surface area analysis scan reported \
+                    {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1},\
@@ -707,13 +707,24 @@ final class BodySignalsEventTest {
 
     // -------------------------------------------------------------- reading
 
+    /**
+     * Each turn's events by position, one turn after another.
+     *
+     * <p>The document carries no id, so the position is read off the array —
+     * which is what the id always was. A turn restarting at one is a second
+     * turn; a turn continuing at two is a second event of the same one.</p>
+     */
     private static List<Integer> localIds(DecisionProductionPipeline pipeline) {
         List<Integer> ids = new ArrayList<>();
         for (var input : pipeline.modelInputs()) {
             String userMessage = input.userMessage();
-            read(userMessage.substring(userMessage.indexOf('{')))
-                    .path("events")
-                    .forEach(event -> ids.add(event.path("id").intValue()));
+            int position = 0;
+            for (JsonNode event
+                    : read(userMessage.substring(userMessage.indexOf('{')))
+                            .path("events")) {
+                assertFalse(event.has("id"), "an event still carries an id");
+                ids.add(++position);
+            }
         }
         return List.copyOf(ids);
     }
@@ -745,7 +756,7 @@ final class BodySignalsEventTest {
         }
         return read(serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(wanted))
-        ).request()));
+        )));
     }
 
     private static JsonNode read(String serialized) {

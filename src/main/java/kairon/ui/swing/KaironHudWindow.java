@@ -355,7 +355,7 @@ final class KaironHudWindow implements SwingKaironGuiHub.GuiView {
                 decision == null ? "<pending>" : decision.latencyMs(),
                 decision == null
                         ? List.of()
-                        : decision.evidenceTriggerBusSequences(),
+                        : decision.triggerBusSequences(),
                 decision == null ? List.of() : decision.violations(),
                 decision == null || decision.failure() == null
                         ? "<none>"

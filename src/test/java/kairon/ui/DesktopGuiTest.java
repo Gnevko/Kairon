@@ -119,12 +119,11 @@ final class DesktopGuiTest {
                 1L,
                 Instant.parse("2026-07-29T09:00:00Z"),
                 3,
+                List.of(5L, 6L, 7L),
                 new ValidatedObserverResponse(
                         Status.VALID,
                         Decision.SILENT,
                         null,
-                        List.of(),
-                        List.of(),
                         List.of(),
                         null
                 ),
@@ -133,18 +132,16 @@ final class DesktopGuiTest {
         ));
 
         String commentRaw = "{\"decision\":\"COMMENT\","
-                + "\"comment\":\"Course is clear.\","
-                + "\"evidence\":[1]}";
+                + "\"comment\":\"Course is clear.\"}";
         bridge.onDecisionResolved(new DecisionResolved(
                 2L,
                 Instant.parse("2026-07-29T09:00:01Z"),
                 2,
+                List.of(7L),
                 new ValidatedObserverResponse(
                         Status.VALID,
                         Decision.COMMENT,
                         "Course is clear.",
-                        List.of(1),
-                        List.of(7L),
                         List.of(),
                         null
                 ),
@@ -178,7 +175,13 @@ final class DesktopGuiTest {
         assertEquals("Course is clear.", hub.decisions.getLast().text());
         assertEquals(
                 List.of(7L),
-                hub.decisions.getLast().evidenceTriggerBusSequences()
+                hub.decisions.getLast().triggerBusSequences(),
+                "the GUI is shown the batch, taken from the turn"
+        );
+        assertEquals(
+                List.of(5L, 6L, 7L),
+                hub.decisions.getFirst().triggerBusSequences(),
+                "a silence attributes nothing, but still came from a batch"
         );
         assertEquals(commentRaw, hub.decisions.getLast().rawModelOutput());
         assertEquals(1, hub.completions.size());

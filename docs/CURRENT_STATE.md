@@ -85,8 +85,10 @@ behaviour-preserving:
 - `StatedFacts` is built once per turn and read by both `DecisionChangeSelector`
   and `DecisionContextSelector`; the rendered-string comparison is gone.
 - `kairon.trace` and `kairon.llm` no longer import observer packages:
-  `kairon.turn.overflow.ContextOverflow` and
-  `kairon.turn.evidence.DecisionEvidence` are the shared immutable contracts.
+  `kairon.turn.overflow.ContextOverflow` is the shared immutable contract.
+  `kairon.turn.evidence.DecisionEvidence` is removed — the response no longer
+  cites anything, so there was nothing left for it to be checked against, and
+  `kairon.llm` now imports nothing from either side.
 - `kairon.semantics.BodyIdentity` is the one `(systemAddress, bodyId)` value.
 
 `PackageDependencyRulesTest` (in `kairon`) enforces the forbidden import
@@ -140,7 +142,7 @@ from a median of 264 to 315 characters and a maximum of 1 031 to 1 394 against
 the unchanged 16 000-character budget.
 
 The production model input is `kairon-llm-decision-v1` and the turn trace is
-`kairon-turn-trace-v5`. The earlier `kairon-llm-situation-v2.1` context — DTO,
+`kairon-turn-trace-v6`. The earlier `kairon-llm-situation-v2.1` context — DTO,
 factory, serializer, compactor and prompt — has been **removed** from source,
 as was the v1 context and the temporary shadow measurement path before it. No
 fallback, runtime version selector or dual serialization exists.
@@ -682,8 +684,10 @@ typed semantic values — never as serialized text, and never by re-deriving the
 field. It applies only where no event of the request caused the change: a
 trigger-owned change is attributed by its `eventId`, and an event of a batch
 really can report a step a later event of the same batch moved on from. A
-hidden change that is still current is still sent, without an `eventId`,
-exactly as before.
+hidden change that is still current is still sent, with no `eventId`, exactly
+as before. `eventId` is internal throughout — the causing event's position in
+`events`, read by the selector and by the contract tests, and serialized
+nowhere.
 
 A change is dropped as already said only when an event of the request states
 **the same canonical field at the same value**. `ProjectedEvent.states` takes a
@@ -748,13 +752,15 @@ It:
   as normally silent;
 - states once that a missing field means unknown or not relevant, and that a
   value must never be read into an absent field;
-- states that `events` are the current evidence and the only citable thing,
-  that `changes` appear only where the events do not already carry them, and
-  that `context` appears only where the events need it;
+- states that `events` are the primary factual basis for a comment, that
+  `changes` appear only where the events do not already carry them, and that
+  `context` appears only where the events need it;
 - states that `trajectory.recent` lists real earlier events that already
-  happened and are not evidence, that `trajectory.likelyNext` is a forecast that
-  has not happened and must never be spoken of as though it had, and that
-  `occurrenceOnBody` counts repeats at that body during this visit;
+  happened, that none of them may be reported as current, and that their
+  sequence may be used to read the present situation cautiously; that
+  `trajectory.likelyNext` is a forecast that has not happened and must never be
+  spoken of as though it had; and that `occurrenceOnBody` counts repeats at that
+  body during this visit;
 - states that `contextIncomplete` means absence is not proof of absence;
 - states the process-safety rule: `stage` START or PROGRESS and `complete`
   false both mean the action is still running, and that nothing may be called
@@ -770,13 +776,14 @@ The persona controls voice and self-presentation, not event meaning.
 Turn data is a separate user message containing one compact deterministic
 `kairon-llm-decision-v1` JSON object with at most five top-level members:
 
-- `events` — one domain-facing event per current NEW trigger, each with a local
-  id, the literal `event` description the record supplies for itself, and only
-  the applicable named domain fields. Kairon's internal `kind` is **not**
+- `events` — one domain-facing event per current NEW trigger, each beginning
+  with the literal `event` description the record supplies for itself and
+  carrying only the applicable named domain fields. Kairon's internal `kind`
+  and its local event `id` are both **not** serialized;
+- `changes` — the canonical changes that add decision-relevant novelty. Each
+  carries `subject`, `kind` and its exact per-field before/after, and nothing
+  else: the internal `eventId` naming the causing event's position is **not**
   serialized;
-- `changes` — the canonical changes that add decision-relevant novelty, keyed
-  to the local id of the causing event or attributed to no event when a hidden
-  observation caused them;
 - `context` — the slice of canonical state the turn's mechanisms asked for,
   with subjects still separated;
 - `trajectory` — `recent`, up to three domain-named immediate predecessors from
@@ -786,7 +793,7 @@ Turn data is a separate user message containing one compact deterministic
   `FRIEND_STATUS`);
 - `contextIncomplete` — present only when something possibly relevant was lost.
 
-Absent throughout: schema version, turn identity, trigger counts, bus
+Absent throughout: schema version, turn identity, trigger counts, event ids, bus
 sequences, absolute timestamps, selection roles, journal wire event names,
 behavior-graph identities and vocabulary, the commander FID, and prose event
 summaries. Exact
@@ -795,23 +802,33 @@ diagnostics and the GUI. The serializer output is reused unchanged for both the
 user message and the trace.
 
 One current trigger becomes exactly one event, numbered `1, 2, 3, …` within a
-single request. `DecisionEvidence` holds the mapping from those local ids to
-trigger bus sequences; it is minted beside the request, recorded in the trace
-as `localEvidence`, and never sent to the model.
+single request. Both halves of that numbering are internal and **neither is
+serialized**: `events[*].id` and the `changes[*].eventId` that points at it. The
+model is given no identity for an event and no way to name one. Internally the
+number is what `DecisionChangeSelector` decides attribution on and what the
+contract tests read; positionally it is the turn's trigger list, so the nth
+event came from the nth trigger bus sequence.
 
 There is no separate prompt resource or response JSON Schema.
 `ObserverResponseValidator` is the executable response contract. It accepts
 either `{"decision":"SILENT"}` with exactly that one property, or
-`{"decision":"COMMENT","comment":"…","evidence":[…]}` with exactly those three.
-Comments are limited to one or two sentences. `evidence` must contain positive,
-unique, strictly ascending local event ids that the request actually offered;
-an unknown id is `UNKNOWN_EVIDENCE_EVENT_ID`. The validator then translates the
-surviving ids to bus sequences, and everything downstream — the GUI, the
-novelty guard, the trace and speech — continues to work in bus sequences.
-Hidden observations, context facts and previous-comment evidence are outside
-the citable set by construction: they have no local id at all. String coercion
-and compatibility with the removed `evidenceTriggerBusSequences` field are not
-supported.
+`{"decision":"COMMENT","comment":"…"}` with exactly those two. Comments are
+limited to one or two sentences. Any further property — including the removed
+`evidence` and the earlier `evidenceTriggerBusSequences` — is
+`INVALID_PROPERTIES`; there is no id validation left, because the request offers
+no id to validate against. `validate` takes the raw output and the previous
+comments, and nothing about the request.
+
+`ValidatedObserverResponse` is `status`, `decision`, `comment`, `violations`
+and `failure` — the parsed answer and Kairon's verdict on it, with nothing
+derived from the request or the batch on it.
+
+Attribution is computed separately, by `ObserverTurnCoordinator`, from the
+batch: `triggerBusSequences` is the turn's own triggers in bus order. It travels
+beside the validated response on `ObserverTurnListener.DecisionResolved`, is
+retained on `DeliveredModelComment`, and is what the GUI shows and the trace
+records. Hidden observations, context facts and previous comments are outside it
+by construction. It is a fact about the question, never a claim by the model.
 
 `CommentNoveltyGuard` is unchanged. It rejects a comment that, after Unicode,
 case, whitespace, and trailing-punctuation normalization, exactly matches one
@@ -880,8 +897,8 @@ The initial Swing monitor is implemented and enabled by `ui.enabled`. It shows:
   including exact raw JSON and source diagnostics;
 - resolved `SILENT` and `COMMENT` decisions;
 - invalid-output and model-call-failure statuses;
-- raw model output, numeric evidence trigger bus sequences, latency, and
-  terminal console/speech delivery status.
+- raw model output, the numeric trigger bus sequences a delivered comment was
+  produced from, latency, and terminal console/speech delivery status.
 
 `DesktopUiSubscriber` listens to every `JournalEventObservation`, including
 unknown event types; it does not reuse semantic LLM selection.
@@ -1194,9 +1211,10 @@ reach the model.
 ## kairon-llm-decision-v1 — the production model input
 
 `kairon.observer.decision` holds the production contract: the request record,
-the local evidence mapping, the event catalogue and mechanisms, four
-projections (events, changes, context, trajectory), a deterministic Jackson
-serializer with an explicit property order, and a one-rung compaction ladder.
+the event catalogue and mechanisms, four projections (events, changes, context,
+trajectory), a deterministic Jackson serializer with an explicit property order,
+and a one-rung compaction ladder. There is no evidence mapping: the response
+cites nothing, so nothing needs translating back.
 `ObserverTurnCoordinator` builds exactly one request per turn — one
 serialization pass, no second document — and sends it through
 `DecisionPromptFactory`.
@@ -1362,10 +1380,18 @@ therefore cannot reach the generic fallback.
   invoked, previous-comment memory is untouched, the GUI receives a typed
   diagnostic through the existing observer status path, and the batch is
   consumed exactly once.
-- The turn trace is `kairon-turn-trace-v5`. It records the exact request that
+- The turn trace is `kairon-turn-trace-v6`. It records the exact request that
   was sent, the local-id-to-bus-sequence mapping, the typed turn outcome, and
   whether the provider, comment delivery and speech were actually invoked.
   `situationTurn` and `modelInput` are null exactly when no request was made.
+  The version moved from `v5` when event ids stopped being sent, and no field
+  is named `evidence` any more. `validatedDecision` lost both the ids the model
+  returned and the bus sequences they resolved to, so it now describes the
+  answer and only the answer. `localEvidence` is gone with nothing in its place:
+  it mapped event position `1..n` onto a trigger bus sequence, and
+  `triggerBusSequences` is that same list in that same order — the `v5` record
+  even asserted the two were equal. "Which observation was the third event?" is
+  `triggerBusSequences[2]`.
 
 The `kairon.observer.context` package no longer exists. `TriggerRelation`,
 `LlmDecisionContext`, `LlmDecisionContextFactory`, `LlmDecisionContextCompactor`,

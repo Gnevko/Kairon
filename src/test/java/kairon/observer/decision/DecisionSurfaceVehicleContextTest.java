@@ -65,7 +65,6 @@ final class DecisionSurfaceVehicleContextTest {
                     event.path("event").textValue());
             assertEquals(
                     List.of(
-                            "id",
                             "event",
                             "body",
                             "playerControlled",
@@ -309,7 +308,7 @@ final class DecisionSurfaceVehicleContextTest {
         }
         return read(serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(triggers.getLast()))
-        ).request()));
+        )));
     }
 
     private static List<String> recent(JsonNode request) {

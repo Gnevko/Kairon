@@ -11,10 +11,12 @@ import java.util.Objects;
  * of a decision request: the model is not shown what it said before, and the
  * repetition check runs locally against this list after the response arrives.</p>
  *
- * <p>{@code turnSequence} and {@code evidenceTriggerBusSequences} are retained
- * because they exist at the exact moment a comment is appended, and a later
- * diagnosis needs to know which turn and which triggers a repeated sentence
- * rested on.</p>
+ * <p>{@code turnSequence} and {@code triggerBusSequences} are retained because
+ * they exist at the exact moment a comment is appended, and a later diagnosis
+ * needs to know which turn and which observations a repeated sentence came out
+ * of. The triggers are the whole batch the turn was built from, taken from the
+ * batch: the model is shown no identity for an event and makes no claim about
+ * which of them it answered.</p>
  *
  * <p>No topic, entity or process milestone is derived. Extracting those from
  * generated text would be pre-model interpretation, which the project
@@ -23,7 +25,7 @@ import java.util.Objects;
 public record DeliveredModelComment(
         long turnSequence,
         String text,
-        List<Long> evidenceTriggerBusSequences
+        List<Long> triggerBusSequences
 ) {
 
     public DeliveredModelComment {
@@ -36,9 +38,9 @@ public record DeliveredModelComment(
         if (text.isBlank()) {
             throw new IllegalArgumentException("text must not be blank");
         }
-        evidenceTriggerBusSequences = List.copyOf(Objects.requireNonNull(
-                evidenceTriggerBusSequences,
-                "evidenceTriggerBusSequences"
+        triggerBusSequences = List.copyOf(Objects.requireNonNull(
+                triggerBusSequences,
+                "triggerBusSequences"
         ));
     }
 }

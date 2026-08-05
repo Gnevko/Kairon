@@ -54,7 +54,7 @@ final class SurfaceSurveyTriggerTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A surface area analysis scan reported \
+                    {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1}]}],\
@@ -118,18 +118,18 @@ final class SurfaceSurveyTriggerTest {
             assertEquals(1, pipeline.modelInputs().size());
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A ship jumped from one star system to another.",\
+                    {"events":[{"event":"A ship jumped from one star system to another.",\
                     "system":"Schieni","fuelUsed":0.4,"distanceLy":8.5},\
-                    {"id":2,"event":"A full spectrum system scan reported signal data for a body.",\
+                    {"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1}]},\
-                    {"id":3,"event":"A surface area analysis scan reported signal data for a planet or rings.",\
+                    {"event":"A surface area analysis scan reported signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1},\
                     {"type":"GEOLOGICAL","count":2}]}],\
-                    "changes":[{"eventId":1,"subject":"commander",\
+                    "changes":[{"subject":"commander",\
                     "kind":"ESTABLISHED","fields":{"presence":\
-                    {"after":"SHIP"}}},{"eventId":1,"subject":"vehicle",\
+                    {"after":"SHIP"}}},{"subject":"vehicle",\
                     "kind":"ESTABLISHED","fields":{"kind":{"after":"SHIP"}}}],\
                     "context":{"navigation":{"flightMode":"SUPERCRUISE"}}}""",
                     lastUserMessage(pipeline),
@@ -163,7 +163,7 @@ final class SurfaceSurveyTriggerTest {
             assertEquals(afterSurvey + 1, pipeline.modelInputs().size());
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
+                    {"events":[{"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":2}]}],\
                     "trajectory":{"recent":["SYSTEM_ENTERED",\

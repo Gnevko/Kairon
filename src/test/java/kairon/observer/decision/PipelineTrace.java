@@ -277,6 +277,11 @@ record PipelineTrace(
      *
      * @param document          the parsed request, for semantic comparison
      * @param userMessage       the exact bytes the provider received
+     * @param request           the same request as the object it was before
+     *                          serialization, proved byte-identical to
+     *                          {@code userMessage}. For contracts about what
+     *                          the document deliberately does not carry — a
+     *                          change's {@code eventId} above all
      * @param eventDescriptions what the provider was actually told each event
      *                          is, read from the request itself
      * @param eventKinds        Kairon's own name for each of those events,
@@ -291,6 +296,7 @@ record PipelineTrace(
             long turnSequence,
             String userMessage,
             JsonNode document,
+            LlmDecisionRequest request,
             List<Integer> eventIds,
             List<String> eventDescriptions,
             List<String> eventKinds,
@@ -300,6 +306,7 @@ record PipelineTrace(
         TurnView {
             userMessage = Objects.requireNonNull(userMessage, "userMessage");
             document = Objects.requireNonNull(document, "document");
+            request = Objects.requireNonNull(request, "request");
             eventIds = List.copyOf(eventIds);
             eventDescriptions = List.copyOf(eventDescriptions);
             eventKinds = List.copyOf(eventKinds);

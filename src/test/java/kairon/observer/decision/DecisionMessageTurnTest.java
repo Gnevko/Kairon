@@ -47,7 +47,7 @@ final class DecisionMessageTurnTest {
                         true,
                         0
                 )))
-        ).request()));
+        )));
 
         assertEquals(
                 List.of("events"),
@@ -56,7 +56,7 @@ final class DecisionMessageTurnTest {
         );
         JsonNode event = request.path("events").get(0);
         assertEquals(
-                List.of("id", "event", "sender", "channel", "message"),
+                List.of("event", "sender", "channel", "message"),
                 propertyNames(event)
         );
         assertEquals(
@@ -92,7 +92,6 @@ final class DecisionMessageTurnTest {
             );
             String serialized = serializer.serialize(
                     factory.create(fixture.inputs(List.of(observation)))
-                            .request()
             );
 
             assertTrue(
@@ -129,7 +128,7 @@ final class DecisionMessageTurnTest {
                     fixture.inputs(List.of(fixture.graphDisabled(
                             message(channel, "OLKI", "o7")
                     )))
-            ).request())).path("events").get(0);
+            ))).path("events").get(0);
 
             assertEquals(
                     channel.toUpperCase(Locale.ROOT),
@@ -151,7 +150,7 @@ final class DecisionMessageTurnTest {
                 fixture.inputs(List.of(fixture.graphDisabled(
                         message("multicrew", "OLKI", "o7")
                 )))
-        ).request())).path("events").get(0);
+        ))).path("events").get(0);
 
         assertEquals("MULTICREW", event.path("channel").textValue());
     }
@@ -180,7 +179,7 @@ final class DecisionMessageTurnTest {
                                 0
                         )
                 ))
-        ).request()));
+        )));
 
         List<String> channels = new ArrayList<>();
         request.path("events").forEach(event -> {
@@ -217,7 +216,7 @@ final class DecisionMessageTurnTest {
                         true,
                         0
                 )))
-        ).request()));
+        )));
         assertEquals(
                 List.of("SYSTEM_ENTERED", "LIFTOFF"),
                 recent(landing),
@@ -235,7 +234,7 @@ final class DecisionMessageTurnTest {
                         ),
                         mixed.graphed(touchdown(), trajectory, true, 0)
                 ))
-        ).request()));
+        )));
         assertEquals(
                 List.of(
                         "A text message was received.",

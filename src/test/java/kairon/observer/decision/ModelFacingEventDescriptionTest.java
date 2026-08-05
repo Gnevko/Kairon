@@ -53,7 +53,7 @@ final class ModelFacingEventDescriptionTest {
                          "event":"Touchdown","PlayerControlled":true,
                          "StarSystem":"Schieni","Body":"Schieni 4 a"}
                         """)))
-        ).request());
+        ));
 
         JsonNode event = JSON.readTree(serialized).path("events").get(0);
         assertEquals(
@@ -64,9 +64,9 @@ final class ModelFacingEventDescriptionTest {
         assertFalse(serialized.contains("TOUCHDOWN"), serialized);
     }
 
-    /** The description sits between the id and the event's own fields. */
+    /** The description opens the event and precedes its own fields. */
     @Test
-    void theDescriptionFollowsTheIdAndPrecedesEveryField() throws Exception {
+    void theDescriptionOpensTheEventAndPrecedesEveryField() throws Exception {
         DecisionTurnFixture fixture = new DecisionTurnFixture();
         String serialized = serializer.serialize(factory.create(
                 fixture.inputs(List.of(fixture.graphDisabled("""
@@ -74,13 +74,13 @@ final class ModelFacingEventDescriptionTest {
                          "event":"Touchdown","PlayerControlled":true,
                          "StarSystem":"Schieni","Body":"Schieni 4 a"}
                         """)))
-        ).request());
+        ));
 
         List<String> names = new ArrayList<>();
         JSON.readTree(serialized).path("events").get(0)
                 .fieldNames().forEachRemaining(names::add);
         assertEquals(
-                List.of("id", "event", "body", "playerControlled"),
+                List.of("event", "body", "playerControlled"),
                 names,
                 serialized
         );
@@ -103,10 +103,10 @@ final class ModelFacingEventDescriptionTest {
                          "SystemAddress":1,"BodyID":4,"ProbesUsed":2,
                          "EfficiencyTarget":3}
                         """)))
-        ).request());
+        ));
 
         assertEquals("""
-                {"events":[{"id":1,\
+                {"events":[{\
                 "event":"A surface area analysis scan of a body was \
                 completed.",\
                 "body":"Schieni 4 a","efficiencyTarget":3,"probesUsed":2}]}""",

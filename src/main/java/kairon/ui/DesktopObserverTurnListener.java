@@ -50,7 +50,10 @@ public final class DesktopObserverTurnListener
                         ? null
                         : validated.decision().name(),
                 validated.comment(),
-                validated.evidenceTriggerBusSequences(),
+                // From the turn, not from the response: the model is shown no
+                // event identity and asserts nothing about which observations
+                // it answered.
+                decision.triggerBusSequences(),
                 validated.violations(),
                 validated.failure(),
                 decision.rawModelOutput(),

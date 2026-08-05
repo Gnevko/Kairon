@@ -47,7 +47,7 @@ final class DecisionVehicleLaunchTest {
         JsonNode event = request.path("events").get(0);
 
         assertEquals(
-                List.of("id", "event", "loadout", "playerControlled"),
+                List.of("event", "loadout", "playerControlled"),
                 propertyNames(event)
         );
         assertEquals(
@@ -85,10 +85,9 @@ final class DecisionVehicleLaunchTest {
         assertFalse(event.has("id_"), "no raw identity under any name");
         assertFalse(event.has("vehicleId"));
         assertFalse(event.has("ID"));
-        assertEquals(
-                1,
-                event.path("id").intValue(),
-                "the only id is the local event id, which is 1 here"
+        assertFalse(
+                event.has("id"),
+                "not even the local event id survives into the document"
         );
     }
 
@@ -137,7 +136,7 @@ final class DecisionVehicleLaunchTest {
                         true,
                         0
                 )))
-        ).request()));
+        )));
 
         assertEquals(
                 List.of(
@@ -271,7 +270,7 @@ final class DecisionVehicleLaunchTest {
                          "event":"LaunchFighter","Loadout":"base","ID":10,
                          "PlayerControlled":true}
                         """)))
-        ).request()));
+        )));
     }
 
     private JsonNode requestFor(
@@ -281,7 +280,7 @@ final class DecisionVehicleLaunchTest {
     ) {
         return read(serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(triggers.get(index)))
-        ).request()));
+        )));
     }
 
     private static List<String> recent(JsonNode request) {

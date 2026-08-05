@@ -236,10 +236,11 @@ captured after the final trigger, and at most three successfully delivered
 comments. Exact raw source data remains in observations, diagnostics, and GUI
 details; it is not copied into the model context.
 
-The LLM returns one aggregate `SILENT` or `COMMENT` decision. A comment must
-satisfy the executable response contract and cite valid evidence including at
-least one trigger `busSequence`. Invalid output is handled deterministically
-under the current validator policy.
+The LLM returns one aggregate `SILENT` or `COMMENT` decision, and nothing else:
+the model is shown no identity for an event, so it cites nothing and a response
+that names anything is invalid. A delivered comment is attributed by Kairon to
+every trigger `busSequence` of the turn that produced it. Invalid output is
+handled deterministically under the current validator policy.
 
 Structural validation is not a semantic fact checker. Prompt instructions and
 controlled evaluation remain necessary to detect unsupported qualitative
@@ -393,8 +394,8 @@ source first. Documentation links to those sources instead of copying them.
 | Model-independent semantics | [`kairon/semantics/`](../src/main/java/kairon/semantics/), the per-field delta in [`CurrentGameStateProjector.java`](../src/main/java/kairon/state/CurrentGameStateProjector.java), and [ADR-0012](decisions/ADR-0012-MODEL-INDEPENDENT-SEMANTIC-LAYER.md) |
 | LLM model input | [`kairon/observer/decision/`](../src/main/java/kairon/observer/decision/) — [`LlmDecisionRequest.java`](../src/main/java/kairon/observer/decision/LlmDecisionRequest.java) (`kairon-llm-decision-v1`), [`DecisionEventCatalog.java`](../src/main/java/kairon/observer/decision/DecisionEventCatalog.java), the three projections, [`JacksonDecisionRequestSerializer.java`](../src/main/java/kairon/observer/decision/JacksonDecisionRequestSerializer.java), [`DecisionTurnPolicy.java`](../src/main/java/kairon/observer/decision/DecisionTurnPolicy.java), their tests, and [`kairon-llm-decision-interface.md`](design/kairon-llm-decision-interface.md) |
 | LLM prompt | `DecisionPromptFactory.SYSTEM_PROMPT` in [`DecisionPromptFactory.java`](../src/main/java/kairon/llm/DecisionPromptFactory.java); there is no separate prompt resource |
-| LLM response format | [`ObserverResponseValidator.java`](../src/main/java/kairon/llm/ObserverResponseValidator.java), [`DecisionEvidence.java`](../src/main/java/kairon/observer/decision/DecisionEvidence.java), [`CommentNoveltyGuard.java`](../src/main/java/kairon/llm/CommentNoveltyGuard.java), and their tests; there is no standalone response JSON Schema |
-| Turn trace | [`JsonLinesTurnTraceWriter.java`](../src/main/java/kairon/trace/JsonLinesTurnTraceWriter.java) (`kairon-turn-trace-v5`) and its tests |
+| LLM response format | [`ObserverResponseValidator.java`](../src/main/java/kairon/llm/ObserverResponseValidator.java), [`CommentNoveltyGuard.java`](../src/main/java/kairon/llm/CommentNoveltyGuard.java), and their tests; the response names nothing, so there is no evidence mapping and no standalone response JSON Schema |
+| Turn trace | [`JsonLinesTurnTraceWriter.java`](../src/main/java/kairon/trace/JsonLinesTurnTraceWriter.java) (`kairon-turn-trace-v6`) and its tests |
 | Replay pacing and model-facing time | [`JournalReplaySource.java`](../src/main/java/kairon/observation/journal/JournalReplaySource.java), immutable projected triggers, their tests, and [ADR-0009](decisions/ADR-0009-PACED-REPLAY.md) |
 | LLM request statistics | [`LlmRequestStatistics.java`](../src/main/java/kairon/llm/LlmRequestStatistics.java), [`LlmClient.LlmTokenUsage`](../src/main/java/kairon/llm/LlmClient.java), and [`LlmRequestStatisticsTest.java`](../src/test/java/kairon/llm/LlmRequestStatisticsTest.java) |
 | Bus contract | [`ObservationBus.java`](../src/main/java/kairon/observation/bus/ObservationBus.java), [`InProcessObservationBus.java`](../src/main/java/kairon/observation/bus/InProcessObservationBus.java), and [`InProcessObservationBusTest.java`](../src/test/java/kairon/observation/bus/InProcessObservationBusTest.java) |

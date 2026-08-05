@@ -97,7 +97,7 @@ final class BodyScanEventTest {
             );
             assertEquals(
                     """
-                    {"id":1,"event":"A discovery scan reported a star, \
+                    {"event":"A discovery scan reported a star, \
                     planet or moon's properties.","body":"Schieni 4 a",\
                     "system":"Schieni","scanType":"DETAILED",\
                     "bodyType":"PLANET","planetClass":"Icy body",\
@@ -452,7 +452,7 @@ final class BodyScanEventTest {
         }
         return read(serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(wanted))
-        ).request()));
+        )));
     }
 
     private static List<ProjectedObservation> triggersOf(

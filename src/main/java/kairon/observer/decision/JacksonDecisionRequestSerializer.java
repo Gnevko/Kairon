@@ -80,9 +80,12 @@ public final class JacksonDecisionRequestSerializer {
         json.writeArrayFieldStart(DecisionSections.EVENTS);
         for (LlmDecisionRequest.Event event : events) {
             json.writeStartObject();
-            json.writeNumberField("id", event.id());
             // What happened, in the record's own words. Kairon's internal kind
-            // is deliberately absent: it is a name only this process shares.
+            // and its local event id are both deliberately absent: the kind is
+            // a name only this process shares, and the id is a correlation
+            // handle the model can neither verify nor act on. The id still
+            // exists on the record, keeps the array's order, and is what the
+            // trace maps back to a bus sequence — it simply stops being sent.
             json.writeStringField("event", event.description());
             for (LlmDecisionRequest.Field field : event.fields()) {
                 value(json, field.name(), field.value());
@@ -104,9 +107,10 @@ public final class JacksonDecisionRequestSerializer {
         json.writeArrayFieldStart(DecisionSections.CHANGES);
         for (LlmDecisionRequest.Change change : changes) {
             json.writeStartObject();
-            if (change.eventId() != null) {
-                json.writeNumberField("eventId", change.eventId());
-            }
+            // The causing event's position is not written. It pointed at an
+            // identity the events stopped carrying, so on the wire it was a
+            // reference to nothing; inside Kairon it still says whose step a
+            // change was, which is what the stale check reads it for.
             json.writeStringField("subject", change.subject());
             json.writeStringField("kind", change.kind());
             json.writeObjectFieldStart("fields");

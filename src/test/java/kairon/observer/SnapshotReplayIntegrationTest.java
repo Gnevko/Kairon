@@ -222,7 +222,7 @@ final class SnapshotReplayIntegrationTest {
             );
             assertFalse(request.path("events").toString()
                     .contains("Location"));
-            assertEquals(List.of(1, 2, 3, 4), eventIds(request));
+            assertEquals(List.of(1, 2, 3, 4), eventPositions(request));
         } finally {
             rawBus.drainAndClose().toCompletableFuture().join();
             projection.shutdown().toCompletableFuture().join();
@@ -419,10 +419,13 @@ final class SnapshotReplayIntegrationTest {
         return textValues(request.path("events"), "event");
     }
 
-    private static List<Integer> eventIds(JsonNode request) {
+    /** What each event of the batch is, positionally, without any id. */
+    private static List<Integer> eventPositions(JsonNode request) {
         List<Integer> result = new ArrayList<>();
-        request.path("events").forEach(item ->
-                result.add(item.path("id").intValue()));
+        request.path("events").forEach(item -> {
+            assertFalse(item.has("id"), "an event still carries an id");
+            result.add(result.size() + 1);
+        });
         return List.copyOf(result);
     }
 

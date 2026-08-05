@@ -104,7 +104,7 @@ final class SamplingActivationChangeTest {
                                  "StarSystem":"Schieni GG-A c3-84",
                                  "SystemAddress":23155}
                                 """)
-                ))).request()
+                )))
         ));
 
         assertFalse(
@@ -153,7 +153,7 @@ final class SamplingActivationChangeTest {
                                  "event":"FSDJump","StarSystem":"Elsewhere",
                                  "SystemAddress":9001,"JumpDist":24.5}
                                 """)
-                ))).request()
+                )))
         ));
 
         JsonNode sampling = null;

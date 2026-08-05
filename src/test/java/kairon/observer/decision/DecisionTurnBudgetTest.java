@@ -63,7 +63,7 @@ final class DecisionTurnBudgetTest {
         int mandatory = compactor(DecisionTurnPolicy.production())
                 .mandatoryCharacterCount(inputs);
         int full = serializer.serialize(
-                factory.create(inputs).request()
+                factory.create(inputs)
         ).length();
         assertTrue(
                 mandatory < full,
@@ -97,7 +97,7 @@ final class DecisionTurnBudgetTest {
         DecisionTurnFixture fixture = new DecisionTurnFixture();
         DecisionTurnInputs inputs = landingAfterAnEarlierTurn(fixture);
         int full = serializer.serialize(
-                factory.create(inputs).request()
+                factory.create(inputs)
         ).length();
 
         LlmDecisionRequestCompactor.Result.Fitted fitted =
@@ -217,7 +217,12 @@ final class DecisionTurnBudgetTest {
             assertFalse(line.path("speechInvoked").booleanValue());
             assertTrue(line.path("situationTurn").isNull());
             assertTrue(line.path("modelInput").isNull());
-            assertTrue(line.path("localEvidence").isEmpty());
+            assertEquals(
+                    1,
+                    line.path("triggerBusSequences").size(),
+                    "a turn that never reached the provider still records "
+                            + "which observations it was built from"
+            );
             assertTrue(
                     line.path("contextOverflow")
                             .path("overshootCharacters")

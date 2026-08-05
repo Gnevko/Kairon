@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -96,7 +97,7 @@ final class BootstrapScannerResultTest {
             assertEquals(beforeSignals + 1, pipeline.modelInputs().size());
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A full spectrum system scan reported signal data for a body.",\
+                    {"events":[{"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "signals":[{"type":"BIOLOGICAL","count":1}]}],\
                     "trajectory":{"recent":["SYSTEM_ENTERED",\
@@ -431,6 +432,7 @@ final class BootstrapScannerResultTest {
         return List.copyOf(recent);
     }
 
+    /** Each turn's events by position; the document carries no id. */
     private static List<Integer> localEventIds(
             DecisionProductionPipeline pipeline
     ) throws Exception {
@@ -439,8 +441,11 @@ final class BootstrapScannerResultTest {
             String message = input.userMessage();
             JsonNode document =
                     JSON.readTree(message.substring(message.indexOf('{')));
-            document.path("events")
-                    .forEach(event -> ids.add(event.path("id").intValue()));
+            int position = 0;
+            for (JsonNode event : document.path("events")) {
+                assertFalse(event.has("id"), "an event still carries an id");
+                ids.add(++position);
+            }
         }
         return List.copyOf(ids);
     }

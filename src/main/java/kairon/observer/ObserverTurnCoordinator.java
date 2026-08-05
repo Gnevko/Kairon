@@ -30,7 +30,6 @@ import kairon.trace.JsonLinesTurnTraceWriter;
 import kairon.trace.JsonLinesTurnTraceWriter.ContextOverflowTrace;
 import kairon.trace.JsonLinesTurnTraceWriter.ProviderTrace;
 import kairon.trace.JsonLinesTurnTraceWriter.TurnTrace;
-import kairon.turn.evidence.DecisionEvidence;
 import kairon.turn.overflow.ContextOverflow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -555,7 +554,6 @@ public final class ObserverTurnCoordinator implements AutoCloseable {
         try {
             validated = responseValidator.validate(
                     rawOutput,
-                    activeTurn.evidence(),
                     commentTexts(activeTurn.previousComments())
             );
         } catch (RuntimeException validationFailure) {
@@ -563,8 +561,6 @@ public final class ObserverTurnCoordinator implements AutoCloseable {
                     ObserverResponseValidator.Status.INVALID,
                     null,
                     null,
-                    List.of(),
-                    List.of(),
                     List.of("VALIDATOR_FAILURE"),
                     null
             );
@@ -663,13 +659,15 @@ public final class ObserverTurnCoordinator implements AutoCloseable {
         String deliveredComment = null;
         if (terminalDelivery.deliveredForHistory()) {
             deliveredComment = validated.comment();
-            // turnSequence and the evidence the comment rested on are both in
-            // scope only here; retaining them is what lets a later turn present
-            // previous output as the model's own non-authoritative assertion.
+            // turnSequence and the triggers the comment was produced from are
+            // both in scope only here; retaining them is what lets a later
+            // diagnosis say which observations a repeated sentence came out of.
+            // The triggers come from the batch, not from the response — the
+            // response describes the answer and only the answer.
             deliveredComments.addLast(new DeliveredModelComment(
                     activeTurn.turnSequence(),
                     deliveredComment,
-                    validated.evidenceTriggerBusSequences()
+                    activeTurn.triggerBusSequences()
             ));
             while (deliveredComments.size()
                     > PREVIOUS_COMMENT_LIMIT) {
@@ -792,9 +790,6 @@ public final class ObserverTurnCoordinator implements AutoCloseable {
                 turnOutcome(validated),
                 completed.triggerBusSequences(),
                 overflow == null
-                        ? localEvidence(completed.prepared().evidence())
-                        : List.of(),
-                overflow == null
                         ? completed.prepared().serializedJson()
                         : null,
                 overflow == null
@@ -824,26 +819,6 @@ public final class ObserverTurnCoordinator implements AutoCloseable {
                 delivery.speechResult().failureCategory().name(),
                 deliveredComment
         );
-    }
-
-    /**
-     * What each local event id the model was offered actually stood for.
-     *
-     * <p>Recorded rather than reconstructed. The trace is the only place the
-     * two vocabularies meet, and a reader diagnosing a citation must not have
-     * to re-derive the mapping from the request's array order.</p>
-     */
-    private static List<JsonLinesTurnTraceWriter.LocalEvidenceTrace>
-            localEvidence(DecisionEvidence evidence) {
-        List<JsonLinesTurnTraceWriter.LocalEvidenceTrace> mapping =
-                new ArrayList<>(evidence.size());
-        for (int localId = 1; localId <= evidence.size(); localId++) {
-            mapping.add(new JsonLinesTurnTraceWriter.LocalEvidenceTrace(
-                    localId,
-                    evidence.busSequenceOf(localId)
-            ));
-        }
-        return List.copyOf(mapping);
     }
 
     private static String turnOutcome(ValidatedObserverResponse validated) {
@@ -919,6 +894,10 @@ public final class ObserverTurnCoordinator implements AutoCloseable {
                             turn.turnSequence(),
                             java.time.Instant.now(),
                             turn.triggers().size(),
+                            // Computed here from the batch. The response
+                            // carries no identities, so this is the only
+                            // honest answer to what the turn was built from.
+                            turn.triggerBusSequences(),
                             validated,
                             rawOutput,
                             Math.max(0L, latencyMs)
@@ -1161,18 +1140,6 @@ public final class ObserverTurnCoordinator implements AutoCloseable {
             );
         }
 
-        /**
-         * What the response may cite, taken from the request actually sent.
-         *
-         * <p>Only current-turn {@code NEW} triggers have a local id at all. A
-         * hidden observation that changed state, a context fact and a previous
-         * comment's evidence are outside it by construction rather than by a
-         * rule someone has to remember to apply.</p>
-         */
-        private DecisionEvidence evidence() {
-            return prepared.evidence();
-        }
-
         private ActiveTurn prepared(
                 LlmDecisionRequestCompactor.Result.Fitted value,
                 ModelInput input
@@ -1186,6 +1153,16 @@ public final class ObserverTurnCoordinator implements AutoCloseable {
             );
         }
 
+        /**
+         * The observations this turn was built from, in bus order.
+         *
+         * <p>The one answer to "which observations produced this?", computed
+         * here from the batch rather than read off the response. The model is
+         * shown no identity for an event and asserts nothing about which of
+         * them mattered, so any narrower list would be Kairon inventing an
+         * attribution nobody made. Positionally this is also the numbering the
+         * request used internally: the nth event came from the nth entry.</p>
+         */
         private List<Long> triggerBusSequences() {
             return triggers.stream()
                     .map(ProjectedObservation::busSequence)

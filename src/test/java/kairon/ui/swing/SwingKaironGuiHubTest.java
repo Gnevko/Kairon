@@ -112,8 +112,7 @@ final class SwingKaironGuiHubTest {
                 List.of(),
                 List.of(),
                 null,
-                "{\"decision\":\"SILENT\",\"comment\":null,"
-                        + "\"evidenceTriggerBusSequences\":[]}",
+                "{\"decision\":\"SILENT\"}",
                 10L
         );
     }

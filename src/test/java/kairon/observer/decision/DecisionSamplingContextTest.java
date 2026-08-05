@@ -101,7 +101,7 @@ final class DecisionSamplingContextTest {
         assertEquals("IN_PROGRESS", sampling.path("stage").textValue());
         assertEquals(
                 """
-                {"events":[{"id":1,"event":"The Commander stepped out of a ship or SRV.",\
+                {"events":[{"event":"The Commander stepped out of a ship or SRV.",\
                 "system":"Schieni GG-A c3-84",\
                 "body":"Schieni GG-A c3-84 4 a",\
                 "onStation":false,"onPlanet":true}],\
@@ -254,7 +254,7 @@ final class DecisionSamplingContextTest {
 
         assertEquals(
                 """
-                {"events":[{"id":1,"event":"The organic sampling tool was used on an organic discovery.",\
+                {"events":[{"event":"The organic sampling tool was used on an organic discovery.",\
                 "organism":"Bacterium Bullaris - Red",\
                 "stage":"START","complete":false}],\
                 "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
@@ -265,7 +265,7 @@ final class DecisionSamplingContextTest {
         String advanced = serialize(fixture, scanOrganic("Sample", 1));
         assertEquals(
                 """
-                {"events":[{"id":1,"event":"The organic sampling tool was used on an organic discovery.",\
+                {"events":[{"event":"The organic sampling tool was used on an organic discovery.",\
                 "organism":"Bacterium Bullaris - Red",\
                 "stage":"PROGRESS","complete":false}],\
                 "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
@@ -428,7 +428,7 @@ final class DecisionSamplingContextTest {
             }
             String serialized = serializer.serialize(factory.create(
                     pipeline.inputsFor(List.of(last))
-            ).request());
+            ));
             JsonNode request = read(serialized);
 
             assertEquals("The Commander stepped out of a ship or SRV.",
@@ -438,7 +438,7 @@ final class DecisionSamplingContextTest {
                             .path("occurrenceOnBody").intValue());
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"The Commander stepped out of a ship or SRV.",\
+                    {"events":[{"event":"The Commander stepped out of a ship or SRV.",\
                     "system":"Schieni GG-A c3-84",\
                     "body":"Schieni GG-A c3-84 4 a",\
                     "onStation":false,"onPlanet":true,\
@@ -655,7 +655,7 @@ final class DecisionSamplingContextTest {
     private String serialize(DecisionTurnFixture fixture, String rawJson) {
         return serializer.serialize(factory.create(fixture.inputs(
                 List.of(fixture.graphDisabled(rawJson))
-        )).request());
+        )));
     }
 
     private static JsonNode samplingGroup(JsonNode request) {

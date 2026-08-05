@@ -171,7 +171,7 @@ final class ShipLaunchedVesselLifecycleTest {
 
             String launch = turnFor(pipeline, "LaunchFighter");
             assertEquals(
-                    "{\"id\":1,\"event\":\"A vehicle was launched from the ship.\","
+                    "{\"event\":\"A vehicle was launched from the ship.\","
                             + "\"loadout\":\"base\","
                             + "\"playerControlled\":true,"
                             + "\"occurrenceOnBody\":1}",
@@ -223,7 +223,7 @@ final class ShipLaunchedVesselLifecycleTest {
             // existing ones rather than merely present.
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A ship landed on the surface of a planet or moon.",\
+                    {"events":[{"event":"A ship landed on the surface of a planet or moon.",\
                     "body":"Schieni GG-A c3-84 4 a","playerControlled":true,\
                     "occurrenceOnBody":1}],\
                     "context":{"system":{"name":"Schieni GG-A c3-84"},\
@@ -275,7 +275,7 @@ final class ShipLaunchedVesselLifecycleTest {
 
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"The Commander stepped out of a ship or SRV.",\
+                    {"events":[{"event":"The Commander stepped out of a ship or SRV.",\
                     "system":"Schieni GG-A c3-84",\
                     "body":"Schieni GG-A c3-84 4 a",\
                     "onStation":false,"onPlanet":true,\
@@ -288,7 +288,7 @@ final class ShipLaunchedVesselLifecycleTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"The Commander, on foot, got into a ship or SRV.",\
+                    {"events":[{"event":"The Commander, on foot, got into a ship or SRV.",\
                     "system":"Schieni GG-A c3-84",\
                     "body":"Schieni GG-A c3-84 4 a",\
                     "onStation":false,"onPlanet":true,\
@@ -320,10 +320,10 @@ final class ShipLaunchedVesselLifecycleTest {
             String recovery = turnFor(pipeline, "DockSRV");
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A surface vehicle was brought back aboard the ship.",\
+                    {"events":[{"event":"A surface vehicle was brought back aboard the ship.",\
                     "vehicleKind":"SLV","vehicleType":"Nomad",\
                     "occurrenceOnBody":1}],\
-                    "changes":[{"eventId":1,"subject":"commander",\
+                    "changes":[{"subject":"commander",\
                     "kind":"UPDATED","fields":{"presence":\
                     {"before":"SLV","after":"SHIP"}}}],\
                     "trajectory":{"recent":["BIOLOGICAL_SAMPLE_COMPLETED",\
@@ -681,7 +681,7 @@ final class ShipLaunchedVesselLifecycleTest {
         }
         return serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(wanted))
-        ).request());
+        ));
     }
 
     private static ProjectedObservation projectionOf(

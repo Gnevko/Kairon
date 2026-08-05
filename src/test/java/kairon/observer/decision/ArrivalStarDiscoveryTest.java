@@ -68,7 +68,7 @@ final class ArrivalStarDiscoveryTest {
             );
             assertEquals(
                     """
-                    {"events":[{"id":1,"event":"A scan reported a star \
+                    {"events":[{"event":"A scan reported a star \
                     as not previously discovered.",\
                     "arrivalStar":"Schieni SI-B e756",\
                     "system":"Schieni SI-B e756",\
@@ -129,7 +129,7 @@ final class ArrivalStarDiscoveryTest {
 
                 assertEquals(
                         ("""
-                        {"events":[{"id":1,"event":"A scan reported a \
+                        {"events":[{"event":"A scan reported a \
                         star as not previously discovered.",\
                         "arrivalStar":"%s","system":"%s","starType":"%s",\
                         "previouslyDiscovered":false}],\

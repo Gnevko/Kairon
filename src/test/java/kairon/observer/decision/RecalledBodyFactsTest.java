@@ -147,7 +147,7 @@ final class RecalledBodyFactsTest {
                         {"timestamp":"2026-07-30T10:00:01Z","event":"DockSRV",
                          "ID":10,"SRVType_Localised":"Nomad"}
                         """)))
-        ).request()));
+        )));
 
         JsonNode presence = null;
         for (JsonNode change : request.path("changes")) {
@@ -199,7 +199,7 @@ final class RecalledBodyFactsTest {
                          "event":"ApproachBody","StarSystem":"Icy System",
                          "SystemAddress":23155,"Body":"Icy One","BodyID":20}
                         """)
-        ))).request();
+        )));
     }
 
     private JsonNode approach() {

@@ -2,7 +2,6 @@ package kairon.observer.decision;
 
 import kairon.observer.decision.DecisionEventProjector.ProjectedEvent;
 import kairon.projection.ProjectedObservation;
-import kairon.turn.evidence.DecisionEvidence;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,15 +35,13 @@ public final class LlmDecisionRequestFactory {
     private final DecisionTrajectoryProjector trajectoryProjector =
             new DecisionTrajectoryProjector();
 
-    public Prepared create(DecisionTurnInputs inputs) {
+    public LlmDecisionRequest create(DecisionTurnInputs inputs) {
         Objects.requireNonNull(inputs, "inputs");
         List<ProjectedEvent> projected =
                 new ArrayList<>(inputs.triggers().size());
-        List<Long> busSequences = new ArrayList<>(inputs.triggers().size());
         int localId = 1;
         for (ProjectedObservation trigger : inputs.triggers()) {
             projected.add(eventProjector.project(localId++, trigger));
-            busSequences.add(trigger.busSequence());
         }
         // Built once, from every projected event of this turn, and read the
         // same way by both selectors. They used to answer "has this already
@@ -60,35 +57,15 @@ public final class LlmDecisionRequestFactory {
                         changes,
                         stated
                 );
-        return new Prepared(
-                new LlmDecisionRequest(
-                        projected.stream().map(ProjectedEvent::event).toList(),
-                        changes,
-                        context,
-                        trajectoryProjector.project(inputs, projected),
-                        // The only real loss the pipeline can report before the
-                        // budget is consulted: observations folded away because
-                        // the accumulator hit its memory bound.
-                        inputs.semanticEffects().bounded()
-                ),
-                new DecisionEvidence(List.copyOf(busSequences))
+        return new LlmDecisionRequest(
+                projected.stream().map(ProjectedEvent::event).toList(),
+                changes,
+                context,
+                trajectoryProjector.project(inputs, projected),
+                // The only real loss the pipeline can report before the budget
+                // is consulted: observations folded away because the
+                // accumulator hit its memory bound.
+                inputs.semanticEffects().bounded()
         );
-    }
-
-    /** The request and what its local event ids stand for. */
-    public record Prepared(
-            LlmDecisionRequest request,
-            DecisionEvidence evidence
-    ) {
-
-        public Prepared {
-            Objects.requireNonNull(request, "request");
-            Objects.requireNonNull(evidence, "evidence");
-            if (request.events().size() != evidence.size()) {
-                throw new IllegalArgumentException(
-                        "every event must have exactly one bus sequence"
-                );
-            }
-        }
     }
 }
