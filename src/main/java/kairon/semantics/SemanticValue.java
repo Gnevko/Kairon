@@ -138,59 +138,6 @@ public sealed interface SemanticValue {
         }
     }
 
-    /**
-     * What a scanner reported on one body, by signal category and count.
-     *
-     * <p>The one compound value in the contract, and it is compound because the
-     * fact is: "two geological and one biological" is a single reading, and
-     * splitting it into named scalars would either invent a field per category
-     * the game may add to, or collapse categories the Commander distinguishes.
-     * The list is ordered deterministically by the adapter and carries no
-     * category the scanner did not report.</p>
-     */
-    record SignalCountsValue(List<SignalCount> counts) implements SemanticValue {
-
-        public SignalCountsValue {
-            counts = List.copyOf(Objects.requireNonNull(counts, "counts"));
-            if (counts.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "an empty signal reading is expressed by omitting it"
-                );
-            }
-        }
-
-        @Override
-        public boolean known() {
-            return true;
-        }
-
-        /**
-         * One reported category.
-         *
-         * <p>{@code type} is a closed token; a category outside the closed set
-         * is reported as {@code OTHER} rather than as the game's own
-         * {@code $SAA_SignalType_*;} identifier. {@code label} is the game's
-         * localised rendering, present only when there is one and only when the
-         * type alone does not say what was found.</p>
-         */
-        public record SignalCount(String type, String label, long count) {
-
-            public SignalCount {
-                type = requireNonBlank(type, "type");
-                if (label != null && label.isBlank()) {
-                    throw new IllegalArgumentException(
-                            "label must not be blank when present"
-                    );
-                }
-                if (count < 1) {
-                    throw new IllegalArgumentException(
-                            "a reported signal count must be positive"
-                    );
-                }
-            }
-        }
-    }
-
     /** A surface position. Required by codex and touchdown mechanisms. */
     record CoordinatesValue(double latitude, double longitude)
             implements SemanticValue {

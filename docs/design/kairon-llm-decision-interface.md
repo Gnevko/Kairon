@@ -543,9 +543,11 @@ folded into the one before it.
 what that event says. Where a type is produced by a journal class the sentence
 **is** that class's `modelFacingDescription()`, and a test parses a minimal
 record of each and compares — a landing remembered must say what a landing says.
-Types no journal class describes (the Status-derived scanner modes and landing
-gear, the two frame-shift charges, the system honk) are authored here in the same
-register.
+Six types no journal class describes are authored here in the same register, and
+all six are Status-derived — the two scanner modes and the landing gear — for
+which no journal record exists at all. Every other entry comes from a class,
+including the two frame-shift charges and the system honk, which describe
+themselves without being model-eligible as events.
 
 The three sampling steps each say which step they were, so a remembered sample
 needs no stage to fold in.

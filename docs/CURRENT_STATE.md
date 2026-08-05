@@ -489,17 +489,22 @@ field's baseline. Later observed changes produce these structural occurrences:
 
 - `FSS_MODE_ENTERED` and `FSS_MODE_EXITED`;
 - `SAA_MODE_ENTERED` and `SAA_MODE_EXITED`;
-- `LANDING_GEAR_DEPLOYED` and `LANDING_GEAR_RETRACTED`.
+- `LANDING_GEAR_DEPLOYED` and `LANDING_GEAR_RETRACTED`;
+- `GLIDE_ENTERED` and `GLIDE_EXITED`.
 
 The interpretation follows the official Frontier Status contract:
-`GuiFocus = 9` identifies FSS mode, `GuiFocus = 10` identifies SAA mode, and
-`Flags` bit 2 (`0x00000004`) means landing gear down. Missing optional
+`GuiFocus = 9` identifies FSS mode, `GuiFocus = 10` identifies SAA mode,
+`Flags` bit 2 (`0x00000004`) means landing gear down, and `Flags2` bit 12
+(`0x1000`) means glide. The glide is the unpowered descent between orbital
+cruise and the surface, and no journal event reports it: `ApproachBody` and
+`LeaveBody` report entering and leaving the orbital-cruise zone, never the
+glide inside it. Missing optional
 `GuiFocus` does not mean `NoFocus`, malformed or unchanged snapshots emit no
 transition, and multiple changes from one snapshot use a fixed deterministic
 order. See the
 [Frontier Player Journal Manual v37, Status File](https://hosting.zaonce.net/community/journal/v37/Journal_Manual_v37.pdf).
 
-These six status-derived types are behavior-graph facts only. They have no
+These eight status-derived types are behavior-graph facts only. They have no
 `LlmJournalEventSelection` role, cannot start a model turn, do not enter model
 context or the aggregate turn trace, and do not imply that opening a scanner
 completed a scan.
@@ -1148,11 +1153,18 @@ DTO or speech.
   `BodySurveyFacts.normalizedSignalCounts` is the one definition of a normalized
   signal set and keeps only counts above zero, so the canonical merge, the
   signature the graph deduplicates on, the observer's novelty memory and the
-  `signals` array the model is shown are the same set and none of them can carry
-  a count below one. Nothing is defaulted either: a category no reading has
+  per-category counts the model is shown are the same set and none of them can
+  carry a count below one. Nothing is defaulted either: a category no reading has
   counted stays out of the map, so `biologicalSignalCount` /
   `geologicalSignalCount` return `null`, `CurrentGameStateSemantics` reads it as
   `UnknownValue`, and it appears in no change, no context group and no event.
+  A reading reports one count per category, named as the context names it —
+  `biologicalSignals`, `geologicalSignals`, `humanSignals`, `thargoidSignals`,
+  `otherSignals`
+  ([ADR-0024](decisions/ADR-0024-ONE-SHAPE-FOR-A-SIGNAL-COUNT.md)) — so an event
+  and the standing fact it becomes share one spelling and no declaration bridges
+  them. Uncatalogued categories are summed into `otherSignals` and lose the
+  game's localised label; the contract carries no compound value.
   There is no way to say "surveyed and found none" — that claim would need a
   source that makes it. A reading whose positive set is empty is therefore not a
   finding: no occurrence, no turn, nothing cleared and nothing invented.
@@ -1349,7 +1361,12 @@ therefore cannot reach the generic fallback.
   `NormalizedEventType` to what that event says, and a test parses a record of
   each class the type can come from and requires the sentence to be the class's
   own `modelFacingDescription()`; an unmapped type (`UNKNOWN_*`, built from a
-  journal wire name) is dropped rather than passed through. A prediction reads
+  journal wire name) is dropped rather than passed through. Only six entries are
+  authored in the table rather than taken from a class, and all six are
+  Status-derived — the two scanner modes and the landing gear — for which no
+  journal record exists. `StartJump` and `FSSDiscoveryScan` describe themselves
+  without being model-eligible as events, because the graph records them and a
+  vertex the model can be shown has to be able to say what it is. A prediction reads
   the same past-tense sentence as a memory of the same event — `likelyNext` and
   its probability are what say it has not happened, and the prompt says so
   outright, so there is no second vocabulary in a forward tense to keep in

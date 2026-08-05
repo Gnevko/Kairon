@@ -148,6 +148,10 @@ final class DecisionTrajectoryDescriptions {
                 "The surface area analysis scanner was opened.");
         said.put(NormalizedEventType.SAA_MODE_EXITED,
                 "The surface area analysis scanner was closed.");
+        said.put(NormalizedEventType.GLIDE_ENTERED,
+                "A ship began an unpowered glide towards a surface.");
+        said.put(NormalizedEventType.GLIDE_EXITED,
+                "A ship came out of its glide towards a surface.");
         said.put(NormalizedEventType.LANDING_GEAR_DEPLOYED,
                 "The landing gear was deployed.");
         said.put(NormalizedEventType.LANDING_GEAR_RETRACTED,

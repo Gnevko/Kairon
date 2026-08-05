@@ -120,31 +120,6 @@ final class DecisionNames {
         return CONTEXT_SLOTS_STATED_BY_EVENT.get(eventFieldName);
     }
 
-    /**
-     * The canonical field a reported signal category counts, or null.
-     *
-     * <p>A signal set is one model-facing field carrying several categories, and
-     * two of those categories are canonical fields in their own right. Saying so
-     * has to be a declaration: reading a canonical count out of whichever number
-     * happens to sit inside the set is the same mistake as matching a change by
-     * its value alone.</p>
-     *
-     * <p>Only two are named, because only two exist canonically. A human,
-     * Thargoid or otherwise-uncatalogued signal is reported to the model inside
-     * the set and nowhere else, so it states no field — there is no field for it
-     * to state.</p>
-     */
-    static SemanticField signalCategoryField(String category) {
-        Objects.requireNonNull(category, "category");
-        return switch (category) {
-            case BodySurveyFacts.BIOLOGICAL ->
-                    SemanticField.BIOLOGICAL_SIGNAL_COUNT;
-            case BodySurveyFacts.GEOLOGICAL ->
-                    SemanticField.GEOLOGICAL_SIGNAL_COUNT;
-            default -> null;
-        };
-    }
-
     /** Where a canonical field is reported, or null when it is never sent. */
     static String slotOf(SemanticField field) {
         String name = field(field);

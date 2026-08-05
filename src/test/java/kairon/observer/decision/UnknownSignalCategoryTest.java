@@ -67,7 +67,7 @@ final class UnknownSignalCategoryTest {
                     """
                     {"events":[{"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"BIOLOGICAL","count":1}]}],\
+                    "biologicalSignals":1}],\
                     "trajectory":{"recent":["A ship jumped from one star system to another.",\
                     "A ship in supercruise came within a body's orbital-cruise zone."]}}""",
                     trace.turns().getLast().userMessage(),
@@ -101,9 +101,10 @@ final class UnknownSignalCategoryTest {
                     trace.turns().getLast().userMessage()
             );
             assertEquals(
-                    "[{\"type\":\"GEOLOGICAL\",\"count\":2}]",
+                    2,
                     trace.turns().getLast().events().get(0)
-                            .path("signals").toString()
+                            .path("geologicalSignals").intValue(),
+                    "and geology is counted under the name the context uses"
             );
         }
     }
@@ -141,12 +142,17 @@ final class UnknownSignalCategoryTest {
     }
 
     /**
-     * A finding is stated once: in the set that found it.
+     * A finding is stated once: by the event that found it.
      *
-     * <p>The signal set and the canonical count are the same fact, and a change
-     * repeating it invited the model to read one finding as two. The set is the
-     * event's own account of what the scanner reported, so it is the one that
-     * stays.</p>
+     * <p>The reported count and the canonical count are the same fact, and a
+     * change or a context group repeating it invited the model to read one
+     * finding as two. The event's own account is the one that stays.</p>
+     *
+     * <p>Counted rather than forbidden, because the name is now the same on
+     * both sides. It used to be two spellings — a nested set on the event, a
+     * flat {@code geologicalSignals} in the context — and this could assert
+     * that the canonical spelling appeared nowhere. One spelling is the point
+     * of the change, so what has to hold is that it appears once.</p>
      */
     @Test
     void aReportedCategoryIsNotRepeatedAsAChangeOrAsContext(
@@ -163,14 +169,16 @@ final class UnknownSignalCategoryTest {
                     {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"GEOLOGICAL","count":2}]}],\
+                    "geologicalSignals":2}],\
                     "trajectory":{"recent":["A ship jumped from one star system to another.",\
                     "A ship in supercruise came within a body's orbital-cruise zone."]}}""",
                     turn.userMessage()
             );
-            assertFalse(
-                    turn.userMessage().contains("geologicalSignals"),
-                    "the canonical name appears nowhere; the set said it"
+            assertEquals(
+                    1,
+                    turn.userMessage().split("geologicalSignals", -1).length - 1,
+                    "the finding is stated once, by the event that found it: "
+                            + turn.userMessage()
             );
         }
     }
@@ -201,7 +209,7 @@ final class UnknownSignalCategoryTest {
                     {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"GEOLOGICAL","count":2}]}],\
+                    "geologicalSignals":2}],\
                     "context":{"body":{"biologicalSignals":1}},\
                     "trajectory":{"recent":["A ship jumped from one star system to another.",\
                     "A ship in supercruise came within a body's orbital-cruise \

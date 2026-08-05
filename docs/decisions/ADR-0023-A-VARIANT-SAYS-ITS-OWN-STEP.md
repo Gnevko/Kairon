@@ -78,10 +78,21 @@ of each and compares. That is what the variant split bought: while one class
 could mean several things, its sentence was not a constant and there was nothing
 to compare against but another identifier.
 
-About half of the 54 types have no journal class that describes them — the
-Status-derived scanner modes and landing gear, the two frame-shift charges, the
-system honk — and their sentences are authored in the table. There is no way
-around that: no record exists to ask.
+A graph vertex the model can be shown has to be able to say what it is, so the
+two records that could describe themselves and did not now do:
+`StartJump` (both charges) and `FSSDiscoveryScan` sign the presentation contract.
+Neither becomes model-eligible by signing — eligibility is the source-role
+catalogue's answer and is unchanged, exactly as `LaunchDrone` is presentable and
+`DIAGNOSTIC_ONLY` — and neither reaches `events`. What changes is where their
+sentence lives: on the class, where the contract test compares it, instead of in
+the table where nothing could.
+
+Six of the 54 types are left with an authored sentence, and all six are
+Status-derived: the two scanner modes and the landing gear. No journal record
+exists for them at all, so there is nothing that could be asked. Moving them
+would mean stopping the graph from recording Status-derived occurrences, which
+is a different decision with its own consequences for the trajectory and the
+predictions.
 
 **A prediction reads the same past-tense sentence as a memory of the same
 event.** What has not happened is said by the field it sits in — `likelyNext`,

@@ -520,11 +520,12 @@ public final class DecisionEventProjector {
          * answers a canonical slot under a different word, the pairing is
          * declared in {@code DecisionNames} rather than guessed.</p>
          *
-         * <p>A compound field such as {@code signals} states the canonical
-         * fields its categories are <em>declared</em> to count, and no others —
-         * see {@link DecisionNames#signalCategoryField}. The declaration is what
-         * makes it legitimate: a number is never read out of the set and matched
-         * against a field it might belong to.</p>
+         * <p>There is no compound field left to unpack. A scanner reading used
+         * to arrive as one {@code signals} set whose categories had to be
+         * <em>declared</em> to count canonical fields before this could see
+         * them; it now arrives as one count per category, named exactly as the
+         * context names it, and the match above is the ordinary one. The
+         * declaration went with the shape that needed it.</p>
          */
         public boolean states(SemanticField field, SemanticValue value) {
             Objects.requireNonNull(field, "field");
@@ -559,11 +560,6 @@ public final class DecisionEventProjector {
         ) {
             Map<String, SemanticValue> stated = new LinkedHashMap<>();
             for (LlmDecisionRequest.Field field : event.fields()) {
-                if (field.value()
-                        instanceof SemanticValue.SignalCountsValue signals) {
-                    appendSignalCounts(stated, signals);
-                    continue;
-                }
                 String slot = DecisionNames.contextSlotStatedBy(field.name());
                 stated.putIfAbsent(
                         slot == null ? field.name() : slot,
@@ -573,25 +569,5 @@ public final class DecisionEventProjector {
             return stated;
         }
 
-        private static void appendSignalCounts(
-                Map<String, SemanticValue> stated,
-                SemanticValue.SignalCountsValue signals
-        ) {
-            for (SemanticValue.SignalCountsValue.SignalCount reported
-                    : signals.counts()) {
-                SemanticField counted =
-                        DecisionNames.signalCategoryField(reported.type());
-                if (counted == null) {
-                    continue;
-                }
-                String slot = DecisionNames.slotOf(counted);
-                if (slot != null) {
-                    stated.putIfAbsent(
-                            slot,
-                            SemanticValue.ofIntegral(reported.count())
-                    );
-                }
-            }
-        }
     }
 }

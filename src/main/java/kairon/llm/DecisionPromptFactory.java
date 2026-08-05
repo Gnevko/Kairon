@@ -61,6 +61,10 @@ public final class DecisionPromptFactory {
             place, and its remaining fields say what it took place to. Read the
             two together and claim nothing the statement does not say.
 
+            A field named for a signal category counts how many a scan found
+            on that body. Say the number when you report a finding: two
+            geological signals is a different finding from one.
+
             changes are what those events altered, and appear only where that is
             not already clear from the events themselves.
 

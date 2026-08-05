@@ -124,16 +124,21 @@ final class FieldAwareStatementTest {
     }
 
     /**
-     * A signal set states the categories it is declared to count, and no more.
+     * A reported count states its own category, and no other.
      *
-     * <p>The declaration is what makes this legitimate. Two categories are
-     * canonical fields and are named as such in {@code DecisionNames}; the rest
-     * are reported inside the set and nowhere else, because no canonical field
-     * exists for them. Nothing is read out of the set by matching a number
-     * against a field it might belong to.</p>
+     * <p>The categories arrive as one count each, named as the context names
+     * them, so a canonical field is matched by the ordinary rule: same name,
+     * same value. It used to be one nested set whose categories had to be
+     * declared to count canonical fields before anything could see them, and
+     * the declaration went with the shape.</p>
+     *
+     * <p>What the declaration protected still holds and is asserted below: a
+     * number is never matched against a field it might belong to. The human
+     * count of three does not state a biological three, and a category the
+     * reading omitted states nothing at all.</p>
      */
     @Test
-    void aSignalSetStatesOnlyTheCategoriesDeclaredCanonical(
+    void aReportedCountStatesOnlyItsOwnCategory(
             @TempDir Path directory
     ) {
         ProjectedEvent event = lastProjected(directory, """
@@ -146,15 +151,16 @@ final class FieldAwareStatementTest {
 
         assertTrue(
                 event.event().fields().stream()
-                        .anyMatch(field -> "signals".equals(field.name())),
-                "the fixture must really carry a signal set"
+                        .anyMatch(field ->
+                                "biologicalSignals".equals(field.name())),
+                "the fixture must really carry a reported count"
         );
         assertTrue(
                 event.states(
                         SemanticField.BIOLOGICAL_SIGNAL_COUNT,
                         SemanticValue.ofIntegral(1)
                 ),
-                "the set counts biology, and biology is a canonical field"
+                "biology is counted, and biology is a canonical field"
         );
         assertFalse(
                 event.states(
@@ -168,7 +174,7 @@ final class FieldAwareStatementTest {
                         SemanticField.GEOLOGICAL_SIGNAL_COUNT,
                         SemanticValue.ofIntegral(1)
                 ),
-                "a category the set omits states nothing at all"
+                "a category the reading omits states nothing at all"
         );
         assertFalse(
                 event.states(

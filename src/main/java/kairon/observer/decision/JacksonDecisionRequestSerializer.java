@@ -225,20 +225,6 @@ public final class JacksonDecisionRequestSerializer {
                 json.writeNumber(coordinates.longitude());
                 json.writeEndArray();
             }
-            case SemanticValue.SignalCountsValue signals -> {
-                json.writeArrayFieldStart(name);
-                for (SemanticValue.SignalCountsValue.SignalCount signal
-                        : signals.counts()) {
-                    json.writeStartObject();
-                    json.writeStringField("type", signal.type());
-                    if (signal.label() != null) {
-                        json.writeStringField("label", signal.label());
-                    }
-                    json.writeNumberField("count", signal.count());
-                    json.writeEndObject();
-                }
-                json.writeEndArray();
-            }
             case SemanticValue.UnknownValue ignored -> {
                 // Unreachable: known() already excluded it.
             }

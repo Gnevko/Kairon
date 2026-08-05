@@ -53,6 +53,17 @@ public record NormalizedEventType(@JsonValue String value)
             of("SAA_MODE_ENTERED");
     public static final NormalizedEventType SAA_MODE_EXITED =
             of("SAA_MODE_EXITED");
+    /**
+     * The unpowered descent to a surface, and its end.
+     *
+     * <p>Status-derived like the scanner modes: no journal event reports a
+     * glide, only bit 12 of {@code Flags2}.</p>
+     */
+    public static final NormalizedEventType GLIDE_ENTERED =
+            of("GLIDE_ENTERED");
+    public static final NormalizedEventType GLIDE_EXITED =
+            of("GLIDE_EXITED");
+
     public static final NormalizedEventType LANDING_GEAR_DEPLOYED =
             of("LANDING_GEAR_DEPLOYED");
     public static final NormalizedEventType LANDING_GEAR_RETRACTED =

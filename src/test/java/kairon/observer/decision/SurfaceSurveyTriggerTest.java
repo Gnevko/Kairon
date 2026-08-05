@@ -57,7 +57,7 @@ final class SurfaceSurveyTriggerTest {
                     {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"BIOLOGICAL","count":1}]}],\
+                    "biologicalSignals":1}],\
                     "trajectory":{"recent":["A ship jumped from one star system to another."]}}""",
                     lastUserMessage(pipeline)
             );
@@ -122,11 +122,10 @@ final class SurfaceSurveyTriggerTest {
                     "system":"Schieni","fuelUsed":0.4,"distanceLy":8.5},\
                     {"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"BIOLOGICAL","count":1}]},\
+                    "biologicalSignals":1},\
                     {"event":"A surface area analysis scan reported signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"BIOLOGICAL","count":1},\
-                    {"type":"GEOLOGICAL","count":2}]}],\
+                    "biologicalSignals":1,"geologicalSignals":2}],\
                     "changes":[{"subject":"commander",\
                     "kind":"ESTABLISHED","fields":{"presence":\
                     {"after":"SHIP"}}},{"subject":"vehicle",\
@@ -165,7 +164,7 @@ final class SurfaceSurveyTriggerTest {
                     """
                     {"events":[{"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"BIOLOGICAL","count":2}]}],\
+                    "biologicalSignals":2}],\
                     "trajectory":{"recent":["A ship jumped from one star system to another.",\
                     "A surface area analysis scan reported signal data for a planet or rings."]}}""",
                     lastUserMessage(pipeline)

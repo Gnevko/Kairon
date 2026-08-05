@@ -98,6 +98,59 @@ final class StatusStateDeltaAdapterTest {
         );
     }
 
+    /**
+     * A glide is a status flag and nothing else.
+     *
+     * <p>The unpowered descent between orbital cruise and the surface has no
+     * journal event of its own — {@code ApproachBody} and {@code LeaveBody}
+     * report the orbital-cruise zone, not the glide inside it — so bit 12 of
+     * {@code Flags2} is the only source there is. Like every other flag, the
+     * first snapshot is a baseline and only a transition is a delta.</p>
+     */
+    @Test
+    void glideEntryAndExitAreDerivedFromFlags2() {
+        assertEquals(0, adapt(0, 1, """
+                {"timestamp":"2026-07-29T13:00:00Z",
+                 "event":"Status","Flags2":0}
+                """).deltas().size());
+
+        StatusDeltaBatch entered = adapt(1, 2, """
+                {"timestamp":"2026-07-29T13:00:01Z",
+                 "event":"Status","Flags2":4096}
+                """);
+        assertEquals(
+                NormalizedEventType.GLIDE_ENTERED,
+                entered.deltas().getFirst().eventType()
+        );
+
+        assertEquals(
+                0,
+                adapt(2, 3, """
+                        {"timestamp":"2026-07-29T13:00:02Z",
+                         "event":"Status","Flags2":4097}
+                        """).deltas().size(),
+                "another bit moving is not a glide transition"
+        );
+
+        StatusDeltaBatch exited = adapt(3, 4, """
+                {"timestamp":"2026-07-29T13:00:03Z",
+                 "event":"Status","Flags2":1}
+                """);
+        assertEquals(
+                NormalizedEventType.GLIDE_EXITED,
+                exited.deltas().getFirst().eventType()
+        );
+
+        assertEquals(
+                0,
+                adapt(4, 5, """
+                        {"timestamp":"2026-07-29T13:00:04Z",
+                         "event":"Status","Flags":0}
+                        """).deltas().size(),
+                "a snapshot without Flags2 retains what was known"
+        );
+    }
+
     @Test
     void exactDuplicateIsIdempotentAndOtherOutOfOrderSnapshotIsRejected() {
         String baseline = """

@@ -811,13 +811,19 @@ final class JournalSemanticAdapters {
             JsonNode json,
             SemanticProvenance provenance
     ) {
-        return fact(SemanticSubject.CURRENT_BODY,
+        SemanticFact.Builder fact = fact(SemanticSubject.CURRENT_BODY,
                 SemanticOperation.SURVEYED, provenance)
                 .actor(SemanticSubject.COMMANDER)
                 .object(bodyRef(raw))
                 .identity(raw.identity("BodyID", "BodyID"))
-                .qualifier("system", raw.textValue("StarSystem"))
-                .qualifier("signals", BodySurveyFacts.signals(json))
+                .qualifier("system", raw.textValue("StarSystem"));
+        BodySurveyFacts.signalCountsByName(json).forEach(
+                (name, count) -> fact.qualifier(
+                        name,
+                        SemanticValue.ofIntegral(count)
+                )
+        );
+        return fact
                 .processStage(ProcessStage.FINAL)
                 .completion(Boolean.TRUE)
                 .build();

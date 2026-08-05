@@ -90,7 +90,8 @@ final class StatedFactsContractTest {
                     "BODY_SIGNALS_FOUND"
             );
             assertTrue(
-                    eventOfKind(turn, "BODY_SIGNALS_FOUND").has("signals"),
+                    eventOfKind(turn, "BODY_SIGNALS_FOUND")
+                            .has("biologicalSignals"),
                     "the finding is reported: " + turn.userMessage()
             );
             assertFalse(

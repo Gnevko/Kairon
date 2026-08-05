@@ -3,10 +3,8 @@ package kairon.semantics;
 import com.fasterxml.jackson.databind.JsonNode;
 import kairon.observation.journal.event.exploration.Scan;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
@@ -41,14 +39,6 @@ public final class BodySurveyFacts {
     public static final String OTHER = "OTHER";
 
     private static final String SIGNAL_TYPE_PREFIX = "$SAA_SignalType_";
-    private static final Map<String, Integer> MODEL_FACING_ORDER = Map.of(
-            BIOLOGICAL, 0,
-            GEOLOGICAL, 1,
-            HUMAN, 2,
-            THARGOID, 3,
-            OTHER, 4
-    );
-
     private BodySurveyFacts() {
     }
 
@@ -245,63 +235,67 @@ public final class BodySurveyFacts {
     }
 
     /**
-     * The reported categories as the model sees them, or unknown when there
-     * are none.
+     * What this reading found, one count per category, named as the model
+     * names it.
+     *
+     * <p>A count per category rather than one value carrying a set. The set was
+     * chosen so that a reading would be what it found rather than a fixed form
+     * with blanks, and that still holds: a category the reading did not count
+     * emits no entry, so there are no blanks to fill. What the set cost was that
+     * one fact had two shapes — a nested {@code signals} on an event and a flat
+     * {@code biologicalSignals} in the context — and a declaration had to bridge
+     * them before anything could see they were the same fact.</p>
      *
      * <p>Order is fixed rather than as-reported: the same reading always
      * serializes identically, and the categories a Commander asks about first
      * come first.</p>
+     *
+     * <p>Categories outside the closed set are summed into
+     * {@code otherSignals}, losing the game's own label with it, so two
+     * uncatalogued categories read as one number. A real loss and a deliberate
+     * one: it buys a single shape for the four named categories, which are the
+     * only ones any reading in the measured corpus reports.</p>
      */
-    public static SemanticValue signals(JsonNode raw) {
-        JsonNode signals = raw == null ? null : raw.get("Signals");
-        if (signals == null || !signals.isArray()) {
-            return SemanticValue.unknown();
+    public static Map<String, Integer> signalCountsByName(JsonNode raw) {
+        Map<String, Integer> counts = normalizedSignalCounts(raw);
+        if (counts.isEmpty()) {
+            return Map.of();
         }
-        Map<String, ReportedSignal> merged = new LinkedHashMap<>();
-        for (JsonNode signal : signals) {
-            String derived = normalizedSignalType(text(signal, "Type"));
-            Integer count = positiveCount(signal);
-            if (derived == null || count == null) {
-                continue;
-            }
-            String modelFacing = MODEL_FACING_ORDER.containsKey(derived)
-                    ? derived
-                    : OTHER;
-            String label = OTHER.equals(modelFacing)
-                    ? displayLabel(signal)
-                    : null;
-            merged.merge(
-                    modelFacing + ' ' + (label == null ? "" : label),
-                    new ReportedSignal(modelFacing, label, count),
-                    ReportedSignal::plus
-            );
-        }
-        if (merged.isEmpty()) {
-            return SemanticValue.unknown();
-        }
-        List<ReportedSignal> ordered = new ArrayList<>(merged.values());
-        ordered.sort(
-                Comparator.comparingInt(
-                                (ReportedSignal reported) ->
-                                        MODEL_FACING_ORDER.get(reported.type())
-                        )
-                        .thenComparing(
-                                ReportedSignal::label,
-                                Comparator.nullsLast(
-                                        Comparator.naturalOrder()
-                                )
-                        )
+        Map<String, Integer> named = new TreeMap<>(
+                Comparator.comparingInt(BodySurveyFacts::signalCountOrder)
         );
-        List<SemanticValue.SignalCountsValue.SignalCount> counts =
-                new ArrayList<>(ordered.size());
-        for (ReportedSignal reported : ordered) {
-            counts.add(new SemanticValue.SignalCountsValue.SignalCount(
-                    reported.type(),
-                    reported.label(),
-                    reported.count()
-            ));
-        }
-        return new SemanticValue.SignalCountsValue(List.copyOf(counts));
+        counts.forEach((category, count) -> named.merge(
+                signalCountName(category), count, Integer::sum
+        ));
+        return new LinkedHashMap<>(named);
+    }
+
+    /**
+     * The model-facing name of one category's count.
+     *
+     * <p>Two of the five are canonical fields in their own right, and this name
+     * is deliberately the one the context reports them under: the event and the
+     * standing fact then agree by spelling, and nothing has to declare that they
+     * are the same field.</p>
+     */
+    public static String signalCountName(String category) {
+        return switch (category) {
+            case BIOLOGICAL -> "biologicalSignals";
+            case GEOLOGICAL -> "geologicalSignals";
+            case HUMAN -> "humanSignals";
+            case THARGOID -> "thargoidSignals";
+            default -> "otherSignals";
+        };
+    }
+
+    private static int signalCountOrder(String name) {
+        return switch (name) {
+            case "biologicalSignals" -> 0;
+            case "geologicalSignals" -> 1;
+            case "humanSignals" -> 2;
+            case "thargoidSignals" -> 3;
+            default -> 4;
+        };
     }
 
     /**
@@ -323,17 +317,6 @@ public final class BodySurveyFacts {
         }
         token = token.strip().toUpperCase(Locale.ROOT);
         return token.isEmpty() ? null : token;
-    }
-
-    private static String displayLabel(JsonNode signal) {
-        String localised = text(signal, "Type_Localised");
-        if (!localised.isEmpty()) {
-            return localised;
-        }
-        String plain = text(signal, "Type");
-        return plain.isEmpty() || plain.startsWith("$")
-                ? null
-                : plain;
     }
 
     private static String text(JsonNode node, String name) {
@@ -382,10 +365,4 @@ public final class BodySurveyFacts {
         return value.intValue();
     }
 
-    private record ReportedSignal(String type, String label, long count) {
-
-        private ReportedSignal plus(ReportedSignal other) {
-            return new ReportedSignal(type, label, count + other.count());
-        }
-    }
 }

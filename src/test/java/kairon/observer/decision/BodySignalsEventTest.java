@@ -62,7 +62,7 @@ final class BodySignalsEventTest {
                     """
                     {"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"BIOLOGICAL","count":1}]}""",
+                    "biologicalSignals":1}""",
                     eventJson(pipeline, "FSSBodySignals")
             );
             assertEquals(
@@ -93,7 +93,7 @@ final class BodySignalsEventTest {
                     """
                     {"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"GEOLOGICAL","count":2}]}""",
+                    "geologicalSignals":2}""",
                     eventJson(pipeline, "FSSBodySignals")
             );
         }
@@ -124,19 +124,29 @@ final class BodySignalsEventTest {
                     """
                     {"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"BIOLOGICAL","count":1},\
-                    {"type":"GEOLOGICAL","count":2},\
-                    {"type":"HUMAN","count":3},\
-                    {"type":"THARGOID","count":4}]}""",
+                    "biologicalSignals":1,"geologicalSignals":2,"humanSignals":3,"thargoidSignals":4}""",
                     eventJson(pipeline, "FSSBodySignals"),
                     "a fixed order, so one reading always reads the same way"
             );
         }
     }
 
-    /** D4: an unrecognised category keeps its name and loses its symbol. */
+    /**
+     * D4: an unrecognised category is counted, and its name goes with the
+     * shape.
+     *
+     * <p>It used to carry the game's localised rendering beside the count, and
+     * a flat count per category has nowhere to put one. That is the price of
+     * one shape for every category, paid knowingly: what survives is that
+     * something uncatalogued was found and how much of it, and what is lost is
+     * which uncatalogued thing. Two different unknown categories therefore read
+     * as one number.</p>
+     *
+     * <p>What has not changed is the rule this test was written for: the game's
+     * own {@code $SAA_SignalType_*} identifier never reaches the model.</p>
+     */
     @Test
-    void anUnknownCategoryIsReportedAsOtherWithItsLabel(
+    void anUnknownCategoryIsCountedWithoutItsLabel(
             @TempDir Path directory
     ) throws Exception {
         try (DecisionProductionPipeline pipeline =
@@ -157,8 +167,7 @@ final class BodySignalsEventTest {
                     """
                     {"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"OTHER","label":"Guardian",\
-                    "count":1}]}""",
+                    "otherSignals":1}""",
                     eventJson(pipeline, "FSSBodySignals")
             );
             assertFalse(
@@ -367,8 +376,7 @@ final class BodySignalsEventTest {
                     {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "signals":[{"type":"BIOLOGICAL","count":1},\
-                    {"type":"GEOLOGICAL","count":2}]}],\
+                    "biologicalSignals":1,"geologicalSignals":2}],\
                     "trajectory":{"recent":["A ship jumped from one star system to another.",\
                     "A full spectrum system scan reported signal data for a body."]}}""",
                     lastUserMessage(pipeline),

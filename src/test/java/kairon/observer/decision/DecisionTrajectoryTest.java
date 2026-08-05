@@ -11,6 +11,7 @@ import kairon.observation.journal.JournalObservationAdapter;
 import kairon.observation.journal.LlmPresentableJournalEvent;
 import kairon.observation.journal.event.exploration.FSSAllBodiesFound;
 import kairon.observation.journal.event.exploration.FSSBodySignals;
+import kairon.observation.journal.event.exploration.FSSDiscoveryScan;
 import kairon.observation.journal.event.exploration.SAAScanComplete;
 import kairon.observation.journal.event.exploration.SAASignalsFound;
 import kairon.observation.journal.event.exploration.Scan;
@@ -474,9 +475,32 @@ final class DecisionTrajectoryTest {
         sameConcept.put(NormalizedEventType.FSD_TARGET_SELECTED,
                 FSDTarget.class);
         sameConcept.put(NormalizedEventType.SYSTEM_ENTRY, FSDJump.class);
+        // Not model-eligible as events, and describing themselves anyway:
+        // the graph records them, so they can reach the model as remembered
+        // predecessors, and a vertex the model can be shown has to be able
+        // to say what it is.
+        sameConcept.put(NormalizedEventType.FSS_DISCOVERY_SCAN,
+                FSSDiscoveryScan.class);
 
         sameConcept.forEach((eventType, journalType) -> assertEquals(
                 describes(journalType),
+                DecisionTrajectoryDescriptions.descriptionOf(eventType),
+                eventType + " is described differently when it is remembered"
+        ));
+
+        // The two charges need their discriminator: a minimal StartJump line
+        // would reach the unrecognised variant instead.
+        Map<NormalizedEventType, String> discriminated = new LinkedHashMap<>();
+        discriminated.put(NormalizedEventType.HYPERSPACE_JUMP_STARTED, """
+                {"timestamp":"2026-07-30T10:00:00Z","event":"StartJump",
+                 "JumpType":"Hyperspace"}
+                """);
+        discriminated.put(NormalizedEventType.SUPERCRUISE_JUMP_STARTED, """
+                {"timestamp":"2026-07-30T10:00:00Z","event":"StartJump",
+                 "JumpType":"Supercruise"}
+                """);
+        discriminated.forEach((eventType, rawJson) -> assertEquals(
+                describes(rawJson),
                 DecisionTrajectoryDescriptions.descriptionOf(eventType),
                 eventType + " is described differently when it is remembered"
         ));
@@ -499,9 +523,18 @@ final class DecisionTrajectoryTest {
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException(journalType.getName(), failure);
         }
-        String rawJson = """
+        return describes("""
                 {"timestamp":"2026-07-30T10:00:00Z","event":"%s"}
-                """.formatted(discriminator);
+                """.formatted(discriminator));
+    }
+
+    /**
+     * The same question of a record that needs its discriminator.
+     *
+     * <p>A split record dispatches on a field, so a minimal line would reach
+     * the unrecognised variant rather than the one the vertex comes from.</p>
+     */
+    private static String describes(String rawJson) {
         JournalLineParser.ParsedJournalRecord parsed =
                 (JournalLineParser.ParsedJournalRecord) new JournalLineParser()
                         .parse(new JournalLineParser.CompleteJournalRecord(

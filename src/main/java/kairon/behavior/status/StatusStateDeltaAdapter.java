@@ -31,10 +31,27 @@ import java.util.OptionalLong;
 public final class StatusStateDeltaAdapter {
 
     static final long LANDING_GEAR_DOWN_FLAG = 4L;
+
+    /**
+     * Glide, which the journal never reports.
+     *
+     * <p>The unpowered descent between orbital cruise and the surface is bit 12
+     * of {@code Flags2} and appears in no journal event at all: entering and
+     * leaving the orbital-cruise zone are {@code ApproachBody} and
+     * {@code LeaveBody}, and the glide between them is only ever a status
+     * flag. Journal-only replay therefore cannot reconstruct it, exactly as it
+     * cannot reconstruct the scanner modes or the landing gear.</p>
+     *
+     * @see <a href="https://elite-journal.readthedocs.io/en/latest/Status%20File.html">
+     * Status File, Flags2</a>
+     */
+    static final long GLIDE_FLAG = 4096L;
+
     static final int FSS_GUI_FOCUS = 9;
     static final int SAA_GUI_FOCUS = 10;
 
     private Long knownFlags;
+    private Long knownFlags2;
     private Integer knownGuiFocus;
     private long lastSnapshotSequence = -1L;
     private String lastObservationId;
@@ -55,7 +72,7 @@ public final class StatusStateDeltaAdapter {
         Instant eventTime = observation.sourceTime()
                 .or(observation.payload()::optionalStatusTimestamp)
                 .orElse(observation.observedAt());
-        List<StatusStateDelta> deltas = new ArrayList<>(3);
+        List<StatusStateDelta> deltas = new ArrayList<>(4);
 
         OptionalInt currentGuiFocus =
                 observation.payload().optionalGuiFocus();
@@ -97,6 +114,35 @@ public final class StatusStateDeltaAdapter {
                 }
             }
             knownFlags = current;
+        }
+
+        OptionalLong currentFlags2 = observation.payload().optionalFlags2();
+        if (currentFlags2.isPresent()) {
+            long current = currentFlags2.getAsLong();
+            if (knownFlags2 != null) {
+                boolean previousGliding = gliding(knownFlags2);
+                boolean currentGliding = gliding(current);
+                if (previousGliding != currentGliding) {
+                    add(
+                            deltas,
+                            currentGliding
+                                    ? NormalizedEventType.GLIDE_ENTERED
+                                    : NormalizedEventType.GLIDE_EXITED,
+                            eventTime,
+                            Map.of(
+                                    "Flags2",
+                                    number(current),
+                                    "Gliding",
+                                    JsonNodeFactory.instance.booleanNode(
+                                            currentGliding
+                                    ),
+                                    "PreviousFlags2",
+                                    number(knownFlags2)
+                            )
+                    );
+                }
+            }
+            knownFlags2 = current;
         }
 
         lastSnapshotSequence = position.snapshotSequence();
@@ -207,6 +253,10 @@ public final class StatusStateDeltaAdapter {
 
     private static boolean landingGearDown(long flags) {
         return (flags & LANDING_GEAR_DOWN_FLAG) != 0L;
+    }
+
+    private static boolean gliding(long flags2) {
+        return (flags2 & GLIDE_FLAG) != 0L;
     }
 
     private static void add(
