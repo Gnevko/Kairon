@@ -422,7 +422,7 @@ final class SemanticPipelineContractTest {
             assertDuplicateSuppressed(before, after);
             assertEquals(
                     1,
-                    after.finalState().orElseThrow().biologicalSignalCount(),
+                    after.finalBody(23155L, 20L).biologicalSignalCount(),
                     "finding nothing retracts nothing"
             );
         }

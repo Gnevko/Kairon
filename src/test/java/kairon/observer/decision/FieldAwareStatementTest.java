@@ -189,19 +189,19 @@ final class FieldAwareStatementTest {
     /**
      * A3: two unrelated booleans no longer collide.
      *
-     * <p>A landing says {@code playerControlled: true}; an automatic scan
-     * established that the body is landable. Under the old rule the second was
-     * suppressed because {@code true} equalled {@code true}.</p>
+     * <p>A landing says {@code playerControlled: true}; a scan established that
+     * the body is landable. Under the old rule the second was suppressed
+     * because {@code true} equalled {@code true} — a value alone, with no
+     * canonical field beside it, proved nothing and suppressed anything.</p>
      *
-     * <p>The scan is live and automatic on purpose. It has to be live for its
-     * effect to be a change at all — a bootstrap reading is standing background
-     * and never enters a turn — and automatic so that it is declined as a
-     * trigger, which leaves its effect to be reported by the landing's turn
-     * instead of by an event that would state {@code landable} itself. Either
-     * way round the collision would not be exercised.</p>
+     * <p>The scan is automatic on purpose: it is declined as a trigger, so the
+     * turn is the landing's and nothing in it states {@code landable} itself.
+     * What the scan established reaches the model as {@code context.body},
+     * which is where a body fact lives now that it is the current system
+     * registry's rather than a delta of where the ship is.</p>
      */
     @Test
-    void anEqualBooleanInAnotherFieldNoLongerSuppressesAChange(
+    void anEqualBooleanInAnotherFieldNoLongerSuppressesAFact(
             @TempDir Path directory
     ) {
         try (SemanticPipelineHarness harness =
@@ -222,13 +222,14 @@ final class FieldAwareStatementTest {
                     "the landing states who was flying"
             );
             assertTrue(
-                    changedSlots(turn).contains("body.landable"),
+                    turn.context().path("body").path("landable")
+                            .booleanValue(),
                     "whether the body can be landed on is a different fact "
                             + "from who was flying: " + turn.userMessage()
             );
             assertFalse(
-                    turn.context().path("body").has("landable"),
-                    "and it is stated once, not twice"
+                    changedSlots(turn).contains("body.landable"),
+                    "and it is stated once, as the standing fact it is"
             );
             assertChangesAndContextPartition(trace);
         }

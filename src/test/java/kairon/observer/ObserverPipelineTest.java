@@ -37,6 +37,7 @@ import kairon.projection.ProjectedObservationBus;
 import kairon.projection.SemanticEnvelopeFactory;
 import kairon.state.CurrentGameStateProjection;
 import kairon.state.CurrentGameStateProjector;
+import kairon.system.SystemRegistrySnapshot;
 import kairon.trace.JsonLinesTurnTraceWriter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -825,7 +826,8 @@ final class ObserverPipelineTest {
                     SemanticEnvelopeFactory.production().create(
                             published,
                             projectedState.applied()
-                    )
+                    ),
+                    SystemRegistrySnapshot.empty(published.busSequence())
             );
         }
     }

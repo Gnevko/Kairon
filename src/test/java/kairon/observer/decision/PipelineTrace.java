@@ -1,16 +1,20 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import kairon.behavior.context.BodyDetail;
+import kairon.behavior.context.BodyDetailLookup;
 import kairon.behavior.model.EpisodeEntrySource;
 import kairon.behavior.model.EventOccurrenceId;
 import kairon.behavior.model.EventOccurrenceSource;
 import kairon.behavior.model.SystemEpisodeId;
 import kairon.behavior.normalize.NormalizedEventType;
 import kairon.observation.ObservationDraft.ObservationCaptureMode;
+import kairon.projection.RegistryBodyDetail;
 import kairon.semantics.EffectRetention;
 import kairon.semantics.SemanticSourceRole;
 import kairon.semantics.SemanticStateChange;
 import kairon.state.CurrentGameStateSnapshot;
+import kairon.system.SystemRegistrySnapshot;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +40,8 @@ record PipelineTrace(
         List<EdgeView> edges,
         Optional<CursorView> cursor,
         List<TurnView> turns,
-        Optional<CurrentGameStateSnapshot> finalState
+        Optional<CurrentGameStateSnapshot> finalState,
+        Optional<SystemRegistrySnapshot> finalRegistry
 ) {
 
     PipelineTrace {
@@ -48,6 +53,25 @@ record PipelineTrace(
         cursor = Objects.requireNonNull(cursor, "cursor");
         turns = List.copyOf(Objects.requireNonNull(turns, "turns"));
         finalState = Objects.requireNonNull(finalState, "finalState");
+        finalRegistry = Objects.requireNonNull(
+                finalRegistry,
+                "finalRegistry"
+        );
+    }
+
+    /**
+     * What the current-system registry established about one body.
+     *
+     * <p>Read through the production translation, so a test asserting what is
+     * known about a body asserts it in the shape a consumer receives it — never
+     * by reaching into the registry's own types. Everything unestablished is
+     * null, and so is everything about a body in another system.</p>
+     */
+    BodyDetail finalBody(long systemAddress, long bodyId) {
+        return finalRegistry
+                .<BodyDetailLookup>map(RegistryBodyDetail::new)
+                .orElse(BodyDetailLookup.NONE)
+                .detailOf(systemAddress, bodyId);
     }
 
     /** How many times the provider was actually asked anything. */
@@ -188,6 +212,7 @@ record PipelineTrace(
             SemanticSourceRole sourceRole,
             EffectRetention effectRetention,
             CurrentGameStateSnapshot currentState,
+            SystemRegistrySnapshot systemRegistry,
             List<SemanticStateChange> stateChanges,
             int structuredFactCount,
             Optional<EventOccurrenceId> occurrenceId
@@ -211,6 +236,10 @@ record PipelineTrace(
             currentState = Objects.requireNonNull(
                     currentState,
                     "currentState"
+            );
+            systemRegistry = Objects.requireNonNull(
+                    systemRegistry,
+                    "systemRegistry"
             );
             stateChanges = List.copyOf(Objects.requireNonNull(
                     stateChanges,

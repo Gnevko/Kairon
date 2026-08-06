@@ -4,6 +4,11 @@ import kairon.behavior.classify.EventSignificancePolicy;
 import kairon.behavior.classify.EventSignificancePolicy.EventSignificance;
 import kairon.behavior.context.BehaviorContextAdapter;
 import kairon.behavior.context.TransitionContextKeyFactory;
+import kairon.behavior.context.BodyDetailLookup;
+import kairon.projection.RegistryBodyDetail;
+import kairon.state.CurrentGameStateSnapshot;
+import kairon.system.CurrentSystemRegistry;
+import kairon.system.VisitIdentity;
 import kairon.behavior.event.BehaviorGraphEvent;
 import kairon.behavior.event.BehaviorGraphEvent.BehaviorGraphUpdated;
 import kairon.behavior.event.BehaviorGraphEvent.GraphCursorChanged;
@@ -93,7 +98,10 @@ final class BehaviorGraphServiceTest {
                 harness.service.currentGraphId().orElseThrow()
         );
         assertEquals(
-                new BehaviorContextAdapter().toContextSnapshot(canonical),
+                new BehaviorContextAdapter().toContextSnapshot(
+                        canonical,
+                        harness.lastBodies
+                ),
                 harness.service.currentContext()
         );
         assertEquals(
@@ -1315,6 +1323,16 @@ final class BehaviorGraphServiceTest {
         private final InMemoryBehaviorGraphStore store;
         private final CurrentGameStateProjector currentGameState =
                 new CurrentGameStateProjector();
+        /**
+         * The current system, applied exactly as the coordinator applies it.
+         *
+         * <p>Body detail reaches the graph from here rather than from canonical
+         * state (ADR-0025). Driving the real registry keeps this harness on the
+         * production translation instead of a hand-written stand-in.</p>
+         */
+        private final CurrentSystemRegistry systemRegistry =
+                new CurrentSystemRegistry();
+        private BodyDetailLookup lastBodies = BodyDetailLookup.NONE;
         private final BehaviorGraphService service;
 
         private Harness() {
@@ -1397,10 +1415,13 @@ final class BehaviorGraphServiceTest {
                             draft.schemaVersion(),
                             draft.payload()
                     );
+            CurrentGameStateSnapshot state =
+                    currentGameState.currentSnapshot();
             service.onStatusDeltas(
                     published,
                     statusDeltaAdapter.adapt(published),
-                    currentGameState.currentSnapshot()
+                    state,
+                    bodies(published, state)
             );
             return published;
         }
@@ -1446,7 +1467,8 @@ final class BehaviorGraphServiceTest {
                     currentGameState.applyAndCapture(observation);
             service.completeReplay(
                     observation,
-                    projection.currentState()
+                    projection.currentState(),
+                    bodies(observation, projection.currentState())
             );
         }
 
@@ -1458,9 +1480,29 @@ final class BehaviorGraphServiceTest {
             service.onObservation(
                     observation,
                     projection.currentState(),
-                    projection.observationContext()
+                    projection.observationContext(),
+                    bodies(observation, projection.currentState())
             );
         }
+
+        private BodyDetailLookup bodies(
+                PublishedObservation<?> observation,
+                CurrentGameStateSnapshot state
+        ) {
+            lastBodies = new RegistryBodyDetail(
+                    systemRegistry.applyAndCapture(
+                            observation,
+                            new VisitIdentity(
+                                    state.commanderFid(),
+                                    state.shipId(),
+                                    state.systemAddress(),
+                                    state.systemName()
+                            )
+                    )
+            );
+            return lastBodies;
+        }
+
 
         private void acceptFixture(String name) throws IOException {
             String resource = "/kairon/behavior/fixtures/" + name;

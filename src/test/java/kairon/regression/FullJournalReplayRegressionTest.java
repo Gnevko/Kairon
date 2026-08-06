@@ -63,17 +63,27 @@ final class FullJournalReplayRegressionTest {
     private static final Path OUTPUT = Path.of("target");
 
     /**
-     * The one difference that is not the refactor's.
+     * The two things a {@code Scan} record can say, in the words it says them.
      *
-     * <p>Three arrival-star milestones in the old trace carry body facts the
-     * milestone is not about — the star's survey flags and its distance of zero
-     * from the arrival point it <em>is</em>. They were removed before this
-     * refactor began, so the reference predates the fix. Recognised only for
-     * this kind, only in these two places, and reported rather than
-     * suppressed.</p>
+     * <p>An event's kind stopped being a field of the document when every
+     * statement became a sentence (ADR-0023), so a document is matched on what
+     * it actually says. These are the constant sentences of
+     * {@code Scan.UndiscoveredStar} and {@code Scan.BodyReading};
+     * {@code ModelFacingEventDescriptionTest} is what keeps a class and its
+     * sentence from drifting apart.</p>
+     *
+     * <p>{@link #MILESTONE_EVENT} also names the one difference that is not the
+     * refactor's: three arrival-star milestones in the old trace carry body
+     * facts the milestone is not about — the star's survey flags and its
+     * distance of zero from the arrival point it <em>is</em>. They were removed
+     * before this refactor began, so the reference predates the fix.
+     * Recognised only for this event, and reported rather than suppressed.</p>
      */
-    private static final String PRE_REFACTOR_FIXED_KIND =
-            "SYSTEM_UNDISCOVERED_CONFIRMED";
+    private static final String MILESTONE_EVENT =
+            "A scan reported a star as not previously discovered.";
+
+    private static final String BODY_SCAN_EVENT =
+            "A discovery scan reported a star, planet or moon's properties.";
 
     @Test
     void modelFacingTurnsAreUnchangedAfterTheRefactor() throws Exception {
@@ -223,10 +233,7 @@ final class FullJournalReplayRegressionTest {
                 graph,
                 "SYSTEM_UNDISCOVERED_CONFIRMED"
         );
-        long modelMilestones = countModelEvents(
-                turns,
-                "SYSTEM_UNDISCOVERED_CONFIRMED"
-        );
+        long modelMilestones = countModelEvents(turns, MILESTONE_EVENT);
         findings.add("  SYSTEM_UNDISCOVERED_CONFIRMED occurrences: "
                 + graphMilestones + ", model-facing events: "
                 + modelMilestones);
@@ -279,7 +286,7 @@ final class FullJournalReplayRegressionTest {
             }
         }
 
-        long modelScans = countModelEvents(turns, "BODY_SCANNED");
+        long modelScans = countModelEvents(turns, BODY_SCAN_EVENT);
         findings.add("  BODY_SCANNED occurrences: " + scanned
                 + ", model-facing events: " + modelScans);
         if (scanned != modelScans) {
@@ -303,11 +310,19 @@ final class FullJournalReplayRegressionTest {
         return count;
     }
 
-    private static long countModelEvents(ArrayNode turns, String kind) {
+    /**
+     * How many times the model was told this, across every turn.
+     *
+     * <p>Counted by the sentence, which is what a request carries. Counting a
+     * kind read nothing at all once events began describing themselves, and
+     * every occurrence then looked like an occurrence with no event behind
+     * it.</p>
+     */
+    private static long countModelEvents(ArrayNode turns, String sentence) {
         long count = 0;
         for (JsonNode turn : turns) {
             for (JsonNode event : turn.path("userMessage").path("events")) {
-                if (kind.equals(event.path("kind").asText())) {
+                if (sentence.equals(event.path("event").asText())) {
                     count++;
                 }
             }
@@ -341,10 +356,11 @@ final class FullJournalReplayRegressionTest {
                         + "\n    current:   " + actualTriggers);
                 continue;
             }
-            List<String> kinds = kindsOf(expected.userMessage());
+            List<String> sentences =
+                    sentencesOf(expected.userMessage());
             JsonNode referenceDocument = expected.userMessage();
             JsonNode currentDocument = actual.path("userMessage");
-            if (List.of(PRE_REFACTOR_FIXED_KIND).equals(kinds)) {
+            if (List.of(MILESTONE_EVENT).equals(sentences)) {
                 JsonNode strippedReference = withoutBodyFacts(
                         referenceDocument
                 );
@@ -570,11 +586,22 @@ final class FullJournalReplayRegressionTest {
         return removed;
     }
 
-    private static List<String> kindsOf(JsonNode userMessage) {
-        List<String> kinds = new ArrayList<>();
-        userMessage.path("events").forEach(event ->
-                kinds.add(event.path("kind").textValue()));
-        return List.copyOf(kinds);
+    /**
+     * What each event of a request says, in order.
+     *
+     * <p>An event with no sentence is skipped rather than added as null: a
+     * document shape this comparison does not recognise must not stop the
+     * comparison, and an unrecognised turn simply matches no special case.</p>
+     */
+    private static List<String> sentencesOf(JsonNode userMessage) {
+        List<String> sentences = new ArrayList<>();
+        userMessage.path("events").forEach(event -> {
+            String sentence = event.path("event").textValue();
+            if (sentence != null) {
+                sentences.add(sentence);
+            }
+        });
+        return List.copyOf(sentences);
     }
 
     private static String compact(JsonNode node) {

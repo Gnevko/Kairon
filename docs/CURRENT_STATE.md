@@ -97,7 +97,18 @@ directions by reading `src/main/java`, without a new framework.
 `ModelFacingReplayBaselineTest` writes `target/model-facing-baseline.json` — a
 deterministic recording of every turn of a fixed replay with its trigger bus
 sequences, request document, episodes, occurrences, transitions and cursor — so
-a refactor can be compared against itself.
+a refactor can be compared against itself. Six fixtures, each replayed
+per-trigger and batched; `system-survey.jsonl` was added for
+[ADR-0025](decisions/ADR-0025-THE-CURRENT-SYSTEM-IS-A-REGISTRY.md) and is the
+only one containing `Scan` records, without which the recording was blind to the
+most frequent structural record in a live journal. It covers both `Scan`
+variants (a body reading and the arrival-star `SYSTEM_UNDISCOVERED_CONFIRMED`
+milestone), parent chains one to three deep including a barycentre, a belt
+cluster, `ScanBaryCentre`, the FSS totals, a completed surface survey whose
+`SAASignalsFound` restates the `FSSBodySignals` counts and is therefore
+correctly recorded as no second finding, and a full `Log`/`Sample`/`Analyse`
+sampling sequence. Adding it moved the recording from 52 920 to 85 159 bytes and
+left all ten pre-existing scenarios byte-identical.
 
 **A wire event name is no longer a unit of meaning**
 ([ADR-0022](decisions/ADR-0022-VARIANT-DISPATCH-IN-THE-PARSER.md)), and this is
@@ -583,6 +594,122 @@ for current-state reconciliation and visit-scoped findings,
 and for historical scanner results and non-positive counts,
 [ADR-0016](decisions/ADR-0016-HISTORICAL-FINDINGS-AND-POSITIVE-COUNTS.md).
 
+## Current-system registry
+
+`kairon.system` holds the star system the Commander is in
+([ADR-0025](decisions/ADR-0025-THE-CURRENT-SYSTEM-IS-A-REGISTRY.md)). It is a
+peer of the behaviour graph: its own projection, its own lifetime, its own
+immutable snapshot. Two things read it: the desktop `System Registry` tab (see
+below) and `context.biology` in the model input. Building it and showing it
+moved `target/model-facing-baseline.json` by zero bytes; sending the organisms
+moved it from 85 159 to 86 499, every added line a `biology` group in the one
+fixture whose survey names genera.
+
+`SystemObject` is sealed over `StarBody`, `PlanetBody`, `RingBody`,
+`BeltClusterBody`, `Barycentre` and `UnclassifiedBody`, with `BodyProfile`
+carrying what every kind has — identity, name, the parent chain, distance from
+arrival, the discovery flags, `BodyKnowledgeLevel`, `KnowledgeSource`, signal
+counts and a `BiologicalSurvey`. A moon is a `PlanetBody` whose parent is a
+`PlanetBody`; there is no moon class, because neither the game nor the journal
+has one. `UnclassifiedBody` is a real answer and not a placeholder: a scan
+carrying neither `StarType` nor `PlanetClass` states no kind, and a body name is
+never read to supply one.
+
+The registry is now the only place a body fact lives. `context.body` is read
+from it, so `type` comes from what the body **is** — classified from the
+`StarType` or `PlanetClass` a scan reported — instead of from whether some
+record happened to carry `BodyType`. That closed the visible half of the
+per-field value-origin defect: a scanned planet used to reach the model with a
+class and no type, because a `Scan` never carries `BodyType` and canonical state
+wrote the field from nothing else. The baseline moved by exactly two lines, both
+`"type": "PLANET"`.
+
+Step five then removed the eleven body-detail fields from
+`CurrentGameStateSnapshot` — the coarse type, the class, the stellar type,
+landability, the three survey flags, the arrival distance, the two signal counts
+and the biology flag — along with the per-body `bodies` map, `BodyContext` and
+the write-path marker beside it. Canonical state answers **which** body the
+Commander is at (`bodyId`, `bodyName`) and nothing about it, so a scanner
+reading moves nothing there at all. That retires the value-origin flag outright:
+`SemanticValueOrigin`, `SemanticChangeKind.ACTIVATED_FROM_CONTEXT` and the two
+`DecisionChangeSelector` rules that read them are gone, and
+`SemanticStateChange` no longer carries an origin. `SemanticField` keeps every
+body identity, because one fact has one name whoever states it, and
+`answeredByCanonicalState` says which source answers each. The baseline did not
+move by a byte — the three removed rules had been suppressing exactly what the
+new arrangement makes impossible.
+
+The behaviour graph's body context comes from the registry too, which is the one
+piece of step six that step five required. `ContextSnapshot` is persisted with
+every occurrence and `TransitionContextKeyFactory` buckets two transitions by
+the biological count, landability and whether the body has biology; leaving
+those null would have merged every landing into one bucket and coarsened
+`likelyNext` — invisibly, since the baseline records edges without their context
+keys. So `ObservationProjectionCoordinator` hands the graph a
+`RegistryBodyDetail` over the snapshot the observation just produced, and the
+graph receives `BodyDetail`, ten plain values in `kairon.behavior.context`.
+`kairon.behavior → kairon.system` stays forbidden: the translation is in
+`kairon.projection`, the one package that already applies both projections in
+order, and neither peer reads the other.
+
+Arrival records feed it too: anything naming a body in this system records that
+body, and `BodyType` — the closed `Null`/`Star`/`Planet`/`PlanetaryRing`/
+`StellarRing`/`Station`/`AsteroidCluster` vocabulary — states its kind. That is
+the only statement of kind for a body nobody has scanned, and a `Station` states
+none, because a station is not a celestial body.
+
+A visit the shared policy has not opened is opened for the system canonical
+state or the record itself names, once, when nothing is in progress. Not a
+second definition of a boundary: the policy defers a restore until the Commander
+and ship are known because a visit belongs to a graph keyed by both, and this
+registry is keyed by neither. Every boundary after the first is the policy's.
+
+The hierarchy is the journal's. Every `Scan` carries `Parents`, a chain of
+`BodyType:BodyID` pairs from the immediate parent to the root, so one scan of a
+moon records the moon, its planet, their star and the barycentre — the last
+three `LISTED`, with their own chains taken from the remainder of the list and
+with nothing else established about them. `Parents` is on `Scan` alone, so a
+body first met through `FSSBodySignals` or `SAASignalsFound` has an identity and
+no place until a scan arrives.
+
+`BodyKnowledgeLevel` is `LISTED` → `SCANNED` → `MAPPED` and only rises. It is
+not graded by `ScanType`, and footfall is an attribute rather than a rung.
+`KnowledgeSource` is `OBSERVED` for everything written today; `EXTERNAL` exists
+so a future third-party source cannot be confused with the Commander's own
+instruments, and is per object rather than per field.
+
+`CurrentSystemRegistry` is owned by `ObservationProjectionCoordinator` — not
+supplied to it, because unlike the graph it has no configuration and no store —
+and is applied after the state projection and before the graph. The order is
+fixed for reproducibility and carries no dependency; neither projection reads
+the other, and both ask `SystemVisitPolicy` when a visit begins and ends, which
+makes the registry its third asker under the same rule as the graph and
+`BodySurveyNoveltyGuard`. A failure is logged as
+`SYSTEM_REGISTRY_PROCESSING_FAILED` and published as
+`SystemRegistrySnapshot.unavailable`, so a reader can tell an empty system from
+a registry that could not answer. The snapshot travels on `ProjectedObservation`
+beside the behaviour situation and is never asked for later.
+
+Recording is not admission. Records declined as triggers, context-only records
+and `BOOTSTRAP` capture all update the registry, as canonical state is already
+updated on bootstrap — which is what lets a Kairon started mid-session know what
+is established. It changes nothing about what may become a finding, an
+occurrence or a turn.
+
+The registry is journal-only, so a replayed registry is identical to a live one
+— unlike the graph, whose `Status.json`-derived occurrences a journal file
+cannot reconstruct.
+
+`PackageDependencyRulesTest` gained five directions: `kairon.semantics →
+kairon.system`, `kairon.system → kairon.observer`, `kairon.system →
+kairon.behavior`, `kairon.behavior → kairon.system`, and `kairon.system →
+kairon.state`. Its source reader now drops string literals first, because the
+graph's `"kairon.system-episode/v3"` schema version reads as a package name
+without being one. `SystemRegistryContractTest` (five tests, in
+`kairon.observer.decision`) asserts the registry and the provider together
+through `SemanticPipelineHarness`, which now records the snapshot per
+observation and at the end of the run.
+
 ## Telemetry catalogue
 
 The checked-in runtime catalogue is pinned to
@@ -999,6 +1126,23 @@ rerun `LlmJournalEventSelection`, inspect event names to reconstruct selection,
 or mutate the shared `PublishedObservation`. An observation that has no LLM
 subscription therefore remains visible as raw `OCCURRED_ONLY` telemetry.
 
+A third tab, `System Registry`, shows the star system the Commander is in
+([ADR-0025](decisions/ADR-0025-THE-CURRENT-SYSTEM-IS-A-REGISTRY.md)). Rows are
+bodies indented by the parent chain the journal stated — never by a body name —
+with kind, knowledge level, distance, signal counts and how much of what a
+surface survey named has been collected; selecting one lists every recorded fact
+about it. Unestablished facts render as blank or `<unknown>` rather than as a
+zero, and a biological count with no survey behind it is deliberately not shown
+as a denominator: the game states how many signals there are long before it
+states which. A body whose parent is not in the snapshot is shown as a root
+rather than dropped.
+
+`DesktopSystemRegistrySubscriber` feeds it from `ProjectedObservationBus`, where
+the snapshot already travels; there is nothing to query and nothing to poll. It
+posts only when the content changed, because the update queue is bounded and
+shared with the observation rows and most observations establish nothing about
+the system.
+
 `SwingKaironGuiHub` is the only Swing ingress. It coalesces a bounded update
 queue and performs all view mutation on the EDT. `HudTheme` centralizes current
 HUD tokens and control factories. GUI display remains monitoring only and
@@ -1126,8 +1270,13 @@ DTO or speech.
   `CurrentGameStateProjector`, carried on
   `CurrentGameStateProjection.semanticChanges`, and published on
   `ProjectedObservation.semanticEnvelope`. Nothing downstream recomputes it.
-  `ACTIVATED_FROM_CONTEXT` is decided by projector write path, never by
-  comparing values.
+  Every change is something the observation did: `SemanticValueOrigin` and
+  `SemanticChangeKind.ACTIVATED_FROM_CONTEXT` are gone, because the facts that
+  needed them — a body's, served again whenever a body was reselected — are no
+  longer canonical state's at all
+  ([ADR-0025](decisions/ADR-0025-THE-CURRENT-SYSTEM-IS-A-REGISTRY.md)).
+  `SemanticField.answeredByCanonicalState` is where the two kinds of canonical
+  field are told apart, and only the first can be a delta.
 - `LlmJournalObserverSubscriber` contributes every projection's semantic
   effect and queues a trigger only for `NEW` non-`BOOTSTRAP` observations.
   `ObserverTurnCoordinator` owns a bounded `SemanticEffectAccumulator` and
@@ -1142,9 +1291,9 @@ DTO or speech.
   happened. No Status field feeds `flightMode` — every value is written by an
   explicit journal branch in `CurrentGameStateProjector.applyEvent` — so the
   earlier `NORMAL_SPACE` never self-corrected in live capture either.
-- `BodyContext` holds the **whole** normalized signal reading for a body
-  (`Map<category, count>`), and the published `biologicalSignalCount` /
-  `geologicalSignalCount` are read out of it. Human, Thargoid and every other
+- `BodyProfile.signalCounts` holds the **whole** normalized signal reading for
+  a body (`Map<category, count>`), and the biological and geological counts
+  anything is shown are read out of it. Human, Thargoid and every other
   category the game reports are retained instead of discarded on the way in.
   Nothing retracts a count. A reading that does not mention a category is
   silence about it, and a reading that lists a category at zero — or below it —
@@ -1155,9 +1304,9 @@ DTO or speech.
   signature the graph deduplicates on, the observer's novelty memory and the
   per-category counts the model is shown are the same set and none of them can
   carry a count below one. Nothing is defaulted either: a category no reading has
-  counted stays out of the map, so `biologicalSignalCount` /
-  `geologicalSignalCount` return `null`, `CurrentGameStateSemantics` reads it as
-  `UnknownValue`, and it appears in no change, no context group and no event.
+  counted stays out of the map, so the accessors return `null`, the semantic
+  reader gives `UnknownValue`, and it appears in no change, no context group and
+  no event.
   A reading reports one count per category, named as the context names it —
   `biologicalSignals`, `geologicalSignals`, `humanSignals`, `thargoidSignals`,
   `otherSignals`
@@ -1401,7 +1550,25 @@ therefore cannot reach the generic fallback.
   facts of a body no event names are dropped from both sections; a batch naming
   two bodies drops them too, since no single canonical body is both. A turn that
   names no body — a sample — still describes where the ship is.
-  Canonical selection, the body registry and the graph are unchanged.
+  Canonical selection, the registry and the graph are unchanged.
+- `context.biology` names each organism a surface survey found on the body the
+  Commander is at, valued `COLLECTED` or `NOT_COLLECTED`
+  ([ADR-0025](decisions/ADR-0025-THE-CURRENT-SYSTEM-IS-A-REGISTRY.md)). It is
+  the one part of the request read from the current-system registry rather than
+  from canonical state, and it has to be: only `SAASignalsFound` names the
+  genera, and a survey restating counts the system scanner already gave opens no
+  turn at all, so the names would otherwise live for one observation the model
+  never sees. Gated by `BODY_DETAIL` and by the same `DecisionBodyScope` the
+  body group uses. One field per organism rather than one field carrying a list,
+  because `SemanticValue` is closed and a list variant would put back the
+  compound value [ADR-0024](decisions/ADR-0024-ONE-SHAPE-FOR-A-SIGNAL-COUNT.md)
+  removed. A genus the game supplies no word for is recorded, counted and
+  compared, and is **not** named to the model as its `$Codex_Ent_…` symbol. The
+  whole inventory is sent including an organism the turn's own event has just
+  finished: the event reports an action and this reports what stands on the
+  body, and a list missing the one just collected reads as a list of what is
+  left, one short. Absent when no survey has named anything — a biological
+  signal count says how many there are and never which.
 - The same scope now also answers "does anything here ask about a body at all".
   `DecisionBodyScope` returns false when no mechanism in the turn requests
   `BODY_IDENTITY` or `BODY_DETAIL`, so a body **change** follows the same rule
@@ -1437,21 +1604,16 @@ therefore cannot reach the generic fallback.
   `FSDJump` selects, which is still selected when a survey completes. Both are
   declared `uncounted()`, on the same rule flag that already omits a constant
   count. The graph still records the body; only the presentation drops it.
-- `broadBodyType` always describes the selected body. Only records that select
-  a body report `BodyType` — `FSDJump` sends `Star`, `SupercruiseExit` sends
-  `Planet` — and `ApproachBody` and `Touchdown` send none, so holding the field
-  until something overwrote it left the arrival star's type standing beside a
-  planet's class and signal counts. `CurrentGameStateProjector.selectBody` now
-  compares the body identity it had against the one it is setting — system
-  address, body id and body name — and on a real change replaces the type with
-  whatever was established for the new body, or nothing. A record that does
-  report a type establishes it for the body it named, kept per body in the
-  registry, so returning to that body recovers it; re-selecting the same body
-  without a type keeps what is known. The write deliberately does not set the
-  registry write marker: that marker says the published body facts came from
-  the record rather than from storage, and a reported type did. `ApproachBody`
-  and `Touchdown` therefore leave `body.type` absent until something says
-  otherwise — absent, never another body's.
+- `body.type` is what the body **is**. Only records that select a body report
+  `BodyType` — `FSDJump` sends `Star`, `SupercruiseExit` sends `Planet` — and
+  `ApproachBody` and `Touchdown` send none, so a coarse type held as a field of
+  the current body left the arrival star's type standing beside a planet's class
+  and signal counts. Two bodies are now two entries in the current-system
+  registry, which classifies each from the `StarType` or `PlanetClass` its own
+  scan reported, so a scanned planet is typed whether or not any record happened
+  to spell `BodyType` out, and no body can be described by another's facts. The
+  value is the registry's kind in the contract's own casing (`PLANET`), and a
+  body nothing has classified carries no type at all.
 - `BIOLOGICAL_SAMPLE` carries no `occurrenceOnBody` at any stage. The graph
   counts its three stages as three structural types (`SCAN_ORGANIC_LOG`,
   `SCAN_ORGANIC_SAMPLE`, `SCAN_ORGANIC_ANALYSE`) while the model-facing kind is
@@ -1537,6 +1699,13 @@ model.
 10. Decide whether a token measurement against the deployed model is worth
    adding. The 16 000-character budget bounds the document, not the request;
    nothing in the repository reads a provider context window.
+11. Decide what else the current-system registry is for
+   ([ADR-0025](decisions/ADR-0025-THE-CURRENT-SYSTEM-IS-A-REGISTRY.md) step
+   six). Steps one to five are done. What is deferred is the system-wide view,
+   stations and signal sources as further `SystemObject` kinds, the external
+   source behind `KnowledgeSource.EXTERNAL`, the reference catalogues under a
+   separate `kairon.reference` root, and any use of the registry **by** the
+   graph beyond the body context the coordinator already hands it.
 
 ## Explicitly deferred
 

@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -129,11 +128,11 @@ final class BodyIdentityContractTest {
         );
         assertSame(
                 BodyIdentity.class,
-                mapKeyOf(declaredField(
-                        "kairon.state.CurrentGameStateProjector",
-                        "bodies"
-                )),
-                "the canonical per-body registry key"
+                declaredField(
+                        "kairon.system.BodyProfile",
+                        "identity"
+                ).getType(),
+                "the identity of a body in the current system"
         );
     }
 
@@ -183,11 +182,6 @@ final class BodyIdentityContractTest {
                 "the field exists under the name this contract names it by"
         );
         return field;
-    }
-
-    private static Class<?> mapKeyOf(Field field) {
-        ParameterizedType type = (ParameterizedType) field.getGenericType();
-        return (Class<?>) type.getActualTypeArguments()[0];
     }
 
     private static com.fasterxml.jackson.databind.JsonNode parse(

@@ -102,8 +102,9 @@ final class RemoteBodyScanScopeTest {
                     state.bodyName(),
                     "a remote scan does not move the ship"
             );
-            assertEquals("K", state.starType());
-            assertEquals(0.0, state.distanceFromArrivalLs());
+            var star = harness.trace().finalBody(17658387800858L, 0L);
+            assertEquals("K", star.starType());
+            assertEquals(0.0, star.distanceFromArrivalLs());
         }
     }
 

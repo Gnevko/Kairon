@@ -10,6 +10,7 @@ import kairon.behavior.model.EventOccurrenceId;
 import kairon.behavior.model.GraphId;
 import kairon.behavior.model.SystemEpisodeId;
 import kairon.behavior.normalize.NormalizedEventType;
+import kairon.system.SystemRegistrySnapshot;
 import kairon.ui.KaironGuiHub.ModelCompletionView;
 import kairon.ui.KaironGuiHub.ModelDecisionView;
 import kairon.ui.KaironGuiHub.ObservationEffectView;
@@ -61,6 +62,8 @@ final class KaironHudWindow implements SwingKaironGuiHub.GuiView {
     private final JLabel status = HudTheme.mutedLabel("Running");
     private final JTabbedPane tabs = HudTheme.tabbedPane();
     private final BehaviorGraphTab behaviorGraphTab;
+    private final SystemRegistryTab systemRegistryTab =
+            new SystemRegistryTab();
     private final ChangeListener tabSelectionListener =
             this::tabSelectionChanged;
 
@@ -175,6 +178,12 @@ final class KaironHudWindow implements SwingKaironGuiHub.GuiView {
     }
 
     @Override
+    public void updateSystemRegistry(SystemRegistrySnapshot snapshot) {
+        requireEdt();
+        systemRegistryTab.apply(snapshot);
+    }
+
+    @Override
     public void updateDroppedCount(long droppedCount) {
         requireEdt();
         if (stopping) {
@@ -243,6 +252,7 @@ final class KaironHudWindow implements SwingKaironGuiHub.GuiView {
                 0.56
         );
         tabs.addTab("Journal Observer", main);
+        tabs.addTab(SystemRegistryTab.TITLE, systemRegistryTab);
         tabs.addTab(BehaviorGraphTab.TITLE, behaviorGraphTab);
         tabs.addChangeListener(tabSelectionListener);
         behaviorGraphTab.setTabSelected(

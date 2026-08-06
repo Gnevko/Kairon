@@ -138,40 +138,4 @@ final class BodyTypeCompatibilityProjectionTest {
         );
     }
 
-    @Test
-    void delegatesToSnapshotCanonicalValues() {
-        CurrentGameStateSnapshot snapshot = new CurrentGameStateSnapshot(
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                "Icy body",
-                " ",
-                CommanderLocationMode.UNKNOWN,
-                FlightMode.UNKNOWN,
-                CurrentGameStateSnapshot.VEHICLE_UNKNOWN,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        ,
-        null
-    );
-        assertEquals(
-                "Icy body",
-                BodyTypeCompatibilityProjection.compatibleBodyType(snapshot)
-        );
-    }
 }

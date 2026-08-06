@@ -1,5 +1,7 @@
 package kairon.ui;
 
+import kairon.system.SystemRegistrySnapshot;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -26,6 +28,16 @@ public interface KaironGuiHub extends AutoCloseable {
     void postModelDecision(ModelDecisionView decision);
 
     void postModelCompletion(ModelCompletionView completion);
+
+    /**
+     * The current system, as one projection left it.
+     *
+     * <p>The snapshot is passed through rather than copied into a view record.
+     * It is already an immutable read model built for exactly this — the hub
+     * adds no field and drops none, and a parallel record would be the same
+     * facts spelled twice.</p>
+     */
+    void postSystemRegistry(SystemRegistrySnapshot snapshot);
 
     CompletionStage<Void> closeRequested();
 
@@ -219,6 +231,11 @@ public interface KaironGuiHub extends AutoCloseable {
         @Override
         public void postModelCompletion(ModelCompletionView completion) {
             Objects.requireNonNull(completion, "completion");
+        }
+
+        @Override
+        public void postSystemRegistry(SystemRegistrySnapshot snapshot) {
+            Objects.requireNonNull(snapshot, "snapshot");
         }
 
         @Override

@@ -7,6 +7,18 @@ import java.util.Objects;
 /**
  * Immutable canonical projection of facts established by processed journal
  * events. Nullable fields retain the previous unknown-value semantics.
+ *
+ * <p>Where the Commander is, in what, and what sequence is running. The body is
+ * named and identified, and nothing more about it is here: what a body
+ * <em>is</em> — its class, how far out it sits, what a scanner counted on it —
+ * belongs to the system it is in and lives in the current-system registry
+ * ({@code ADR-0025}).</p>
+ *
+ * <p>That is a boundary rather than a tidy-up. Held here, a body fact was a
+ * field of "the current body", so flying to the next body made every one of
+ * them change at once — and Kairon had to carry a write-path flag saying which
+ * of those changes were the world moving and which were only a different body
+ * being looked at. Nothing states now what nothing has to unstate later.</p>
  */
 public record CurrentGameStateSnapshot(
         String commanderFid,
@@ -18,21 +30,10 @@ public record CurrentGameStateSnapshot(
         String systemName,
         Long bodyId,
         String bodyName,
-        String broadBodyType,
-        String planetClass,
-        String starType,
         CommanderLocationMode commanderMode,
         FlightMode flightMode,
         String vehicleKind,
         Long activeVehicleId,
-        Integer biologicalSignalCount,
-        Integer geologicalSignalCount,
-        Boolean landable,
-        Boolean wasDiscovered,
-        Boolean wasMapped,
-        Boolean wasFootfalled,
-        Double distanceFromArrivalLs,
-        Boolean bodyHasBiology,
         Boolean activeOrganicSampling,
         BiologicalSamplingProcess samplingProcess
 ) {
@@ -71,44 +72,13 @@ public record CurrentGameStateSnapshot(
                 null,
                 null,
                 null,
-                null,
-                null,
-                null,
                 CommanderLocationMode.UNKNOWN,
                 FlightMode.UNKNOWN,
                 VEHICLE_UNKNOWN,
                 null,
                 null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
                 null
         );
-    }
-
-    /**
-     * Legacy compatibility accessor.
-     *
-     * <p>Returns the legacy scalar from {@link BodyTypeCompatibilityProjection}
-     * and is <strong>not</strong> the canonical classification. The canonical
-     * body dimensions are {@code broadBodyType}, {@code planetClass} and
-     * {@code starType}, and the model-facing context carries those three.</p>
-     *
-     * <p>No production caller remains: the behavior graph builds its
-     * {@code ContextSnapshot.bodyType} from
-     * {@link BodyTypeCompatibilityProjection} directly. The accessor survives
-     * because {@code CurrentGameStateProjectorTest} still exercises it as a
-     * public contract; removing it is a test change, not a dead-code
-     * deletion.</p>
-     */
-    @Deprecated
-    public String bodyType() {
-        return BodyTypeCompatibilityProjection.compatibleBodyType(this);
     }
 
     public CurrentGameStateSnapshot {

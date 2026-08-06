@@ -1,6 +1,7 @@
 package kairon.ui.swing;
 
 import kairon.config.KaironConfiguration.UiConfiguration;
+import kairon.system.SystemRegistrySnapshot;
 import kairon.ui.KaironGuiHub.ModelCompletionView;
 import kairon.ui.KaironGuiHub.ModelDecisionView;
 import kairon.ui.KaironGuiHub.ObservationEffectView;
@@ -177,6 +178,14 @@ final class SwingKaironGuiHubTest {
 
         @Override
         public void upsertModelDecision(ModelDecisionView decision) {
+            recordThread();
+            updates.countDown();
+        }
+
+        @Override
+        public void updateSystemRegistry(
+                SystemRegistrySnapshot snapshot
+        ) {
             recordThread();
             updates.countDown();
         }

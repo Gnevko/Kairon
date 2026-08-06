@@ -1,5 +1,6 @@
 package kairon.projection;
 
+import kairon.behavior.context.BodyDetailLookup;
 import kairon.behavior.graph.BehaviorGraphApplyResult;
 import kairon.behavior.graph.BehaviorGraphApplyStatus;
 import kairon.behavior.graph.BehaviorGraphProcessor;
@@ -12,6 +13,9 @@ import kairon.semantics.SemanticObservationEnvelope;
 import kairon.state.CurrentGameStateProjection;
 import kairon.state.CurrentGameStateProjectionWriter;
 import kairon.state.CurrentGameStateSnapshot;
+import kairon.system.CurrentSystemRegistry;
+import kairon.system.SystemRegistrySnapshot;
+import kairon.system.VisitIdentity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +44,17 @@ public final class ObservationProjectionCoordinator
     private final ProjectedObservationBus downstream;
     private final SemanticEnvelopeFactory semanticEnvelopeFactory =
             SemanticEnvelopeFactory.production();
+
+    /**
+     * The current system, built here rather than supplied.
+     *
+     * <p>Unlike the behaviour graph it is not configurable, has no store and
+     * reaches nothing outside itself, so there is nothing for a caller to
+     * choose. It is owned like the envelope factory above and written on this
+     * coordinator's single thread.</p>
+     */
+    private final CurrentSystemRegistry systemRegistry =
+            new CurrentSystemRegistry();
     private final ExecutorService executor;
     private final AtomicReference<Throwable> stateFailure =
             new AtomicReference<>();
@@ -170,8 +185,14 @@ public final class ObservationProjectionCoordinator
                 );
             }
 
-            BehaviorGraphApplyResult graphResult =
-                    applyGraph(observation, stateProjection);
+            SystemRegistrySnapshot registrySnapshot =
+                    applyRegistry(observation, stateProjection);
+
+            BehaviorGraphApplyResult graphResult = applyGraph(
+                    observation,
+                    stateProjection,
+                    new RegistryBodyDetail(registrySnapshot)
+            );
             if (graphResult.busSequence()
                     != observation.busSequence()) {
                 throw new IllegalStateException(
@@ -195,7 +216,8 @@ public final class ObservationProjectionCoordinator
                     stateProjection.changes(),
                     graphResult,
                     behaviorSituation,
-                    semanticEnvelope
+                    semanticEnvelope,
+                    registrySnapshot
             ));
             completion.complete(null);
         } catch (RuntimeException stateOrBoundaryFailure) {
@@ -212,9 +234,62 @@ public final class ObservationProjectionCoordinator
         }
     }
 
-    private BehaviorGraphApplyResult applyGraph(
+    /**
+     * The current system, updated and captured before the graph runs.
+     *
+     * <p>The order is fixed for reproducibility and carries no dependency:
+     * neither projection reads the other, and two peer projections that read
+     * each other are two projections that drift.</p>
+     *
+     * <p>A failure here is isolated exactly as a graph failure is. The registry
+     * is pure computation over the record, so a failure is a defect rather than
+     * an environmental fault — but FIFO processing must not stop for a defect
+     * either, and a reader has to be able to tell an empty system from a
+     * registry that could not answer.</p>
+     */
+    private SystemRegistrySnapshot applyRegistry(
             PublishedObservation<?> observation,
             CurrentGameStateProjection stateProjection
+    ) {
+        CurrentGameStateSnapshot currentState = stateProjection.currentState();
+        try {
+            return systemRegistry.applyAndCapture(
+                    observation,
+                    new VisitIdentity(
+                            currentState.commanderFid(),
+                            currentState.shipId(),
+                            currentState.systemAddress(),
+                            currentState.systemName()
+                    )
+            );
+        } catch (RuntimeException registryFailure) {
+            LOGGER.error(
+                    "SYSTEM_REGISTRY_PROCESSING_FAILED observationId={} "
+                            + "busSequence={} category={}",
+                    observation.observationId(),
+                    observation.busSequence(),
+                    registryFailure.getClass().getSimpleName(),
+                    registryFailure
+            );
+            return SystemRegistrySnapshot.unavailable(
+                    observation.busSequence()
+            );
+        }
+    }
+
+    /**
+     * The graph, applied to the observation with the system it happened in.
+     *
+     * <p>Body detail is handed in rather than looked up, and it is the snapshot
+     * this observation produced a moment ago — the registry has been updated
+     * for this record and has not moved on. That is what keeps the order above
+     * a sequence rather than a dependency: the graph receives plain values and
+     * never learns what produced them.</p>
+     */
+    private BehaviorGraphApplyResult applyGraph(
+            PublishedObservation<?> observation,
+            CurrentGameStateProjection stateProjection,
+            BodyDetailLookup bodies
     ) {
         if (graphProcessor == null) {
             return BehaviorGraphApplyResult.disabled(
@@ -222,7 +297,7 @@ public final class ObservationProjectionCoordinator
             );
         }
         try {
-            return graphProcessor.apply(observation, stateProjection);
+            return graphProcessor.apply(observation, stateProjection, bodies);
         } catch (RuntimeException graphFailure) {
             LOGGER.error(
                     "BEHAVIOR_GRAPH_PROCESSING_FAILED observationId={} "

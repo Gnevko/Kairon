@@ -37,6 +37,7 @@ import kairon.projection.ObservationProjectionCoordinator;
 import kairon.projection.ObservationProjectionSubscriber;
 import kairon.projection.ProjectedObservationBus;
 import kairon.projection.ProjectedObservation;
+import kairon.projection.RegistryBodyDetail;
 import kairon.state.CurrentGameStateProjector;
 import kairon.trace.JsonLinesTurnTraceWriter;
 import org.junit.jupiter.api.Test;
@@ -357,12 +358,16 @@ final class SnapshotReplayIntegrationTest {
             ProjectedObservation last = finalProjection.get();
             assertNotNull(last);
             assertEquals(
-                    "Planet",
-                    last.currentState().broadBodyType()
+                    "PLANET",
+                    new RegistryBodyDetail(last.systemRegistry())
+                            .detailOf(7301L, 1L)
+                            .broadBodyType()
             );
             assertEquals(
                     "Icy body",
-                    last.currentState().planetClass()
+                    new RegistryBodyDetail(last.systemRegistry())
+                            .detailOf(7301L, 1L)
+                            .planetClass()
             );
             assertEquals(
                     "Icy body",
@@ -378,8 +383,9 @@ final class SnapshotReplayIntegrationTest {
                     "a re-activated body keeps what is known about it"
             );
             assertFalse(
-                    request.toString().contains("ACTIVATED_FROM_CONTEXT"),
-                    "recall is standing background, not a change"
+                    request.toString().contains("\"subject\":\"body\""),
+                    "what is known about a body is standing background, "
+                            + "never a change: " + request
             );
             assertFalse(
                     body.has("starType"),

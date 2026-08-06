@@ -251,9 +251,8 @@ final class ArrivalStarDiscoveryTest {
             );
             assertEquals(
                     "B",
-                    pipeline.capturedProjections().getLast()
-                            .currentState().starType(),
-                    "but canonical state still learned what the star is"
+                    pipeline.establishedBody(ADDRESS, 0L).starType(),
+                    "but the registry still learned what the star is"
             );
         }
     }
@@ -348,9 +347,8 @@ final class ArrivalStarDiscoveryTest {
             );
             assertEquals(
                     "B",
-                    pipeline.capturedProjections().getLast()
-                            .currentState().starType(),
-                    "canonical state is untouched by any of this"
+                    pipeline.establishedBody(ADDRESS, 0L).starType(),
+                    "what the registry knows is untouched by any of this"
             );
         }
     }

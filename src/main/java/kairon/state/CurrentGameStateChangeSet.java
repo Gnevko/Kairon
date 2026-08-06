@@ -51,32 +51,11 @@ public record CurrentGameStateChangeSet(
         ) || !Objects.equals(previous.systemName(), current.systemName())) {
             changed.add(GameStateFacet.SYSTEM);
         }
+        // Which body, which is all canonical state says about one. What a body
+        // is like belongs to the current-system registry (ADR-0025) and cannot
+        // move this facet.
         if (!Objects.equals(previous.bodyId(), current.bodyId())
-                || !Objects.equals(previous.bodyName(), current.bodyName())
-                || !Objects.equals(
-                        previous.broadBodyType(),
-                        current.broadBodyType()
-                )
-                || !Objects.equals(previous.planetClass(), current.planetClass())
-                || !Objects.equals(previous.starType(), current.starType())
-                || !Objects.equals(
-                        previous.geologicalSignalCount(),
-                        current.geologicalSignalCount()
-                )
-                || !Objects.equals(previous.landable(), current.landable())
-                || !Objects.equals(
-                        previous.wasDiscovered(),
-                        current.wasDiscovered()
-                )
-                || !Objects.equals(previous.wasMapped(), current.wasMapped())
-                || !Objects.equals(
-                        previous.wasFootfalled(),
-                        current.wasFootfalled()
-                )
-                || !Objects.equals(
-                        previous.distanceFromArrivalLs(),
-                        current.distanceFromArrivalLs()
-                )) {
+                || !Objects.equals(previous.bodyName(), current.bodyName())) {
             changed.add(GameStateFacet.BODY);
         }
         addIfDifferent(
@@ -99,17 +78,9 @@ public record CurrentGameStateChangeSet(
             changed.add(GameStateFacet.VEHICLE);
         }
         if (!Objects.equals(
-                previous.biologicalSignalCount(),
-                current.biologicalSignalCount()
+                previous.activeOrganicSampling(),
+                current.activeOrganicSampling()
         )
-                || !Objects.equals(
-                        previous.bodyHasBiology(),
-                        current.bodyHasBiology()
-                )
-                || !Objects.equals(
-                        previous.activeOrganicSampling(),
-                        current.activeOrganicSampling()
-                )
                 || !Objects.equals(
                         previous.samplingProcess(),
                         current.samplingProcess()

@@ -7,6 +7,7 @@ import kairon.semantics.SemanticObservationEnvelope;
 import kairon.state.AppliedObservation;
 import kairon.state.CurrentGameStateSnapshot;
 import kairon.state.CurrentGameStateChangeSet;
+import kairon.system.SystemRegistrySnapshot;
 
 import java.util.Objects;
 
@@ -14,12 +15,17 @@ import java.util.Objects;
  * Immutable downstream envelope created after state and graph processing.
  *
  * <p>{@code semanticEnvelope} belongs to the same post-projection moment as
- * {@code applied} and {@code behaviorSituation}: all of them are captured
- * before publication and none may be re-read afterwards.</p>
+ * {@code applied}, {@code behaviorSituation} and {@code systemRegistry}: all of
+ * them are captured before publication and none may be re-read afterwards.</p>
  *
  * <p>{@code applied} owns the canonical half of that moment — the state before
  * and after, the exact delta, and what the observation means — so
  * {@link #currentState()} reads out of it rather than beside it.</p>
+ *
+ * <p>{@code systemRegistry} is the star system the Commander is in, as it stood
+ * after this observation. It travels here rather than being asked for later for
+ * the same reason the behaviour situation does: by the time a decision request
+ * is built, the live registry has moved on.</p>
  */
 public record ProjectedObservation(
         PublishedObservation<?> trigger,
@@ -27,7 +33,8 @@ public record ProjectedObservation(
         CurrentGameStateChangeSet stateChanges,
         BehaviorGraphApplyResult graphResult,
         BehaviorSituationSnapshot behaviorSituation,
-        SemanticObservationEnvelope semanticEnvelope
+        SemanticObservationEnvelope semanticEnvelope,
+        SystemRegistrySnapshot systemRegistry
 ) {
 
     public ProjectedObservation {
@@ -46,6 +53,15 @@ public record ProjectedObservation(
                 semanticEnvelope,
                 "semanticEnvelope"
         );
+        systemRegistry = Objects.requireNonNull(
+                systemRegistry,
+                "systemRegistry"
+        );
+        if (trigger.busSequence() != systemRegistry.busSequence()) {
+            throw new IllegalArgumentException(
+                    "system registry snapshot does not belong to trigger"
+            );
+        }
         if (trigger.busSequence() != semanticEnvelope.busSequence()) {
             throw new IllegalArgumentException(
                     "semantic envelope does not belong to trigger"

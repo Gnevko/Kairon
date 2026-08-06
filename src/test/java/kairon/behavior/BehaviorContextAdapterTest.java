@@ -1,6 +1,8 @@
 package kairon.behavior;
 
 import kairon.behavior.context.BehaviorContextAdapter;
+import kairon.behavior.context.BodyDetail;
+import kairon.behavior.context.BodyDetailLookup;
 import kairon.behavior.model.ContextSnapshot;
 import kairon.behavior.model.GraphId;
 import kairon.state.CommanderLocationMode;
@@ -8,6 +10,7 @@ import kairon.state.CurrentGameStateSnapshot;
 import kairon.state.FlightMode;
 import org.junit.jupiter.api.Test;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,25 +33,13 @@ final class BehaviorContextAdapterTest {
                 "Test System",
                 2L,
                 "Test System 2",
-                null,
-                "Rocky body",
-                null,
                 CommanderLocationMode.SRV,
                 FlightMode.LANDED,
                 CurrentGameStateSnapshot.VEHICLE_NOMAD,
                 101L,
-                4,
-                2,
                 true,
-                true,
-                false,
-                false,
-                42.5,
-                true,
-                true
-        ,
-        null
-    );
+                null
+        );
 
         ContextSnapshot expected = new ContextSnapshot(
                 "F100",
@@ -75,7 +66,21 @@ final class BehaviorContextAdapterTest {
                 true
         );
 
-        assertEquals(expected, adapter.toContextSnapshot(state));
+        assertEquals(
+                expected,
+                adapter.toContextSnapshot(state, only(1001L, 2L, new BodyDetail(
+                        null,
+                        "Rocky body",
+                        null,
+                        true,
+                        true,
+                        false,
+                        false,
+                        42.5,
+                        4,
+                        2
+                )))
+        );
     }
 
     @Test
@@ -91,43 +96,110 @@ final class BehaviorContextAdapterTest {
 
     @Test
     void projectsMostSpecificPlanetBodyType() {
-        CurrentGameStateSnapshot state = new CurrentGameStateSnapshot(
-                "F100",
-                9L,
-                "krait_mkii",
-                "Caspian",
-                "lo1-hash",
-                1001L,
-                "Test System",
-                2L,
-                "Test System 2",
-                "Planet",
+        assertEquals(
                 "Icy body",
-                null,
-                CommanderLocationMode.SRV,
-                FlightMode.LANDED,
-                CurrentGameStateSnapshot.VEHICLE_NOMAD,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        ,
-        null
-    );
-
-        ContextSnapshot context = adapter.toContextSnapshot(state);
-        assertEquals("Icy body", context.bodyType());
+                bodyTypeOf(body("PLANET", "Icy body", null))
+        );
     }
 
     @Test
     void projectsStarTypeWhenBroadStarAndStarClassKnown() {
-        CurrentGameStateSnapshot state = new CurrentGameStateSnapshot(
+        assertEquals("K", bodyTypeOf(body("STAR", null, "K")));
+    }
+
+    @Test
+    void keepsBodyTypeCategoryForNonPlanetAndNonStarBroadValue() {
+        assertEquals(
+                "BARYCENTRE",
+                bodyTypeOf(body("BARYCENTRE", "Icy body", null))
+        );
+    }
+
+    @Test
+    void returnsNullLegacyBodyTypeWhenBroadAndBothDetailsPresentWithoutBroad() {
+        assertNull(bodyTypeOf(body(null, "Icy body", "K")));
+    }
+
+    /**
+     * A body detail is about a body, and the body is in a system.
+     *
+     * <p>A lookup describing another system answers nothing, and the context
+     * then carries where the Commander is and nothing about what is there.
+     * Body ids repeat across systems, so the alternative is a moon of the
+     * previous system described as this one's.</p>
+     */
+    @Test
+    void takesNoBodyDetailWhenTheLookupDescribesAnotherSystem() {
+        ContextSnapshot context = adapter.toContextSnapshot(
+                state("F100", 9L),
+                only(4242L, 2L, body("PLANET", "Icy body", null))
+        );
+        assertNull(context.bodyType());
+        assertNull(context.landable());
+        assertNull(context.biologicalSignalCount());
+        assertNull(context.bodyHasBiology());
+    }
+
+    @Test
+    void readsHasBiologyFromTheBiologicalCountAlone() {
+        assertEquals(
+                Boolean.TRUE,
+                adapter.toContextSnapshot(
+                        located(),
+                        only(1001L, 2L, new BodyDetail(
+                                null, null, null, null, null, null, null,
+                                null, 3, null
+                        ))
+                ).bodyHasBiology()
+        );
+        assertNull(
+                adapter.toContextSnapshot(
+                        located(),
+                        BodyDetailLookup.NONE
+                ).bodyHasBiology()
+        );
+    }
+
+    private String bodyTypeOf(BodyDetail detail) {
+        return adapter
+                .toContextSnapshot(located(), only(1001L, 2L, detail))
+                .bodyType();
+    }
+
+    private static BodyDetail body(
+            String broadBodyType,
+            String planetClass,
+            String starType
+    ) {
+        return new BodyDetail(
+                broadBodyType,
+                planetClass,
+                starType,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    /** A lookup that answers for exactly one body and nothing else. */
+    private static BodyDetailLookup only(
+            Long systemAddress,
+            Long bodyId,
+            BodyDetail detail
+    ) {
+        return (askedSystem, askedBody) ->
+                Objects.equals(systemAddress, askedSystem)
+                        && Objects.equals(bodyId, askedBody)
+                        ? detail
+                        : BodyDetail.UNKNOWN;
+    }
+
+    private static CurrentGameStateSnapshot located() {
+        return new CurrentGameStateSnapshot(
                 "F100",
                 9L,
                 "krait_mkii",
@@ -137,72 +209,13 @@ final class BehaviorContextAdapterTest {
                 "Test System",
                 2L,
                 "Test System 2",
-                "Star",
-                null,
-                "K",
-                CommanderLocationMode.SRV,
-                FlightMode.LANDED,
-                CurrentGameStateSnapshot.VEHICLE_NOMAD,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
+                CommanderLocationMode.UNKNOWN,
+                FlightMode.UNKNOWN,
+                CurrentGameStateSnapshot.VEHICLE_UNKNOWN,
                 null,
                 null,
                 null
-        ,
-        null
-    );
-        assertEquals("K", adapter.toContextSnapshot(state).bodyType());
-    }
-
-    @Test
-    void keepsBodyTypeCategoryForNonPlanetAndNonStarBroadValue() {
-        CurrentGameStateSnapshot state = state(
-                "F100",
-                9L,
-                "Station",
-                "Icy body"
         );
-        assertEquals("Station", adapter.toContextSnapshot(state).bodyType());
-    }
-
-    @Test
-    void returnsNullLegacyBodyTypeWhenBroadAndBothDetailsPresentWithoutBroad() {
-        CurrentGameStateSnapshot state =
-                new CurrentGameStateSnapshot(
-                        "F100",
-                        9L,
-                        "krait_mkii",
-                        "Caspian",
-                        "lo1-hash",
-                        1001L,
-                        "Test System",
-                        2L,
-                        "Test System 2",
-                        null,
-                        "Icy body",
-                        "K",
-                        CommanderLocationMode.SRV,
-                        FlightMode.LANDED,
-                        CurrentGameStateSnapshot.VEHICLE_NOMAD,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null
-                ,
-                null
-            );
-        assertNull(adapter.toContextSnapshot(state).bodyType());
     }
 
     private static CurrentGameStateSnapshot state(
@@ -215,65 +228,16 @@ final class BehaviorContextAdapterTest {
                 null,
                 null,
                 null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                CommanderLocationMode.UNKNOWN,
-                FlightMode.UNKNOWN,
-                CurrentGameStateSnapshot.VEHICLE_UNKNOWN,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        ,
-        null
-    );
-    }
-
-    private static CurrentGameStateSnapshot state(
-            String commanderFid,
-            Long shipId,
-            String broadBodyType,
-            String detail
-    ) {
-        return new CurrentGameStateSnapshot(
-                commanderFid,
-                shipId,
-                "krait_mkii",
-                "Caspian",
-                "lo1-hash",
                 1001L,
                 "Test System",
                 2L,
                 "Test System 2",
-                broadBodyType,
-                detail,
-                null,
                 CommanderLocationMode.UNKNOWN,
                 FlightMode.UNKNOWN,
                 CurrentGameStateSnapshot.VEHICLE_UNKNOWN,
                 null,
                 null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
                 null
-        ,
-        null
-    );
+        );
     }
 }

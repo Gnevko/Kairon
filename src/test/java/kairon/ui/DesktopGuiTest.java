@@ -23,6 +23,7 @@ import kairon.output.CommentSink.CommentDeliveryResult;
 import kairon.output.CommentSink.ConsoleOutcome;
 import kairon.output.CommentSink.SpeechDeliveryResult;
 import kairon.output.CommentSink.SpeechDescriptor;
+import kairon.system.SystemRegistrySnapshot;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -242,6 +243,8 @@ final class DesktopGuiTest {
                 new CopyOnWriteArrayList<>();
         private final List<ModelCompletionView> completions =
                 new CopyOnWriteArrayList<>();
+        private final List<SystemRegistrySnapshot>
+                registrySnapshots = new CopyOnWriteArrayList<>();
         private final CompletableFuture<Void> closeRequested =
                 new CompletableFuture<>();
 
@@ -267,6 +270,13 @@ final class DesktopGuiTest {
         @Override
         public void postModelDecision(ModelDecisionView decision) {
             decisions.add(decision);
+        }
+
+        @Override
+        public void postSystemRegistry(
+                SystemRegistrySnapshot snapshot
+        ) {
+            registrySnapshots.add(snapshot);
         }
 
         @Override

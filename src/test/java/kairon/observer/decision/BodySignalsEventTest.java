@@ -211,8 +211,8 @@ final class BodySignalsEventTest {
             );
             assertEquals(
                     3,
-                    pipeline.capturedProjections().getLast()
-                            .currentState().biologicalSignalCount(),
+                    pipeline.establishedBody(23155L, 20L)
+                            .biologicalSignalCount(),
                     "silence about a category is not a retraction of it"
             );
             turn(pipeline, "2026-07-30T10:01:03Z");

@@ -95,6 +95,39 @@ final class PackageDependencyRulesTest {
                     "same, for the third"
             ),
             new Rule(
+                    "kairon.semantics",
+                    "kairon.system",
+                    "the current-system registry is a projection; what an "
+                            + "observation means cannot depend on it, or on it "
+                            + "running at all"
+            ),
+            new Rule(
+                    "kairon.system",
+                    "kairon.observer",
+                    "the registry cannot know the consumer that reads it, for "
+                            + "the same reason the semantic layer cannot"
+            ),
+            new Rule(
+                    "kairon.system",
+                    "kairon.behavior",
+                    "two peer projections that read each other are two "
+                            + "projections that drift; both ask the shared "
+                            + "visit policy instead"
+            ),
+            new Rule(
+                    "kairon.behavior",
+                    "kairon.system",
+                    "same, in the other direction"
+            ),
+            new Rule(
+                    "kairon.system",
+                    "kairon.state",
+                    "canonical body facts are to be read out of the registry "
+                            + "rather than kept beside it, so the registry must "
+                            + "not import the projection it will feed; what it "
+                            + "needs of canonical state arrives as VisitIdentity"
+            ),
+            new Rule(
                     "kairon.observation",
                     "kairon.semantics",
                     "the semantic layer reads journal records, so a record "
@@ -233,12 +266,18 @@ final class PackageDependencyRulesTest {
      * first. Their contents are typeset text that resolves to nothing, and a
      * package named in prose to explain <em>why</em> it must not be imported is
      * the opposite of importing it.</p>
+     *
+     * <p>String literals go too. A Java package cannot be reached through one —
+     * nothing here uses reflection — and a value that merely looks like a
+     * package name is not a dependency: the graph's schema version
+     * {@code "kairon.system-episode/v3"} would otherwise read as the behaviour
+     * graph importing the current-system registry.</p>
      */
     private static List<String> referencedPackages(String text) {
         List<String> referenced = new ArrayList<>();
         Matcher matcher = Pattern
                 .compile("\\bkairon(?:\\.[A-Za-z_$][\\w$]*)+")
-                .matcher(withoutTypesetProse(text));
+                .matcher(withoutStringLiterals(withoutTypesetProse(text)));
         while (matcher.find()) {
             String packageName = packagePrefixOf(matcher.group());
             if (packageName != null && !referenced.contains(packageName)) {
@@ -253,6 +292,18 @@ final class PackageDependencyRulesTest {
         return Pattern
                 .compile("\\{@(?:code|literal)\\s[^{}]*\\}")
                 .matcher(text)
+                .replaceAll(" ");
+    }
+
+    /** The source with text blocks and string literals removed. */
+    private static String withoutStringLiterals(String text) {
+        String withoutBlocks = Pattern
+                .compile("\"\"\"[\\s\\S]*?\"\"\"")
+                .matcher(text)
+                .replaceAll(" ");
+        return Pattern
+                .compile("\"(?:\\\\.|[^\"\\\\])*\"")
+                .matcher(withoutBlocks)
                 .replaceAll(" ");
     }
 

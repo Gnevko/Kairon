@@ -115,8 +115,9 @@ final class PostMappingRescanTest {
 
             assertEquals(
                     1833.953549,
-                    trace.finalState().orElseThrow().distanceFromArrivalLs(),
-                    "the body moved, and canonical state knows it"
+                    trace.finalBody(17658387800858L, 5L)
+                            .distanceFromArrivalLs(),
+                    "the body moved, and the registry knows it"
             );
             assertEquals(
                     1,

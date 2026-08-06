@@ -693,6 +693,7 @@ final class DecisionRequestProjectionTest {
         JsonNode body = context.path("body");
         assertEquals(
                 List.of(
+                        "type",
                         "planetClass",
                         "landable",
                         "previouslyDiscovered",

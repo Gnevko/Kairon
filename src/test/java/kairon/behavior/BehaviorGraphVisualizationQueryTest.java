@@ -11,6 +11,11 @@ import kairon.behavior.graph.BehaviorGraphVisualizationSnapshot
         .VisualizationEdge;
 import kairon.behavior.graph.BehaviorGraphVisualizationSnapshot
         .VisualizationNode;
+import kairon.behavior.context.BodyDetailLookup;
+import kairon.projection.RegistryBodyDetail;
+import kairon.state.CurrentGameStateSnapshot;
+import kairon.system.CurrentSystemRegistry;
+import kairon.system.VisitIdentity;
 import kairon.behavior.model.ContextKey;
 import kairon.behavior.model.EdgeKey;
 import kairon.behavior.model.EpisodeEntrySource;
@@ -795,6 +800,15 @@ final class BehaviorGraphVisualizationQueryTest {
                 new InMemoryBehaviorGraphStore();
         private final CurrentGameStateProjector currentGameState =
                 new CurrentGameStateProjector();
+        /**
+         * The current system, applied exactly as the coordinator applies it.
+         *
+         * <p>Body detail reaches the graph from here rather than from canonical
+         * state (ADR-0025). Driving the real registry keeps this harness on the
+         * production translation instead of a hand-written stand-in.</p>
+         */
+        private final CurrentSystemRegistry systemRegistry =
+                new CurrentSystemRegistry();
         private final BehaviorGraphService service =
                 new BehaviorGraphService(
                         configuration(),
@@ -840,7 +854,8 @@ final class BehaviorGraphVisualizationQueryTest {
             service.onObservation(
                     published,
                     projection.currentState(),
-                    projection.observationContext()
+                    projection.observationContext(),
+                    bodies(published, projection.currentState())
             );
             return published;
         }
@@ -868,9 +883,26 @@ final class BehaviorGraphVisualizationQueryTest {
                     currentGameState.applyAndCapture(observation);
             service.completeReplay(
                     observation,
-                    projection.currentState()
+                    projection.currentState(),
+                    bodies(observation, projection.currentState())
             );
         }
+
+        private BodyDetailLookup bodies(
+                PublishedObservation<?> observation,
+                CurrentGameStateSnapshot state
+        ) {
+            return new RegistryBodyDetail(systemRegistry.applyAndCapture(
+                    observation,
+                    new VisitIdentity(
+                            state.commanderFid(),
+                            state.shipId(),
+                            state.systemAddress(),
+                            state.systemName()
+                    )
+            ));
+        }
+
 
         private BehaviorGraphVisualizationSnapshot snapshot() {
             return query.getVisualizationSnapshot(

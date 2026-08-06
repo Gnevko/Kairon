@@ -12,6 +12,10 @@ import java.util.function.Function;
  * <p>The three non-null enum-backed fields use their {@code UNKNOWN} sentinel
  * as absence of knowledge, so a transition out of {@code UNKNOWN} is an
  * establishment and a transition back into it is a clear.</p>
+ *
+ * <p>A field canonical state does not answer reads unknown here, which is what
+ * is true of it: {@link SemanticField#answeredByCanonicalState} is where the
+ * two kinds are told apart, and nothing asks this for the others.</p>
  */
 public final class CurrentGameStateSemantics {
 
@@ -37,23 +41,23 @@ public final class CurrentGameStateSemantics {
             case SYSTEM_NAME -> SemanticValue.ofText(snapshot.systemName());
             case BODY_ID -> SemanticValue.ofIntegral(snapshot.bodyId());
             case BODY_NAME -> SemanticValue.ofText(snapshot.bodyName());
-            case BROAD_BODY_TYPE ->
-                    SemanticValue.ofSymbol(snapshot.broadBodyType());
-            case PLANET_CLASS ->
-                    SemanticValue.ofSymbol(snapshot.planetClass());
-            case STAR_TYPE -> SemanticValue.ofSymbol(snapshot.starType());
-            case LANDABLE -> SemanticValue.ofBoolean(snapshot.landable());
-            case WAS_DISCOVERED ->
-                    SemanticValue.ofBoolean(snapshot.wasDiscovered());
-            case WAS_MAPPED -> SemanticValue.ofBoolean(snapshot.wasMapped());
-            case WAS_FOOTFALLED ->
-                    SemanticValue.ofBoolean(snapshot.wasFootfalled());
-            case DISTANCE_FROM_ARRIVAL_LS ->
-                    SemanticValue.ofDecimal(snapshot.distanceFromArrivalLs());
-            case BIOLOGICAL_SIGNAL_COUNT ->
-                    SemanticValue.ofIntegral(snapshot.biologicalSignalCount());
-            case GEOLOGICAL_SIGNAL_COUNT ->
-                    SemanticValue.ofIntegral(snapshot.geologicalSignalCount());
+            // Body detail is the current system's, not the ship's position:
+            // canonical state names the body and answers nothing about it
+            // (ADR-0025). The field identities remain because the model-facing
+            // contract is keyed by them — what a scan states and what the
+            // context reports are one fact under one identity — and the
+            // registry is what answers them.
+            case BROAD_BODY_TYPE,
+                 PLANET_CLASS,
+                 STAR_TYPE,
+                 LANDABLE,
+                 WAS_DISCOVERED,
+                 WAS_MAPPED,
+                 WAS_FOOTFALLED,
+                 DISTANCE_FROM_ARRIVAL_LS,
+                 BIOLOGICAL_SIGNAL_COUNT,
+                 GEOLOGICAL_SIGNAL_COUNT,
+                 BODY_HAS_BIOLOGY -> SemanticValue.unknown();
             case COMMANDER_MODE -> symbolic(
                     snapshot.commanderMode().name(),
                     CommanderLocationMode.UNKNOWN.name()
@@ -68,8 +72,6 @@ public final class CurrentGameStateSemantics {
             );
             case ACTIVE_VEHICLE_ID ->
                     SemanticValue.ofIntegral(snapshot.activeVehicleId());
-            case BODY_HAS_BIOLOGY ->
-                    SemanticValue.ofBoolean(snapshot.bodyHasBiology());
             case ACTIVE_ORGANIC_SAMPLING ->
                     SemanticValue.ofBoolean(snapshot.activeOrganicSampling());
             case ORGANIC_SAMPLING_SYSTEM_ADDRESS -> process(

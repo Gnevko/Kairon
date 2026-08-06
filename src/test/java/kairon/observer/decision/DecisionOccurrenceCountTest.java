@@ -230,6 +230,7 @@ final class DecisionOccurrenceCountTest {
             JsonNode body = request.path("context").path("body");
             assertEquals(
                     List.of(
+                            "type",
                             "planetClass",
                             "landable",
                             "previouslyDiscovered",
@@ -239,7 +240,8 @@ final class DecisionOccurrenceCountTest {
                             "biologicalSignals"
                     ),
                     propertyNames(body),
-                    "the existing body context is untouched"
+                    "the existing body context is untouched, and the scan's "
+                            + "own class now types the body it described"
             );
             assertFalse(body.path("previouslyDiscovered").booleanValue());
             assertFalse(

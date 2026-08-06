@@ -56,7 +56,7 @@ final class BootstrapScannerResultTest {
 
             assertEquals(
                     1,
-                    canonicalBiological(pipeline),
+                    establishedBiological(pipeline),
                     "a historical reading still establishes what it found"
             );
             assertEquals(
@@ -172,9 +172,8 @@ final class BootstrapScannerResultTest {
 
             assertEquals(
                     "Icy body",
-                    pipeline.capturedProjections().getLast()
-                            .currentState().planetClass(),
-                    "the body registry is restored from the historical scan"
+                    pipeline.establishedBody(23155L, 20L).planetClass(),
+                    "the registry is restored from the historical scan"
             );
             assertEquals(
                     0L,
@@ -241,11 +240,10 @@ final class BootstrapScannerResultTest {
                     pipeline.episodeTypes(),
                     "neither result is structural, so neither is a transition"
             );
-            assertEquals(1, canonicalBiological(pipeline));
+            assertEquals(1, establishedBiological(pipeline));
             assertEquals(
                     "Icy body",
-                    pipeline.capturedProjections().getLast()
-                            .currentState().planetClass()
+                    pipeline.establishedBody(23155L, 20L).planetClass()
             );
             assertEquals(
                     0,
@@ -400,11 +398,11 @@ final class BootstrapScannerResultTest {
                 + "\"WasMapped\":false,\"DistanceFromArrivalLS\":812.0}";
     }
 
-    private static Integer canonicalBiological(
+    private static Integer establishedBiological(
             DecisionProductionPipeline pipeline
     ) {
-        return pipeline.capturedProjections().getLast()
-                .currentState().biologicalSignalCount();
+        return pipeline.establishedBody(23155L, 20L)
+                .biologicalSignalCount();
     }
 
     private static NormalizedEventType cursorType(

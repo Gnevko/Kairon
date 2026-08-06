@@ -223,6 +223,7 @@ final class SemanticPipelineHarness implements AutoCloseable {
                     envelope.sourceRole(),
                     envelope.effectRetention(),
                     projected.currentState(),
+                    projected.systemRegistry(),
                     envelope.stateChanges(),
                     envelope.structuredFacts().size(),
                     mintedOccurrence(projected, occurrenceOwners)
@@ -237,7 +238,10 @@ final class SemanticPipelineHarness implements AutoCloseable {
                 turns(),
                 projections.isEmpty()
                         ? Optional.empty()
-                        : Optional.of(projections.getLast().currentState())
+                        : Optional.of(projections.getLast().currentState()),
+                projections.isEmpty()
+                        ? Optional.empty()
+                        : Optional.of(projections.getLast().systemRegistry())
         );
     }
 

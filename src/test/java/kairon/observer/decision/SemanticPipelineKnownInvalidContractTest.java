@@ -140,11 +140,11 @@ final class SemanticPipelineKnownInvalidContractTest {
 
             assertEquals(
                     1,
-                    trace.finalState().orElseThrow().biologicalSignalCount(),
+                    trace.finalBody(23155L, 20L).biologicalSignalCount(),
                     "the reading did establish biology"
             );
             assertNull(
-                    trace.finalState().orElseThrow().geologicalSignalCount(),
+                    trace.finalBody(23155L, 20L).geologicalSignalCount(),
                     "and it established nothing about geology"
             );
             assertUnknownNotMaterialized(

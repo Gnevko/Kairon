@@ -12,6 +12,7 @@ import kairon.projection.ProjectedObservationBus;
 import kairon.projection.SemanticEnvelopeFactory;
 import kairon.state.CurrentGameStateProjection;
 import kairon.state.CurrentGameStateProjector;
+import kairon.system.SystemRegistrySnapshot;
 
 /**
  * Synchronous test-only bridge for observer delivery and speech tests.
@@ -78,7 +79,8 @@ final class ProjectedObservationTestBridge implements AutoCloseable {
                 SemanticEnvelopeFactory.production().create(
                         observation,
                         projection.applied()
-                )
+                ),
+                SystemRegistrySnapshot.empty(observation.busSequence())
         ));
     }
 }

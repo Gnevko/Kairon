@@ -192,8 +192,8 @@ final class SurfaceSurveyTriggerTest {
             pipeline.settle();
             assertEquals(
                     1,
-                    pipeline.capturedProjections().getLast()
-                            .currentState().biologicalSignalCount(),
+                    pipeline.establishedBody(23155L, 20L)
+                            .biologicalSignalCount(),
                     "a reading that mentions nothing retracts nothing"
             );
 
@@ -213,8 +213,8 @@ final class SurfaceSurveyTriggerTest {
             );
             assertEquals(
                     1,
-                    pipeline.capturedProjections().getLast()
-                            .currentState().biologicalSignalCount(),
+                    pipeline.establishedBody(23155L, 20L)
+                            .biologicalSignalCount(),
                     "a category listed at zero retracts nothing either: the "
                             + "game counts what is there and has no way of "
                             + "saying that what was counted is gone"

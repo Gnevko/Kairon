@@ -39,15 +39,9 @@ import java.util.Set;
  *   <li>the change is a clearing — "no longer known" is what the absence of the
  *       field from the context already says, and whatever replaced it arrives as
  *       its own change;</li>
- *   <li>the change is a recall from the stored body registry, which is
- *       remembering a body rather than the body changing — those values arrive
- *       as {@code context.body} instead;</li>
  *   <li>the change establishes {@code activeOrganicSampling} as inactive for the
  *       first time, which is Kairon learning the flag's value rather than a
  *       sequence ending;</li>
- *   <li>the change establishes the coarse body type for the first time, which
- *       is Kairon learning what the body always was — it arrives as
- *       {@code context.body.type} instead;</li>
  *   <li>the text differs only in case, which is a normalisation artefact rather
  *       than a change in the world;</li>
  *   <li>the observation was kept for diagnostics only;</li>
@@ -160,13 +154,7 @@ public final class DecisionChangeSelector {
         if (change.changeKind() == SemanticChangeKind.CLEARED) {
             return false;
         }
-        if (recalledFromRegistry(change)) {
-            return false;
-        }
         if (initialisedToInactive(change)) {
-            return false;
-        }
-        if (establishedBodyType(change)) {
             return false;
         }
         if (change.provenance().sourceRole()
@@ -229,42 +217,6 @@ public final class DecisionChangeSelector {
         return events.stream().allMatch(
                 event -> event.mechanism() == DecisionMechanism.IDENTITY
         );
-    }
-
-    /**
-     * Remembering a body is not the body changing.
-     *
-     * <p>{@code ACTIVATED_FROM_CONTEXT} means the projector served a fact from
-     * its stored per-body registry: the ice, the signal counts and the fact
-     * that nobody has landed here were all true before this approach and are
-     * still true after it. Presenting that as a change invites a comment about
-     * something having just happened, and the qualifier that would prevent it
-     * is an internal write-path term.</p>
-     *
-     * <p>Nothing is lost by dropping it. Every field that can be recalled this
-     * way is a body fact, and every mechanism that can trigger a recall asks
-     * for the body in its context — so the same values arrive as
-     * {@code context.body}, which is what they are: standing background.</p>
-     */
-    static boolean recalledFromRegistry(SemanticStateChange change) {
-        return change.changeKind()
-                == SemanticChangeKind.ACTIVATED_FROM_CONTEXT;
-    }
-
-    /**
-     * A body did not become a planet when the ship dropped out of supercruise.
-     *
-     * <p>The coarse body type is unknown until an event happens to carry it,
-     * and the first one that does establishes it. That is Kairon learning what
-     * the body always was, so it belongs in {@code context.body.type} rather
-     * than in a list of what just changed.</p>
-     *
-     * <p>Only the first establishment. A body type that later changes is a
-     * real update and passes through.</p>
-     */
-    static boolean establishedBodyType(SemanticStateChange change) {
-        return change.field() == SemanticField.BROAD_BODY_TYPE
-                && change.changeKind() == SemanticChangeKind.ESTABLISHED;
     }
 
     /**

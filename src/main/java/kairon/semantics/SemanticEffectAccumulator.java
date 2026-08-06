@@ -216,30 +216,18 @@ public final class SemanticEffectAccumulator {
                     change.field(),
                     before,
                     after,
-                    mergedKind(
-                            change.field(),
-                            before,
-                            after,
-                            change.origin()
-                    ),
-                    change.origin(),
+                    mergedKind(before, after),
                     change.provenance()
             ));
         }
     }
 
     private static SemanticChangeKind mergedKind(
-            SemanticField field,
             SemanticValue before,
-            SemanticValue after,
-            SemanticValueOrigin origin
+            SemanticValue after
     ) {
         if (!after.known()) {
             return SemanticChangeKind.CLEARED;
-        }
-        if (field.bodyRegistryDerived()
-                && origin == SemanticValueOrigin.STORED_CONTEXT) {
-            return SemanticChangeKind.ACTIVATED_FROM_CONTEXT;
         }
         return before.known()
                 ? SemanticChangeKind.UPDATED

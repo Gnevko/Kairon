@@ -53,6 +53,7 @@ public final class LlmDecisionRequestFactory {
         List<LlmDecisionRequest.ContextGroup> context =
                 contextSelector.select(
                         inputs.finalTrigger().currentState(),
+                        inputs.finalTrigger().systemRegistry(),
                         projected,
                         changes,
                         stated

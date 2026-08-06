@@ -1,6 +1,7 @@
 package kairon.projection;
 
 import kairon.behavior.bus.BehaviorGraphObservationProcessor;
+import kairon.behavior.context.BodyDetailLookup;
 import kairon.behavior.graph.BehaviorGraphApplyResult;
 import kairon.behavior.graph.BehaviorGraphApplyStatus;
 import kairon.behavior.graph.BehaviorGraphProcessor;
@@ -40,6 +41,7 @@ import kairon.state.CurrentGameStateSnapshot;
 import kairon.state.CurrentGameStateChangeSet;
 import kairon.state.AppliedObservation;
 import kairon.state.FlightMode;
+import kairon.system.SystemRegistrySnapshot;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -150,10 +152,11 @@ final class ObservationProjectionCoordinatorTest {
             @Override
             public BehaviorGraphApplyResult apply(
                     PublishedObservation<?> observation,
-                    CurrentGameStateProjection stateProjection
+                    CurrentGameStateProjection stateProjection,
+                    BodyDetailLookup bodies
             ) {
                 BehaviorGraphApplyResult result =
-                        delegate.apply(observation, stateProjection);
+                        delegate.apply(observation, stateProjection, bodies);
                 if (observation.payload()
                         instanceof JournalEventObservation event
                         && event.raw().optionalEventType()
@@ -253,7 +256,8 @@ final class ObservationProjectionCoordinatorTest {
             @Override
             public BehaviorGraphApplyResult apply(
                     PublishedObservation<?> observation,
-                    CurrentGameStateProjection stateProjection
+                    CurrentGameStateProjection stateProjection,
+                    BodyDetailLookup bodies
             ) {
                 graphOrder.add(observation.busSequence());
                 return BehaviorGraphApplyResult.notApplicable(
@@ -332,7 +336,8 @@ final class ObservationProjectionCoordinatorTest {
                 SemanticEnvelopeFactory.production().create(
                         trigger,
                         applied(trigger)
-                )
+                ),
+                SystemRegistrySnapshot.empty(trigger.busSequence())
         ));
 
         assertEquals(List.of("first", "second"), calls);
@@ -437,7 +442,8 @@ final class ObservationProjectionCoordinatorTest {
             @Override
             public BehaviorGraphApplyResult apply(
                     PublishedObservation<?> observation,
-                    CurrentGameStateProjection stateProjection
+                    CurrentGameStateProjection stateProjection,
+                    BodyDetailLookup bodies
             ) {
                 if (calls.getAndIncrement() == 0) {
                     throw new IllegalStateException("expected graph failure");
@@ -569,7 +575,8 @@ final class ObservationProjectionCoordinatorTest {
             @Override
             public BehaviorGraphApplyResult apply(
                     PublishedObservation<?> observation,
-                    CurrentGameStateProjection stateProjection
+                    CurrentGameStateProjection stateProjection,
+                    BodyDetailLookup bodies
             ) {
                 return BehaviorGraphApplyResult.notApplicable(
                         observation.busSequence()
@@ -843,7 +850,8 @@ final class ObservationProjectionCoordinatorTest {
         @Override
         public BehaviorGraphApplyResult apply(
                 PublishedObservation<?> observation,
-                CurrentGameStateProjection stateProjection
+                CurrentGameStateProjection stateProjection,
+                BodyDetailLookup bodies
         ) {
             order.add("graph-start-" + observation.busSequence());
             entered.countDown();

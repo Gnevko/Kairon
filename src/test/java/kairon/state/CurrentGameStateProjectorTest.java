@@ -1,6 +1,5 @@
 package kairon.state;
 
-import kairon.semantics.BodyIdentity;
 import kairon.observation.ObservationDraft;
 import kairon.observation.ObservationDraft.ObservationCaptureMode;
 import kairon.observation.ObservationDraft.ObservationSource;
@@ -12,7 +11,6 @@ import kairon.observation.journal.JournalLineParser.ParsedJournalRecord;
 import kairon.observation.journal.JournalObservationAdapter;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
@@ -30,12 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 final class CurrentGameStateProjectorTest {
 
     @Test
-    void projectsExistingIdentityLoadoutLocationAndBodySemantics() {
+    void projectsExistingIdentityLoadoutLocationAndBodySelection() {
         Fixture fixture = new Fixture();
 
         fixture.apply("""
@@ -103,19 +100,14 @@ final class CurrentGameStateProjectorTest {
                  ]}
                 """);
 
+        // Which body, and where the ship is at it. What the scan and the
+        // survey established about that body is the current-system registry's
+        // and is asserted there; a reading moves nothing here, which is right
+        // — reading a planet does not move the ship.
         CurrentGameStateSnapshot body = fixture.projector.currentSnapshot();
         assertEquals(2L, body.bodyId());
         assertEquals("Test System 2", body.bodyName());
-        assertEquals("Rocky body", body.bodyType());
         assertEquals(FlightMode.DOCKED, body.flightMode());
-        assertEquals(4, body.biologicalSignalCount());
-        assertEquals(2, body.geologicalSignalCount());
-        assertEquals(Boolean.TRUE, body.landable());
-        assertEquals(Boolean.TRUE, body.wasDiscovered());
-        assertEquals(Boolean.FALSE, body.wasMapped());
-        assertEquals(Boolean.FALSE, body.wasFootfalled());
-        assertEquals(42.5, body.distanceFromArrivalLs());
-        assertEquals(Boolean.TRUE, body.bodyHasBiology());
 
         fixture.apply("""
                 {"timestamp":"2026-07-30T10:00:07Z",
@@ -137,547 +129,76 @@ final class CurrentGameStateProjectorTest {
         );
     }
 
+    /**
+     * A scanner reading does not move canonical state.
+     *
+     * <p>What a scan establishes is the body's, and the body is the
+     * current-system registry's (ADR-0025). Canonical state answers which body
+     * the ship is at, so a reading taken from across the system leaves it
+     * exactly as it was — which is also why there is no longer any such thing
+     * as a body fact that changed only because a different body was
+     * selected.</p>
+     */
     @Test
-    void scanPlanetClassSurvivesBiologicalUpdate() {
+    void aScannerReadingEstablishesNothingInCanonicalState() {
         Fixture fixture = identifiedFixture();
         fixture.apply("""
-                {"timestamp":"2026-07-30T10:15:00Z","event":"Scan",
-                 "SystemAddress":1101,"BodyID":21,"BodyName":"Acheron",
+                {"timestamp":"2026-07-30T10:15:00Z","event":"FSDJump",
+                 "StarSystem":"Acheron","SystemAddress":1101}
+                """);
+        CurrentGameStateSnapshot arrived =
+                fixture.projector.currentSnapshot();
+
+        fixture.apply("""
+                {"timestamp":"2026-07-30T10:15:01Z","event":"Scan",
+                 "SystemAddress":1101,"BodyID":21,"BodyName":"Acheron 2",
                  "BodyType":"Planet","PlanetClass":"Icy body",
-                 "Landable":true,"WasDiscovered":true,"WasMapped":false}
+                 "Landable":true,"WasDiscovered":true,"WasMapped":false,
+                 "DistanceFromArrivalLS":42.5}
                 """);
         fixture.apply("""
-                {"timestamp":"2026-07-30T10:15:01Z","event":"SAASignalsFound",
-                 "SystemAddress":1101,"BodyName":"Acheron","BodyID":21,
+                {"timestamp":"2026-07-30T10:15:02Z","event":"SAASignalsFound",
+                 "SystemAddress":1101,"BodyName":"Acheron 2","BodyID":21,
                  "Signals":[
-                   {"Type":"$SAA_SignalType_Biological;","Count":2},
-                   {"Type":"$SAA_SignalType_Geological;","Count":1}
+                   {"Type":"$SAA_SignalType_Biological;","Count":2}
                  ]}
                 """);
 
-        BodyContext context = bodyContextFor(
-                fixture.projector,
-                1101L,
-                21L
-        );
-
-        assertNotNull(context);
-        assertEquals("Planet", context.bodyType());
-        assertEquals("Icy body", context.planetClass());
-        assertNull(context.starType());
-        assertEquals("Acheron", context.bodyName());
-        assertEquals(2, context.biologicalSignalCount());
-        assertEquals(1, context.geologicalSignalCount());
+        assertEquals(arrived, fixture.projector.currentSnapshot());
     }
 
+    /**
+     * The body facet moves when the body does, and for nothing else.
+     */
     @Test
-    void scanStarTypeSurvivesBodyNameUpdate() {
+    void bodyChangeSetFollowsTheSelectionAndNothingElse() {
         Fixture fixture = identifiedFixture();
         fixture.apply("""
-                {"timestamp":"2026-07-30T10:16:00Z","event":"Scan",
-                 "SystemAddress":1102,"BodyID":22,"BodyName":"Helios",
-                 "StarType":"K","Landable":false}
+                {"timestamp":"2026-07-30T10:16:00Z","event":"FSDJump",
+                 "StarSystem":"Selection","SystemAddress":1102}
                 """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:16:01Z","event":"Scan",
-                 "SystemAddress":1102,"BodyID":22,
-                 "BodyName":"Helios Prime","Landable":true}
-                """);
-
-        BodyContext context = bodyContextFor(
-                fixture.projector,
-                1102L,
-                22L
-        );
-
-        assertNotNull(context);
-        assertEquals("K", context.starType());
-        assertEquals("Helios Prime", context.bodyName());
-        assertEquals(Boolean.TRUE, context.landable());
-    }
-
-    @Test
-    void broadAndDetailCoexistForSameBodyIdentity() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:17:00Z","event":"Scan",
-                 "SystemAddress":1103,"BodyID":23,"BodyName":"Altair",
-                 "BodyType":"Planet","PlanetClass":"Rocky body","StarType":"G"}
-                """);
-
-        BodyContext context = bodyContextFor(
-                fixture.projector,
-                1103L,
-                23L
-        );
-
-        assertNotNull(context);
-        assertEquals("Planet", context.bodyType());
-        assertEquals("Rocky body", context.planetClass());
-        assertEquals("G", context.starType());
-    }
-
-    @Test
-    void independentBodyClassificationDimensionsDoNotOverwriteEachOther() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:00Z","event":"Scan",
-                 "SystemAddress":1104,"BodyID":24,"BodyName":"Lacerta",
-                 "BodyType":"Planet"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:01Z","event":"Scan",
-                 "SystemAddress":1104,"BodyID":24,"BodyName":"Lacerta",
-                 "PlanetClass":"Icy body"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:02Z","event":"Scan",
-                 "SystemAddress":1104,"BodyID":24,"BodyName":"Lacerta",
-                 "StarType":"K"}
-                """);
-
-        BodyContext context = bodyContextFor(
-                fixture.projector,
-                1104L,
-                24L
-        );
-
-        assertNotNull(context);
-        assertEquals("Planet", context.bodyType());
-        assertEquals("Icy body", context.planetClass());
-        assertEquals("K", context.starType());
-    }
-
-    @Test
-    void canonicalBodySelectionPreservesDetailAcrossBroadUpdates() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:30Z","event":"FSDJump",
-                 "StarSystem":"Selection","SystemAddress":1180}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:31Z","event":"Scan",
-                 "SystemAddress":1180,"BodyID":80,"BodyName":"Kepler",
-                 "PlanetClass":"Icy body"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:32Z","event":"ApproachBody",
-                 "StarSystem":"Selection","SystemAddress":1180,
-                 "Body":"Kepler","BodyID":80}
-                """);
-        CurrentGameStateSnapshot before = fixture.projector.currentSnapshot();
-        assertNull(before.broadBodyType());
-        assertEquals("Icy body", before.planetClass());
-
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:33Z","event":"SupercruiseExit",
-                 "StarSystem":"Selection","SystemAddress":1180,
-                 "Body":"Kepler","BodyID":80,"BodyType":"Planet"}
-                """);
-        CurrentGameStateSnapshot after = fixture.projector.currentSnapshot();
-
-        assertEquals("Planet", after.broadBodyType());
-        assertEquals("Icy body", after.planetClass());
-        assertNull(after.starType());
-
-        assertEquals("Icy body", before.planetClass());
-        assertNull(before.starType());
-    }
-
-    @Test
-    void starDetailAndBroadStarCoexistForCurrentBody() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:40Z","event":"FSDJump",
-                 "StarSystem":"Sirius","SystemAddress":1181}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:41Z","event":"Scan",
-                 "SystemAddress":1181,"BodyID":81,"BodyName":"Sirius System",
-                 "StarType":"K"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:42Z","event":"ApproachBody",
-                 "StarSystem":"Sirius","SystemAddress":1181,
-                 "Body":"Sirius System","BodyID":81}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:43Z","event":"SupercruiseExit",
-                 "StarSystem":"Sirius","SystemAddress":1181,
-                 "Body":"Sirius System","BodyID":81,"BodyType":"Star"}
-                """);
-
-        CurrentGameStateSnapshot snapshot =
-                fixture.projector.currentSnapshot();
-        assertEquals("Star", snapshot.broadBodyType());
-        assertEquals("K", snapshot.starType());
-        assertNull(snapshot.planetClass());
-    }
-
-    @Test
-    void broadBodyTypeOnlySelectionLeavesDetailNull() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:50Z","event":"FSDJump",
-                 "StarSystem":"BroadOnly","SystemAddress":1182}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:18:51Z","event":"ApproachBody",
-                 "StarSystem":"BroadOnly","SystemAddress":1182,
-                 "Body":"Narrow","BodyID":82,"BodyType":"Planet"}
-                """);
-
-        CurrentGameStateSnapshot snapshot =
-                fixture.projector.currentSnapshot();
-        assertEquals("Planet", snapshot.broadBodyType());
-        assertNull(snapshot.planetClass());
-        assertNull(snapshot.starType());
-    }
-
-    @Test
-    void registryDetailActivatesOnlyForExactCurrentBodyIdentity() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:19:00Z","event":"FSDJump",
-                 "StarSystem":"ExactA","SystemAddress":1183}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:19:01Z","event":"Scan",
-                 "SystemAddress":1183,"BodyID":83,"BodyName":"SharedID",
-                 "BodyType":"Planet","PlanetClass":"Rocky body"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:19:02Z","event":"ApproachBody",
-                 "StarSystem":"ExactA","SystemAddress":1183,
-                 "Body":"Current","BodyID":84,"BodyType":"Planet"}
-                """);
-        CurrentGameStateSnapshot currentBeforeSelection =
-                fixture.projector.currentSnapshot();
-        assertEquals("Planet", currentBeforeSelection.broadBodyType());
-        assertNull(currentBeforeSelection.planetClass());
-
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:19:03Z","event":"ApproachBody",
-                 "StarSystem":"ExactA","SystemAddress":1183,
-                 "Body":"SharedID","BodyID":83,"BodyType":"Planet"}
-                """);
-        CurrentGameStateSnapshot currentFromMatch =
-                fixture.projector.currentSnapshot();
-        assertEquals("Planet", currentFromMatch.broadBodyType());
-        assertEquals("Rocky body", currentFromMatch.planetClass());
-    }
-
-    @Test
-    void currentBodySelectionKeepsClassificationByExactKeyAcrossSwitches() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:00Z","event":"FSDJump",
-                 "StarSystem":"Switch","SystemAddress":1190}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:01Z","event":"Scan",
-                 "SystemAddress":1190,"BodyID":90,"BodyName":"Body A",
-                 "BodyType":"Planet","PlanetClass":"Icy body"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:02Z","event":"Scan",
-                 "SystemAddress":1190,"BodyID":91,"BodyName":"Body B",
-                 "BodyType":"Star","StarType":"K"}
-                """);
-
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:03Z","event":"ApproachBody",
-                 "StarSystem":"Switch","SystemAddress":1190,
-                 "Body":"Body A","BodyID":90,"BodyType":"Planet"}
-                """);
-        CurrentGameStateSnapshot first = fixture.projector.currentSnapshot();
-        assertEquals("Planet", first.broadBodyType());
-        assertEquals("Icy body", first.planetClass());
-        assertNull(first.starType());
-
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:04Z","event":"ApproachBody",
-                 "StarSystem":"Switch","SystemAddress":1190,
-                 "Body":"Body B","BodyID":91,"BodyType":"Star"}
-                """);
-        CurrentGameStateSnapshot second = fixture.projector.currentSnapshot();
-        assertEquals("Star", second.broadBodyType());
-        assertNull(second.planetClass());
-        assertEquals("K", second.starType());
-
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:05Z","event":"ApproachBody",
-                 "StarSystem":"Switch","SystemAddress":1190,
-                 "Body":"Body A","BodyID":90,"BodyType":"Planet"}
-                """);
-        CurrentGameStateSnapshot third = fixture.projector.currentSnapshot();
-        assertEquals("Planet", third.broadBodyType());
-        assertEquals("Icy body", third.planetClass());
-        assertNull(third.starType());
-    }
-
-    @Test
-    void clearingCurrentBodyKeepsRegistryFactsAndNullsCurrentDimensions() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:10Z","event":"FSDJump",
-                 "StarSystem":"Clear","SystemAddress":1191}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:11Z","event":"Scan",
-                 "SystemAddress":1191,"BodyID":91,"BodyName":"Body C",
-                 "BodyType":"Planet","PlanetClass":"Icy body","StarType":"K"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:12Z","event":"ApproachBody",
-                 "StarSystem":"Clear","SystemAddress":1191,
-                 "Body":"Body C","BodyID":91,"BodyType":"Planet"}
-                """);
-
-        CurrentGameStateSnapshot selectedBeforeClear =
-                fixture.projector.currentSnapshot();
-        assertEquals(91L, selectedBeforeClear.bodyId());
-        assertEquals("Planet", selectedBeforeClear.broadBodyType());
-        assertEquals("Icy body", selectedBeforeClear.planetClass());
-        assertEquals("K", selectedBeforeClear.starType());
-
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:13Z","event":"SupercruiseEntry",
-                 "StarSystem":"Clear","SystemAddress":1191}
-                """);
-        CurrentGameStateSnapshot cleared = fixture.projector.currentSnapshot();
-        assertNull(cleared.bodyId());
-        assertNull(cleared.broadBodyType());
-        assertNull(cleared.planetClass());
-        assertNull(cleared.starType());
-
-        BodyContext cached = bodyContextFor(
-                fixture.projector,
-                1191L,
-                91L
-        );
-        assertNotNull(cached);
-        assertEquals("Icy body", cached.planetClass());
-        assertEquals("K", cached.starType());
-
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:14Z","event":"ApproachBody",
-                 "StarSystem":"Clear","SystemAddress":1191,
-                 "Body":"Body C","BodyID":91,"BodyType":"Planet"}
-                """);
-        CurrentGameStateSnapshot restored = fixture.projector.currentSnapshot();
-        assertEquals(91L, restored.bodyId());
-        assertEquals("Planet", restored.broadBodyType());
-        assertEquals("Icy body", restored.planetClass());
-        assertEquals("K", restored.starType());
-    }
-
-    @Test
-    void canonicalBodyDimensionsChangeIndependently() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:20Z","event":"FSDJump",
-                 "StarSystem":"Invariant","SystemAddress":1192}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:21Z","event":"ApproachBody",
-                 "StarSystem":"Invariant","SystemAddress":1192,
-                 "Body":"Invariant Body","BodyID":92,"BodyType":"Planet"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:22Z","event":"Scan",
-                 "SystemAddress":1192,"BodyID":92,"PlanetClass":"Icy body"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:23Z","event":"Scan",
-                 "SystemAddress":1192,"BodyID":92,"StarType":"K"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:24Z","event":"SupercruiseExit",
-                 "StarSystem":"Invariant","SystemAddress":1192,
-                 "Body":"Invariant Body","BodyID":92,"BodyType":"Star"}
-                """);
-
-        CurrentGameStateSnapshot snapshot =
-                fixture.projector.currentSnapshot();
-        assertEquals("Star", snapshot.broadBodyType());
-        assertEquals("Icy body", snapshot.planetClass());
-        assertEquals("K", snapshot.starType());
-
-        assertEquals("Icy body", snapshot.planetClass());
-        assertEquals("K", snapshot.starType());
-    }
-
-    @Test
-    void bodyChangeSetReflectsEachBodyDimensionIndependently() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:30Z","event":"FSDJump",
-                 "StarSystem":"ChangeSet","SystemAddress":1193}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:31Z","event":"ApproachBody",
-                 "StarSystem":"ChangeSet","SystemAddress":1193,
-                 "Body":"Observed Body","BodyID":93,"BodyType":"Planet"}
-                """);
-        CurrentGameStateSnapshot broadPlanet =
+        CurrentGameStateSnapshot arrived =
                 fixture.projector.currentSnapshot();
 
         fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:32Z","event":"Scan",
-                 "SystemAddress":1193,"BodyID":93,"PlanetClass":"Icy body"}
+                {"timestamp":"2026-07-30T10:16:01Z","event":"ApproachBody",
+                 "StarSystem":"Selection","SystemAddress":1102,
+                 "Body":"Selection 3","BodyID":3}
                 """);
-        CurrentGameStateSnapshot planetClassOnly =
+        CurrentGameStateSnapshot approached =
                 fixture.projector.currentSnapshot();
-        assertTrue(CurrentGameStateChangeSet.between(
-                broadPlanet,
-                planetClassOnly
-        ).changedFacets().contains(GameStateFacet.BODY));
+        assertTrue(CurrentGameStateChangeSet.between(arrived, approached)
+                .changedFacets().contains(GameStateFacet.BODY));
 
         fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:33Z","event":"Scan",
-                 "SystemAddress":1193,"BodyID":93,"StarType":"K"}
+                {"timestamp":"2026-07-30T10:16:02Z","event":"Scan",
+                 "SystemAddress":1102,"BodyID":3,"BodyName":"Selection 3",
+                 "PlanetClass":"Rocky body","Landable":true}
                 """);
-        CurrentGameStateSnapshot starTypeOnly =
-                fixture.projector.currentSnapshot();
-        assertTrue(CurrentGameStateChangeSet.between(
-                planetClassOnly,
-                starTypeOnly
-        ).changedFacets().contains(GameStateFacet.BODY));
-
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:34Z","event":"SupercruiseExit",
-                 "StarSystem":"ChangeSet","SystemAddress":1193,
-                 "Body":"Observed Body","BodyID":93,"BodyType":"Star"}
-                """);
-        CurrentGameStateSnapshot broadStar =
-                fixture.projector.currentSnapshot();
-        assertTrue(CurrentGameStateChangeSet.between(
-                starTypeOnly,
-                broadStar
-        ).changedFacets().contains(GameStateFacet.BODY));
-
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:35Z","event":"SupercruiseExit",
-                 "StarSystem":"ChangeSet","SystemAddress":1193,
-                 "Body":"Observed Body","BodyID":93,"BodyType":"Star"}
-                """);
-        CurrentGameStateSnapshot repeated =
-                fixture.projector.currentSnapshot();
         assertFalse(CurrentGameStateChangeSet.between(
-                broadStar,
-                repeated
+                approached,
+                fixture.projector.currentSnapshot()
         ).changedFacets().contains(GameStateFacet.BODY));
-    }
-
-    @Test
-    void bodyTypeCompatibilityAccessorKeepsPreMigrationBehavior() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:40Z","event":"FSDJump",
-                 "StarSystem":"Compat","SystemAddress":1194}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:41Z","event":"Scan",
-                 "SystemAddress":1194,"BodyID":94,"BodyName":"Compat Body",
-                 "PlanetClass":"Icy body"}
-                """);
-
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:42Z","event":"ApproachBody",
-                 "StarSystem":"Compat","SystemAddress":1194,
-                 "Body":"Compat Body","BodyID":94}
-                """);
-        CurrentGameStateSnapshot snapshot =
-                fixture.projector.currentSnapshot();
-        assertEquals("Icy body", snapshot.bodyType());
-        assertNull(snapshot.broadBodyType());
-    }
-
-    @Test
-    void missingSourceValueDoesNotClearBodyRegistryClassification() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:19:00Z","event":"Scan",
-                 "SystemAddress":1105,"BodyID":25,"BodyName":"Vega",
-                 "BodyType":"Planet","PlanetClass":"Icy body","StarType":"K"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:19:01Z","event":"Scan",
-                 "SystemAddress":1105,"BodyID":25,"BodyName":"Vega Prime",
-                 "Landable":true,"WasDiscovered":true}
-                """);
-
-        BodyContext context = bodyContextFor(
-                fixture.projector,
-                1105L,
-                25L
-        );
-
-        assertNotNull(context);
-        assertEquals("Planet", context.bodyType());
-        assertEquals("Icy body", context.planetClass());
-        assertEquals("K", context.starType());
-        assertEquals("Vega Prime", context.bodyName());
-    }
-
-    @Test
-    void bodyRegistryKeysAreIsolated() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:00Z","event":"Scan",
-                 "SystemAddress":1106,"BodyID":26,"BodyName":"Mizar",
-                 "BodyType":"Planet","PlanetClass":"Rocky body","StarType":"G"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:20:01Z","event":"Scan",
-                 "SystemAddress":1107,"BodyID":27,"BodyName":"Lupus",
-                 "BodyType":"Star","PlanetClass":"Icy body","StarType":"K"}
-                """);
-
-        BodyContext first = bodyContextFor(fixture.projector, 1106L, 26L);
-        BodyContext second = bodyContextFor(fixture.projector, 1107L, 27L);
-
-        assertNotNull(first);
-        assertNotNull(second);
-        assertEquals("Mizar", first.bodyName());
-        assertEquals("Lupus", second.bodyName());
-        assertEquals("Planet", first.bodyType());
-        assertEquals("Star", second.bodyType());
-        assertEquals("Rocky body", first.planetClass());
-        assertEquals("Icy body", second.planetClass());
-        assertEquals("G", first.starType());
-        assertEquals("K", second.starType());
-    }
-
-    @Test
-    void bodyContextImmutabilityAfterMergeUpdate() {
-        Fixture fixture = identifiedFixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:21:00Z","event":"Scan",
-                 "SystemAddress":1108,"BodyID":28,"BodyName":"Sirius",
-                 "BodyType":"Planet","PlanetClass":"Rocky body"}
-                """);
-
-        BodyContext before = bodyContextFor(fixture.projector, 1108L, 28L);
-        assertNotNull(before);
-
-        fixture.apply("""
-                {"timestamp":"2026-07-30T10:21:01Z","event":"SAASignalsFound",
-                 "SystemAddress":1108,"BodyName":"Sirius","BodyID":28,
-                 "Signals":[
-                   {"Type":"$SAA_SignalType_Biological;","Count":4}
-                 ]}
-                """);
-
-        BodyContext after = bodyContextFor(fixture.projector, 1108L, 28L);
-        assertNotNull(after);
-        assertNotSame(before, after);
-        assertEquals("Planet", before.bodyType());
-        assertEquals("Rocky body", before.planetClass());
-        assertEquals("Planet", after.bodyType());
-        assertEquals("Rocky body", after.planetClass());
-        assertEquals(4, after.biologicalSignalCount());
     }
 
     @Test
@@ -1193,8 +714,6 @@ final class CurrentGameStateProjectorTest {
         assertEquals(4201L, fact.systemAddress());
         assertEquals(5L, fact.bodyId());
         assertEquals("Remote Facts 5", fact.bodyName());
-        assertEquals(5, fact.biologicalSignalCount());
-        assertEquals(3, fact.geologicalSignalCount());
         assertNull(fixture.projector.currentSnapshot().bodyId());
     }
 
@@ -1340,32 +859,6 @@ final class CurrentGameStateProjectorTest {
                  "ShipName":"Caspian"}
                 """);
         return fixture;
-    }
-
-    private static BodyContext bodyContextFor(
-            CurrentGameStateProjector projector,
-            long systemAddress,
-            long bodyId
-    ) {
-        Map<BodyIdentity, BodyContext> registry = bodyRegistry(projector);
-        return registry.get(new BodyIdentity(systemAddress, bodyId));
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<BodyIdentity, BodyContext> bodyRegistry(
-            CurrentGameStateProjector projector
-    ) {
-        try {
-            Field bodiesField = CurrentGameStateProjector.class.getDeclaredField(
-                    "bodies"
-            );
-            bodiesField.setAccessible(true);
-            return (Map<BodyIdentity, BodyContext>) bodiesField.get(projector);
-        } catch (NoSuchFieldException | IllegalAccessException exception) {
-            throw new IllegalStateException(
-                    "Cannot access internal body registry for test"
-            );
-        }
     }
 
     private static final class Fixture {

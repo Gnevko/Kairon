@@ -5,16 +5,21 @@ import java.util.Objects;
 /**
  * One exact canonical field change with its provenance.
  *
- * <p>Computed inside the projection boundary while the previous snapshot, the
- * current snapshot and the projector write path are all still available.
- * Downstream must never recompute or reconstruct it.</p>
+ * <p>Computed inside the projection boundary while the previous snapshot and
+ * the current snapshot are both still available. Downstream must never
+ * recompute or reconstruct it.</p>
+ *
+ * <p>It carries no statement about where the value came from. That field
+ * existed to separate a fact this observation wrote from one served out of the
+ * projector's per-body store, and there is no such store any more: canonical
+ * state answers where the Commander is, and what a body is like is the
+ * current-system registry's ({@code ADR-0025}).</p>
  */
 public record SemanticStateChange(
         SemanticField field,
         SemanticValue before,
         SemanticValue after,
         SemanticChangeKind changeKind,
-        SemanticValueOrigin origin,
         SemanticProvenance provenance
 ) {
 
@@ -23,14 +28,18 @@ public record SemanticStateChange(
         before = Objects.requireNonNull(before, "before");
         after = Objects.requireNonNull(after, "after");
         changeKind = Objects.requireNonNull(changeKind, "changeKind");
-        origin = Objects.requireNonNull(origin, "origin");
         provenance = Objects.requireNonNull(provenance, "provenance");
         if (before.equals(after)) {
             throw new IllegalArgumentException(
                     "an unchanged value must not produce a state change"
             );
         }
-        requireConsistentKind(field, before, after, changeKind, origin);
+        if (!field.answeredByCanonicalState()) {
+            throw new IllegalArgumentException(
+                    "a field canonical state does not establish cannot change"
+            );
+        }
+        requireConsistentKind(before, after, changeKind);
     }
 
     public SemanticSubject subject() {
@@ -38,11 +47,9 @@ public record SemanticStateChange(
     }
 
     private static void requireConsistentKind(
-            SemanticField field,
             SemanticValue before,
             SemanticValue after,
-            SemanticChangeKind changeKind,
-            SemanticValueOrigin origin
+            SemanticChangeKind changeKind
     ) {
         switch (changeKind) {
             case ESTABLISHED -> {
@@ -63,25 +70,6 @@ public record SemanticStateChange(
                 if (!before.known() || after.known()) {
                     throw new IllegalArgumentException(
                             "CLEARED requires known before and unknown after"
-                    );
-                }
-            }
-            case ACTIVATED_FROM_CONTEXT -> {
-                if (!after.known()) {
-                    throw new IllegalArgumentException(
-                            "ACTIVATED_FROM_CONTEXT requires a known after"
-                    );
-                }
-                if (origin != SemanticValueOrigin.STORED_CONTEXT) {
-                    throw new IllegalArgumentException(
-                            "ACTIVATED_FROM_CONTEXT requires STORED_CONTEXT "
-                                    + "origin"
-                    );
-                }
-                if (!field.bodyRegistryDerived()) {
-                    throw new IllegalArgumentException(
-                            "ACTIVATED_FROM_CONTEXT requires a registry-derived "
-                                    + "field"
                     );
                 }
             }

@@ -8,7 +8,6 @@ import kairon.semantics.SemanticProvenance;
 import kairon.semantics.SemanticSourceRole;
 import kairon.semantics.SemanticStateChange;
 import kairon.semantics.SemanticValue;
-import kairon.semantics.SemanticValueOrigin;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -76,11 +75,10 @@ final class SamplingActivationChangeTest {
     void theRuleAppliesToNoOtherField() {
         assertFalse(DecisionChangeSelector.initialisedToInactive(
                 new SemanticStateChange(
-                        SemanticField.LANDABLE,
+                        SemanticField.ACTIVE_VEHICLE_ID,
                         SemanticValue.unknown(),
-                        SemanticValue.ofBoolean(false),
+                        SemanticValue.ofIntegral(8L),
                         SemanticChangeKind.ESTABLISHED,
-                        SemanticValueOrigin.OBSERVATION,
                         provenance()
                 )
         ));
@@ -184,7 +182,6 @@ final class SamplingActivationChangeTest {
                 before,
                 SemanticValue.ofBoolean(after),
                 changeKind,
-                SemanticValueOrigin.OBSERVATION,
                 provenance()
         );
     }

@@ -73,6 +73,14 @@ public final class DecisionPromptFactory {
             news: never report it as something that just happened, and never
             read it as evidence that this is the first time.
 
+            context.biology names each organism a surface survey found on the
+            body the Commander is at, and whether its sampling is COLLECTED or
+            NOT_COLLECTED. NOT_COLLECTED is standing background like the rest of
+            context, not something that just happened. Only a survey names
+            organisms, so a body with biological signals and no biology here has
+            not been surveyed — which is not evidence that there is nothing on
+            it.
+
             trajectory.recent lists real earlier events, oldest first. They
             already happened and are not happening now, so never report one as
             current. Their sequence may help you read the present situation

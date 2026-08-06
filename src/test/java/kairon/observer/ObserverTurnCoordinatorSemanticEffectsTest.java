@@ -35,6 +35,7 @@ import kairon.semantics.SemanticSourceRole;
 import kairon.speech.SpeechSynthesisClient.SpeechFailureCategory;
 import kairon.state.CurrentGameStateProjection;
 import kairon.state.CurrentGameStateProjector;
+import kairon.system.SystemRegistrySnapshot;
 import kairon.trace.JsonLinesTurnTraceWriter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -401,7 +402,8 @@ class ObserverTurnCoordinatorSemanticEffectsTest {
                     SemanticEnvelopeFactory.production().create(
                             observation,
                             state.applied()
-                    )
+                    ),
+                    SystemRegistrySnapshot.empty(observation.busSequence())
             );
             if (projected.semanticEnvelope().sourceRole()
                     == SemanticSourceRole.NEW) {

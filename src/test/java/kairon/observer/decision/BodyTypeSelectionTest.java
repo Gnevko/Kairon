@@ -16,16 +16,20 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  *
  * <p>Only records that select a body report {@code BodyType} — a jump says
  * {@code Star}, a supercruise exit says {@code Planet} — and an approach or a
- * landing says nothing. The field was held until something overwrote it, so
- * arriving at a planet left the arrival star's type standing beside the
- * planet's class, its landability and its signal counts. One body's type
- * describing another.</p>
+ * landing says nothing. Held as a field of the current body, the type stayed
+ * put until something overwrote it, so arriving at a planet left the arrival
+ * star's type standing beside the planet's class, its landability and its
+ * signal counts. One body's type describing another.</p>
  *
- * <p>Selecting a different body now drops it, keeping only what was already
- * established for the body being selected. Selecting the same body again keeps
- * what is known: approaching a body twice does not unlearn its type.</p>
+ * <p>Two bodies are now two entries in the current-system registry
+ * (ADR-0025), so neither can be described by the other's facts, and what is
+ * known about a body is what records about <em>that</em> body established.</p>
  */
 final class BodyTypeSelectionTest {
+
+    private static final long SYSTEM = 17658387800858L;
+    private static final long STAR = 0L;
+    private static final long PLANET = 7L;
 
     /** Arriving at a planet does not leave the star's type behind. */
     @Test
@@ -40,15 +44,20 @@ final class BodyTypeSelectionTest {
                     .closeBatch();
             PipelineTrace trace = harness.trace();
 
-            var state = trace.finalState().orElseThrow();
             assertEquals(
                     "Schieni GG-A c3-64 5",
-                    state.bodyName(),
+                    trace.finalState().orElseThrow().bodyName(),
                     "the planet is the selected body"
             );
-            assertNull(
-                    state.broadBodyType(),
-                    "and nothing has said what kind of body it is"
+            assertEquals(
+                    "PLANET",
+                    trace.finalBody(SYSTEM, PLANET).broadBodyType(),
+                    "and it is what the scan established it to be"
+            );
+            assertEquals(
+                    "STAR",
+                    trace.finalBody(SYSTEM, STAR).broadBodyType(),
+                    "while the star stayed the star"
             );
         }
     }
@@ -65,12 +74,12 @@ final class BodyTypeSelectionTest {
                     .journal(ObservationCaptureMode.LIVE, approachWithoutType())
                     .closeBatch();
 
-            var state = harness.trace().finalState().orElseThrow();
-            assertEquals("High metal content body", state.planetClass());
-            assertEquals(Boolean.TRUE, state.landable());
-            assertEquals(2356.483967, state.distanceFromArrivalLs());
+            var planet = harness.trace().finalBody(SYSTEM, PLANET);
+            assertEquals("High metal content body", planet.planetClass());
+            assertEquals(Boolean.TRUE, planet.landable());
+            assertEquals(2356.483967, planet.distanceFromArrivalLs());
             assertNull(
-                    state.starType(),
+                    planet.starType(),
                     "and the star's own facts did not follow it either"
             );
         }
@@ -96,8 +105,8 @@ final class BodyTypeSelectionTest {
                     .closeBatch();
 
             assertEquals(
-                    "Planet",
-                    harness.trace().finalState().orElseThrow().broadBodyType(),
+                    "PLANET",
+                    harness.trace().finalBody(SYSTEM, PLANET).broadBodyType(),
                     "the landing named no type, and none was needed"
             );
         }
@@ -126,8 +135,8 @@ final class BodyTypeSelectionTest {
                     .closeBatch();
 
             assertEquals(
-                    "Planet",
-                    harness.trace().finalState().orElseThrow().broadBodyType()
+                    "PLANET",
+                    harness.trace().finalBody(SYSTEM, PLANET).broadBodyType()
             );
         }
     }
@@ -142,22 +151,27 @@ final class BodyTypeSelectionTest {
                     .closeBatch();
 
             assertEquals(
-                    "Star",
-                    harness.trace().finalState().orElseThrow().broadBodyType()
+                    "STAR",
+                    harness.trace().finalBody(SYSTEM, STAR).broadBodyType()
             );
         }
     }
 
     /**
-     * Canonical state and the document agree.
+     * The type is what the body is, not whether a record happened to say so.
      *
      * <p>The defect was visible model-facing as {@code type: STAR} beside a
-     * planet's class, so the contract is checked where it was broken: what the
-     * snapshot says about the selected body is what {@code context.body} says.
-     * </p>
+     * planet's class, and the first repair was to send no type at all unless a
+     * record spelled one out — which left a scanned planet typeless, because a
+     * {@code Scan} carries {@code PlanetClass} and never {@code BodyType}. The
+     * registry classifies the body from the class the scan did report, so the
+     * answer now comes from what was established rather than from which field
+     * the game chose to put it in.</p>
      */
     @Test
-    void theDocumentAgreesWithCanonicalState(@TempDir Path directory) {
+    void aScannedPlanetIsTypedFromWhatTheScanEstablished(
+            @TempDir Path directory
+    ) {
         try (SemanticPipelineHarness harness =
                      SemanticPipelineHarness.create(directory)) {
             harness.journal(loadGame())
@@ -171,19 +185,20 @@ final class BodyTypeSelectionTest {
 
             PipelineTrace.TurnView turn = trace.turns().getLast();
             assertEquals(List.of("BODY_APPROACHED"), turn.eventKinds());
-            assertFalse(
-                    turn.context().path("body").has("type"),
-                    "no type is known, so none is claimed: "
+            assertEquals(
+                    "PLANET",
+                    turn.context().path("body").path("type").textValue(),
+                    "no record named the type; the scan established it: "
                             + turn.userMessage()
             );
             assertEquals(
                     "High metal content body",
                     turn.context().path("body").path("planetClass").textValue(),
-                    "what is known is still sent"
+                    "beside the class it was read from"
             );
             assertNull(
-                    trace.finalState().orElseThrow().broadBodyType(),
-                    "and the document says what canonical state says"
+                    trace.finalBody(SYSTEM, PLANET).starType(),
+                    "and nothing about a star came with it"
             );
         }
     }

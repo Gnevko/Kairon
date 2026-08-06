@@ -13,7 +13,6 @@ import kairon.semantics.SemanticChangeKind;
 import kairon.semantics.SemanticField;
 import kairon.semantics.SemanticStateChange;
 import kairon.semantics.SemanticValue;
-import kairon.semantics.SemanticValueOrigin;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -429,17 +428,8 @@ final class BiologicalSamplingProcessStateTest {
                 stage.field().subject()
         );
         assertEquals(SemanticChangeKind.ESTABLISHED, stage.changeKind());
-        assertEquals(SemanticValueOrigin.OBSERVATION, stage.origin());
         assertFalse(stage.before().known());
         assertEquals(SemanticValue.ofSymbol("START"), stage.after());
-
-        for (SemanticStateChange change : fixture.changes()) {
-            assertFalse(
-                    change.changeKind()
-                            == SemanticChangeKind.ACTIVATED_FROM_CONTEXT,
-                    "a sampling write is never a stored-context activation"
-            );
-        }
     }
 
     @Test

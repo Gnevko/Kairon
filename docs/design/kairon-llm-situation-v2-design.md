@@ -1,5 +1,14 @@
 # kairon-llm-situation-v2 — evidence-based design
 
+> **Superseded in part.** Everything below about `ACTIVATED_FROM_CONTEXT`,
+> `SemanticValueOrigin` and the projector's per-body `BodyContext` map — §6.2,
+> §6.3, the wire tables and the tests derived from them — describes a design
+> that existed and has been removed. Body detail is the current-system
+> registry's ([ADR-0025](../decisions/ADR-0025-THE-CURRENT-SYSTEM-IS-A-REGISTRY.md)),
+> canonical state answers only which body the Commander is at, and a body fact
+> is therefore not a canonical delta at all. Read
+> [`CURRENT_STATE.md`](../CURRENT_STATE.md) for what is true now.
+
 Phase A design-only audit. **No production code, test, or configuration was changed.**
 
 Evidence labels used throughout:

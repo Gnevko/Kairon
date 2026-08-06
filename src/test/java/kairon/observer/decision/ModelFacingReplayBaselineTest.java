@@ -65,6 +65,7 @@ class ModelFacingReplayBaselineTest {
             "exobiology.jsonl",
             "ship-switch.jsonl",
             "system-change.jsonl",
+            "system-survey.jsonl",
             "touchdown-liftoff.jsonl"
     );
 

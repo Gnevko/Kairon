@@ -5,6 +5,12 @@ package kairon.semantics;
  *
  * <p>{@code UNCHANGED} is deliberately absent: absence of a change entry means
  * unchanged, so the collection stays proportional to actual change.</p>
+ *
+ * <p>There is no kind for "this was already true and is only now being looked
+ * at". There used to be, because body facts were fields of the current body and
+ * flying to the next one changed all of them at once; body facts belong to the
+ * current-system registry now ({@code ADR-0025}), so every change here is
+ * something an observation did.</p>
  */
 public enum SemanticChangeKind {
 
@@ -15,15 +21,5 @@ public enum SemanticChangeKind {
     UPDATED,
 
     /** Before known; after absent or unknown. */
-    CLEARED,
-
-    /**
-     * The observation selected or activated an already stored registry fact.
-     *
-     * <p>The fact was <strong>not</strong> newly learned by this observation.
-     * Determined by the projector write path, never by comparing values: a
-     * re-visited body whose stored value happens to equal a freshly observed
-     * one is indistinguishable by value alone.</p>
-     */
-    ACTIVATED_FROM_CONTEXT
+    CLEARED
 }

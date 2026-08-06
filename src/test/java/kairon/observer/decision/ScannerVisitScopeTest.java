@@ -355,8 +355,8 @@ final class ScannerVisitScopeTest {
             );
             assertEquals(
                     1,
-                    pipeline.capturedProjections().getLast()
-                            .currentState().biologicalSignalCount(),
+                    pipeline.establishedBody(23155L, 20L)
+                            .biologicalSignalCount(),
                     "but what it established is restored"
             );
 
@@ -406,8 +406,8 @@ final class ScannerVisitScopeTest {
             );
             assertEquals(
                     1,
-                    pipeline.capturedProjections().getLast()
-                            .currentState().biologicalSignalCount(),
+                    pipeline.establishedBody(23155L, 20L)
+                            .biologicalSignalCount(),
                     "and it retracts nothing"
             );
 

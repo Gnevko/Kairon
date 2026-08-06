@@ -2,13 +2,6 @@ package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kairon.semantics.SemanticChangeKind;
-import kairon.semantics.SemanticField;
-import kairon.semantics.SemanticProvenance;
-import kairon.semantics.SemanticSourceRole;
-import kairon.semantics.SemanticStateChange;
-import kairon.semantics.SemanticValue;
-import kairon.semantics.SemanticValueOrigin;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -21,10 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The coarse body type, and why learning it is not an event.
  *
- * <p>A body's type is unknown until some event happens to carry it. The first
- * one that does establishes it — but the body did not become a planet when the
- * ship dropped out of supercruise, it always was one. That belongs in the
- * situation, not in a list of what just changed.</p>
+ * <p>The body did not become a planet when the ship dropped out of supercruise;
+ * it always was one. What a body is is recorded in the current-system registry
+ * and reaches the model as {@code context.body.type} (ADR-0025), so learning it
+ * cannot appear in a list of what just changed — there is no canonical field
+ * for it to be a delta of.</p>
  */
 final class EstablishedBodyTypeTest {
 
@@ -112,67 +106,6 @@ final class EstablishedBodyTypeTest {
         );
     }
 
-    @Test
-    void onlyTheFirstEstablishmentOfThisOneFieldIsTouched() {
-        assertTrue(DecisionChangeSelector.establishedBodyType(
-                bodyType(SemanticChangeKind.ESTABLISHED)
-        ));
-        for (SemanticChangeKind real : List.of(
-                SemanticChangeKind.UPDATED,
-                SemanticChangeKind.CLEARED
-        )) {
-            assertFalse(
-                    DecisionChangeSelector.establishedBodyType(bodyType(real)),
-                    real + " is a real change and this rule must ignore it"
-            );
-        }
-        assertFalse(
-                DecisionChangeSelector.establishedBodyType(
-                        new SemanticStateChange(
-                                SemanticField.PLANET_CLASS,
-                                SemanticValue.unknown(),
-                                SemanticValue.ofText("Icy body"),
-                                SemanticChangeKind.ESTABLISHED,
-                                SemanticValueOrigin.OBSERVATION,
-                                provenance()
-                        )
-                ),
-                "no other field is affected"
-        );
-    }
-
-    /**
-     * A body type that later changes is a real update.
-     *
-     * <p>The first exit establishes it and is silent; a second exit reporting a
-     * different type is something that happened, and it reaches the model.</p>
-     */
-    @Test
-    void aLaterChangeOfBodyTypeStillReachesTheModel() {
-        DecisionTurnFixture fixture = new DecisionTurnFixture();
-        fixture.inputs(List.of(fixture.graphDisabled(exit("Planet", 0))));
-        JsonNode request = read(serializer.serialize(factory.create(
-                fixture.inputs(List.of(fixture.graphDisabled(exit("Star", 1))))
-        )));
-
-        JsonNode body = null;
-        for (JsonNode change : request.path("changes")) {
-            if ("body".equals(change.path("subject").textValue())) {
-                body = change;
-            }
-        }
-        assertTrue(body != null, "the type actually changed");
-        assertEquals("UPDATED", body.path("kind").textValue());
-        assertEquals(
-                "Planet",
-                body.path("fields").path("type").path("before").textValue()
-        );
-        assertEquals(
-                "Star",
-                body.path("fields").path("type").path("after").textValue()
-        );
-    }
-
     // ------------------------------------------------------------- fixtures
 
     /** A body surveyed earlier, dropped out of supercruise onto now. */
@@ -212,30 +145,6 @@ final class EstablishedBodyTypeTest {
                  "SystemAddress":23155,"Body":"Icy One","BodyID":20,
                  "BodyType":"%s"}
                 """.formatted(index, bodyType);
-    }
-
-    private static SemanticStateChange bodyType(SemanticChangeKind kind) {
-        return new SemanticStateChange(
-                SemanticField.BROAD_BODY_TYPE,
-                kind == SemanticChangeKind.ESTABLISHED
-                        ? SemanticValue.unknown()
-                        : SemanticValue.ofSymbol("Planet"),
-                kind == SemanticChangeKind.CLEARED
-                        ? SemanticValue.unknown()
-                        : SemanticValue.ofSymbol("Star"),
-                kind,
-                SemanticValueOrigin.OBSERVATION,
-                provenance()
-        );
-    }
-
-    private static SemanticProvenance provenance() {
-        return new SemanticProvenance(
-                1L,
-                SemanticSourceRole.NEW,
-                "SupercruiseExit",
-                "observation-1"
-        );
     }
 
     private static JsonNode read(String serialized) {

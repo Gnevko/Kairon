@@ -42,6 +42,7 @@ import kairon.projection.ObservationProjectionSubscriber;
 import kairon.projection.ProjectedObservationBus;
 import kairon.trace.JsonLinesTurnTraceWriter;
 import kairon.ui.DesktopObserverTurnListener;
+import kairon.ui.DesktopSystemRegistrySubscriber;
 import kairon.ui.DesktopUiSubscriber;
 import kairon.ui.KaironGuiHub;
 import kairon.ui.swing.SwingKaironGuiHub;
@@ -406,6 +407,8 @@ public final class KaironApplication {
         private final CurrentGameStateView currentGameState;
         private final KaironGuiHub guiHub;
         private final ObservationSubscription guiSubscription;
+        private final ProjectedObservationBus.Subscription
+                guiRegistrySubscription;
         private final AtomicBoolean closed = new AtomicBoolean();
 
         private RuntimeWiring(
@@ -421,7 +424,8 @@ public final class KaironApplication {
                 BehaviorGraphStore behaviorGraphStore,
                 CurrentGameStateView currentGameState,
                 KaironGuiHub guiHub,
-                ObservationSubscription guiSubscription
+                ObservationSubscription guiSubscription,
+                ProjectedObservationBus.Subscription guiRegistrySubscription
         ) {
             this.bus = bus;
             this.llmClient = llmClient;
@@ -438,6 +442,7 @@ public final class KaironApplication {
             );
             this.guiHub = guiHub;
             this.guiSubscription = guiSubscription;
+            this.guiRegistrySubscription = guiRegistrySubscription;
         }
 
         private static RuntimeWiring create(
@@ -465,6 +470,8 @@ public final class KaironApplication {
                     new CurrentGameStateProjector();
             KaironGuiHub guiHub = KaironGuiHub.disabled();
             ObservationSubscription guiSubscription = null;
+            ProjectedObservationBus.Subscription guiRegistrySubscription =
+                    null;
             try {
                 bus = new InProcessObservationBus();
                 if (configuration.behaviorGraph().enabled()) {
@@ -541,10 +548,15 @@ public final class KaironApplication {
                 if (guiHub.enabled()) {
                     guiSubscription =
                             new DesktopUiSubscriber(guiHub).subscribeTo(bus);
+                    guiRegistrySubscription =
+                            new DesktopSystemRegistrySubscriber(guiHub)
+                                    .subscribeTo(projectedObservationBus);
                 }
                 boolean guiSubscriptionActive = !guiHub.enabled()
                         || guiSubscription != null
-                        && guiSubscription.isActive();
+                        && guiSubscription.isActive()
+                        && guiRegistrySubscription != null
+                        && guiRegistrySubscription.isActive();
                 if (!llmSubscriptions.allActive()
                         || !projectionSubscription.isActive()
                         || !diagnosticSubscription.isActive()
@@ -565,10 +577,19 @@ public final class KaironApplication {
                         behaviorGraphStore,
                         currentGameState,
                         guiHub,
-                        guiSubscription
+                        guiSubscription,
+                        guiRegistrySubscription
                 );
             } catch (RuntimeException failure) {
                 RuntimeException cleanupFailure = null;
+                if (guiRegistrySubscription != null) {
+                    ProjectedObservationBus.Subscription createdRegistry =
+                            guiRegistrySubscription;
+                    cleanupFailure = attempt(
+                            cleanupFailure,
+                            createdRegistry::close
+                    );
+                }
                 if (guiSubscription != null) {
                     ObservationSubscription createdGuiSubscription =
                             guiSubscription;
@@ -770,6 +791,12 @@ public final class KaironApplication {
             );
             firstFailure = attempt(firstFailure,
                     () -> coordinator.shutdown().toCompletableFuture().join());
+            if (guiRegistrySubscription != null) {
+                firstFailure = attempt(
+                        firstFailure,
+                        guiRegistrySubscription::close
+                );
+            }
             if (guiSubscription != null) {
                 firstFailure = attempt(
                         firstFailure,

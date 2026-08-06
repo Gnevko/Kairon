@@ -189,8 +189,8 @@ final class BodyScanEventTest {
                      "Landable":true,"WasDiscovered":false,"WasMapped":false}
                     """);
             pipeline.settleProjection();
-            String established = pipeline.capturedProjections().getLast()
-                    .currentState().planetClass();
+            String established =
+                    pipeline.establishedBody(23155L, 20L).planetClass();
             turn(pipeline, "2026-07-30T10:01:02Z");
 
             assertEquals(

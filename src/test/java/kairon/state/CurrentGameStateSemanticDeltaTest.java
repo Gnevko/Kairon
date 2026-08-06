@@ -15,7 +15,6 @@ import kairon.semantics.SemanticSourceRole;
 import kairon.semantics.SemanticStateChange;
 import kairon.semantics.SemanticSubject;
 import kairon.semantics.SemanticValue;
-import kairon.semantics.SemanticValueOrigin;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -32,9 +31,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Exact field-level delta produced inside the projection boundary.
  *
- * <p>The decisive case is {@code ACTIVATED_FROM_CONTEXT}: a body fact that
- * reappears from the projector's stored registry must never read as newly
- * learned, and that can only be decided by write path, never by value.</p>
+ * <p>Every change here is something an observation did. The case that used to
+ * be decisive — a body fact reappearing because a previously seen body was
+ * selected again — cannot arise: body detail is the current-system registry's
+ * and is not canonical state at all (ADR-0025).</p>
  */
 class CurrentGameStateSemanticDeltaTest {
 
@@ -53,10 +53,6 @@ class CurrentGameStateSemanticDeltaTest {
         assertEquals(
                 new SemanticValue.TextValue("F900"),
                 commander.after()
-        );
-        assertEquals(
-                SemanticValueOrigin.OBSERVATION,
-                commander.origin()
         );
         assertEquals(SemanticSubject.COMMANDER, commander.subject());
     }
@@ -100,10 +96,18 @@ class CurrentGameStateSemanticDeltaTest {
         assertFalse(bodyId.after().known());
     }
 
+    /**
+     * Coming back to a body Kairon has seen before changes the selection only.
+     *
+     * <p>The ice, the counts and the fact that nobody has landed here were all
+     * true before this approach and are still true after it. They used to
+     * arrive as a delta and had to be marked as a recall so that nothing read
+     * them as news; now they are simply not canonical state, so there is
+     * nothing to mark.</p>
+     */
     @Test
-    void registryFactReactivationIsNotANewDiscovery() {
+    void revisitingAKnownBodyChangesOnlyTheSelection() {
         Fixture fixture = new Fixture();
-        // Learn body 83 in detail.
         fixture.apply("""
                 {"timestamp":"2026-07-30T14:00:00Z","event":"Scan",\
                 "ScanType":"Detailed","SystemAddress":11,"BodyID":83,\
@@ -115,7 +119,6 @@ class CurrentGameStateSemanticDeltaTest {
                 "StarSystem":"Alpha","SystemAddress":11,"Body":"Alpha 83",\
                 "BodyID":83}
                 """);
-        // Move away, then come back with an event carrying no body detail.
         fixture.apply("""
                 {"timestamp":"2026-07-30T14:02:00Z","event":"ApproachBody",\
                 "StarSystem":"Alpha","SystemAddress":11,"Body":"Alpha 84",\
@@ -127,29 +130,18 @@ class CurrentGameStateSemanticDeltaTest {
                 "BodyID":83}
                 """);
 
-        SemanticStateChange planetClass =
-                change(changes, SemanticField.PLANET_CLASS);
         assertEquals(
-                SemanticChangeKind.ACTIVATED_FROM_CONTEXT,
-                planetClass.changeKind(),
-                "a re-visited body was not discovered again"
-        );
-        assertNotEquals(
-                SemanticChangeKind.ESTABLISHED,
-                planetClass.changeKind()
-        );
-        assertEquals(
-                SemanticValueOrigin.STORED_CONTEXT,
-                planetClass.origin()
-        );
-        assertEquals(
-                new SemanticValue.SymbolicValue("Rocky body"),
-                planetClass.after()
+                List.of(SemanticField.BODY_ID, SemanticField.BODY_NAME),
+                changes.stream()
+                        .map(SemanticStateChange::field)
+                        .sorted()
+                        .toList()
         );
     }
 
+    /** A scanner reading is not a canonical delta at all. */
     @Test
-    void firstScanOfABodyIsEstablishedNotActivated() {
+    void aScanChangesNothingInCanonicalState() {
         Fixture fixture = new Fixture();
         fixture.apply("""
                 {"timestamp":"2026-07-30T14:00:00Z","event":"ApproachBody",\
@@ -163,133 +155,10 @@ class CurrentGameStateSemanticDeltaTest {
                 "Landable":false,"WasDiscovered":false,"WasMapped":false}
                 """);
 
-        SemanticStateChange planetClass =
-                change(changes, SemanticField.PLANET_CLASS);
-        assertEquals(
-                SemanticChangeKind.ESTABLISHED,
-                planetClass.changeKind(),
-                "this observation genuinely wrote the registry"
-        );
-        assertEquals(
-                SemanticValueOrigin.OBSERVATION,
-                planetClass.origin()
-        );
-    }
-
-    @Test
-    void missingSourceFieldDoesNotClearAStoredRegistryFact() {
-        Fixture fixture = new Fixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:00:00Z","event":"Scan",\
-                "ScanType":"Detailed","SystemAddress":11,"BodyID":7,\
-                "BodyName":"Alpha 7","PlanetClass":"Rocky body",\
-                "Landable":true}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:01:00Z","event":"ApproachBody",\
-                "StarSystem":"Alpha","SystemAddress":11,"Body":"Alpha 7",\
-                "BodyID":7}
-                """);
-        // A later scan without PlanetClass must not erase the stored class.
-        List<SemanticStateChange> changes = fixture.apply("""
-                {"timestamp":"2026-07-30T14:02:00Z","event":"Scan",\
-                "ScanType":"Basic","SystemAddress":11,"BodyID":7,\
-                "BodyName":"Alpha 7"}
-                """);
-
         assertTrue(
-                find(changes, SemanticField.PLANET_CLASS).isEmpty(),
-                "an absent field is not a cleared field"
-        );
-        assertEquals(
-                "Rocky body",
-                fixture.currentState().planetClass()
-        );
-    }
-
-    @Test
-    void bodySwitchingDoesNotCarryDetailAcross() {
-        Fixture fixture = new Fixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:00:00Z","event":"Scan",\
-                "ScanType":"Detailed","SystemAddress":11,"BodyID":83,\
-                "BodyName":"Alpha 83","PlanetClass":"Rocky body"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:01:00Z","event":"ApproachBody",\
-                "StarSystem":"Alpha","SystemAddress":11,"Body":"Alpha 83",\
-                "BodyID":83}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:02:00Z","event":"ApproachBody",\
-                "StarSystem":"Alpha","SystemAddress":11,"Body":"Alpha 84",\
-                "BodyID":84}
-                """);
-
-        assertEquals(
-                null,
-                fixture.currentState().planetClass(),
-                "body 84 must not inherit body 83's classification"
-        );
-    }
-
-    @Test
-    void clearingTheCurrentBodyDoesNotEraseTheRegistry() {
-        Fixture fixture = new Fixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:00:00Z","event":"Scan",\
-                "ScanType":"Detailed","SystemAddress":11,"BodyID":9,\
-                "BodyName":"Alpha 9","PlanetClass":"Metal rich body"}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:01:00Z","event":"ApproachBody",\
-                "StarSystem":"Alpha","SystemAddress":11,"Body":"Alpha 9",\
-                "BodyID":9}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:02:00Z",\
-                "event":"SupercruiseEntry","StarSystem":"Alpha",\
-                "SystemAddress":11}
-                """);
-        assertEquals(null, fixture.currentState().planetClass());
-
-        // Returning proves the registry survived the clear.
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:03:00Z","event":"ApproachBody",\
-                "StarSystem":"Alpha","SystemAddress":11,"Body":"Alpha 9",\
-                "BodyID":9}
-                """);
-        assertEquals(
-                "Metal rich body",
-                fixture.currentState().planetClass()
-        );
-    }
-
-    @Test
-    void bodyClassificationDimensionsStayIndependent() {
-        Fixture fixture = new Fixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:00:00Z","event":"Scan",\
-                "ScanType":"Detailed","SystemAddress":11,"BodyID":4,\
-                "BodyName":"Alpha 4","PlanetClass":"Icy body"}
-                """);
-        List<SemanticStateChange> changes = fixture.apply("""
-                {"timestamp":"2026-07-30T14:01:00Z","event":"ApproachBody",\
-                "StarSystem":"Alpha","SystemAddress":11,"Body":"Alpha 4",\
-                "BodyID":4,"BodyType":"Planet"}
-                """);
-
-        assertEquals(
-                new SemanticValue.SymbolicValue("Planet"),
-                change(changes, SemanticField.BROAD_BODY_TYPE).after()
-        );
-        assertEquals(
-                new SemanticValue.SymbolicValue("Icy body"),
-                change(changes, SemanticField.PLANET_CLASS).after()
-        );
-        assertTrue(
-                find(changes, SemanticField.STAR_TYPE).isEmpty(),
-                "star type is a separate dimension and was never established"
+                changes.isEmpty(),
+                "what a scan establishes belongs to the body, not to where "
+                        + "the ship is"
         );
     }
 
@@ -322,9 +191,10 @@ class CurrentGameStateSemanticDeltaTest {
                 """);
         PublishedObservation<JournalEventObservation> second =
                 fixture.applyAndReturn("""
-                        {"timestamp":"2026-07-30T14:01:00Z","event":"Scan",\
-                        "ScanType":"Detailed","SystemAddress":11,"BodyID":6,\
-                        "BodyName":"Alpha 6","PlanetClass":"Rocky body"}
+                        {"timestamp":"2026-07-30T14:01:00Z",\
+                        "event":"Location","StarSystem":"Alpha",\
+                        "SystemAddress":11,"Body":"Alpha 6","BodyID":6,\
+                        "Docked":false,"OnFoot":false}
                         """);
 
         for (SemanticStateChange change : fixture.lastChanges()) {
@@ -335,10 +205,10 @@ class CurrentGameStateSemanticDeltaTest {
             assertEquals(
                     SemanticSourceRole.CONTEXT_ONLY,
                     change.provenance().sourceRole(),
-                    "Scan is CONTEXT_ONLY and must say so"
+                    "Location is CONTEXT_ONLY and must say so"
             );
             assertEquals(
-                    "Scan",
+                    "Location",
                     change.provenance().rawObservationType()
             );
         }
@@ -424,74 +294,41 @@ class CurrentGameStateSemanticDeltaTest {
         }
     }
 
+    /**
+     * What a body is like is not canonical state's to answer.
+     *
+     * <p>The identities stay, because one fact has one name whoever states it.
+     * What changed is which source answers them — and only a field canonical
+     * state answers can ever be a delta of it.</p>
+     */
     @Test
-    void onlyBodyRegistryFieldsCanBeActivatedFromContext() {
+    void bodyDetailIsNotAnsweredByCanonicalState() {
+        assertFalse(SemanticField.PLANET_CLASS.answeredByCanonicalState());
+        assertFalse(SemanticField.STAR_TYPE.answeredByCanonicalState());
+        assertFalse(SemanticField.BROAD_BODY_TYPE.answeredByCanonicalState());
+        assertFalse(SemanticField.LANDABLE.answeredByCanonicalState());
+        assertFalse(
+                SemanticField.BIOLOGICAL_SIGNAL_COUNT
+                        .answeredByCanonicalState()
+        );
+        assertFalse(SemanticField.BODY_HAS_BIOLOGY.answeredByCanonicalState());
+
+        assertTrue(SemanticField.BODY_ID.answeredByCanonicalState());
+        assertTrue(SemanticField.BODY_NAME.answeredByCanonicalState());
+        assertTrue(SemanticField.FLIGHT_MODE.answeredByCanonicalState());
+        assertTrue(SemanticField.COMMANDER_MODE.answeredByCanonicalState());
+
         for (SemanticField field : SemanticField.values()) {
-            if (!field.bodyRegistryDerived()) {
+            if (field.answeredByCanonicalState()) {
                 continue;
             }
             assertTrue(
                     field.subject() == SemanticSubject.CURRENT_BODY
                             || field.subject()
                             == SemanticSubject.BIOLOGICAL_SAMPLING_PROCESS,
-                    field + " is registry-derived but not a body subject"
+                    field + " is not canonical state's but is not a body fact"
             );
         }
-        assertFalse(SemanticField.FLIGHT_MODE.bodyRegistryDerived());
-        assertFalse(SemanticField.COMMANDER_MODE.bodyRegistryDerived());
-        assertTrue(SemanticField.PLANET_CLASS.bodyRegistryDerived());
-    }
-
-    @Test
-    void aLaterReadingAddsWhatItFoundAndRetractsNothing() {
-        Fixture fixture = new Fixture();
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:00:00Z","event":"ApproachBody",\
-                "StarSystem":"Alpha","SystemAddress":11,"Body":"Alpha 2",\
-                "BodyID":2}
-                """);
-        fixture.apply("""
-                {"timestamp":"2026-07-30T14:01:00Z",\
-                "event":"SAASignalsFound","SystemAddress":11,"BodyID":2,\
-                "BodyName":"Alpha 2","Signals":[\
-                {"Type":"$SAA_SignalType_Biological;","Count":3}]}
-                """);
-        assertEquals(3, fixture.currentState().biologicalSignalCount());
-
-        List<SemanticStateChange> changes = fixture.apply("""
-                {"timestamp":"2026-07-30T14:02:00Z",\
-                "event":"SAASignalsFound","SystemAddress":11,"BodyID":2,\
-                "BodyName":"Alpha 2","Signals":[\
-                {"Type":"$SAA_SignalType_Geological;","Count":4}]}
-                """);
-
-        SemanticStateChange geological =
-                change(changes, SemanticField.GEOLOGICAL_SIGNAL_COUNT);
-        assertEquals(
-                SemanticChangeKind.ESTABLISHED,
-                geological.changeKind(),
-                "the first reading counted biology and said nothing about "
-                        + "geology, so this reading establishes it"
-        );
-        assertFalse(
-                geological.before().known(),
-                "listing categories is not counting the ones it omits"
-        );
-        assertEquals(
-                new SemanticValue.IntegralValue(4),
-                geological.after()
-        );
-        assertEquals(
-                3,
-                fixture.currentState().biologicalSignalCount(),
-                "a reading that does not mention biology is silence about it"
-        );
-        assertTrue(
-                changes.stream().noneMatch(candidate ->
-                        candidate.field()
-                                == SemanticField.BIOLOGICAL_SIGNAL_COUNT),
-                "nothing changed about the biological signals"
-        );
     }
 
     // ---------------------------------------------------------------------

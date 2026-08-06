@@ -2,6 +2,7 @@ package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.behavior.bus.BehaviorGraphObservationProcessor;
+import kairon.behavior.context.BodyDetail;
 import kairon.behavior.graph.BehaviorGraphQueryService;
 import kairon.behavior.graph.BehaviorGraphService;
 import kairon.behavior.model.EdgeKey;
@@ -42,6 +43,7 @@ import kairon.projection.ObservationProjectionCoordinator;
 import kairon.projection.ProjectedObservation;
 import kairon.projection.ObservationProjectionSubscriber;
 import kairon.projection.ProjectedObservationBus;
+import kairon.projection.RegistryBodyDetail;
 import kairon.semantics.SemanticEffectAccumulator;
 import kairon.semantics.SemanticSourceRole;
 import kairon.speech.SpeechSynthesisClient.SpeechFailureCategory;
@@ -286,6 +288,20 @@ final class DecisionProductionPipeline implements AutoCloseable {
      */
     List<ProjectedObservation> capturedProjections() {
         return List.copyOf(capturedProjections);
+    }
+
+    /**
+     * What the current-system registry has established about one body.
+     *
+     * <p>Read through the production translation, so what a test asserts is
+     * the shape a consumer receives rather than the registry's own types. A
+     * body in another system, or one nothing has recorded, answers with
+     * everything null.</p>
+     */
+    BodyDetail establishedBody(long systemAddress, long bodyId) {
+        return new RegistryBodyDetail(
+                capturedProjections.getLast().systemRegistry()
+        ).detailOf(systemAddress, bodyId);
     }
 
     private void capture(ProjectedObservation projected) {

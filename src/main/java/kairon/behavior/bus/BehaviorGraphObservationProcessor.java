@@ -1,5 +1,6 @@
 package kairon.behavior.bus;
 
+import kairon.behavior.context.BodyDetailLookup;
 import kairon.behavior.graph.BehaviorGraphApplyResult;
 import kairon.behavior.graph.BehaviorGraphProcessor;
 import kairon.behavior.graph.BehaviorGraphService;
@@ -41,10 +42,12 @@ public final class BehaviorGraphObservationProcessor
     @Override
     public BehaviorGraphApplyResult apply(
             PublishedObservation<?> observation,
-            CurrentGameStateProjection stateProjection
+            CurrentGameStateProjection stateProjection,
+            BodyDetailLookup bodies
     ) {
         Objects.requireNonNull(observation, "observation");
         Objects.requireNonNull(stateProjection, "stateProjection");
+        Objects.requireNonNull(bodies, "bodies");
         if (observation.busSequence() != stateProjection.busSequence()) {
             throw new IllegalArgumentException(
                     "state projection does not belong to observation"
@@ -54,7 +57,8 @@ public final class BehaviorGraphObservationProcessor
             return graphService.onObservation(
                     journalObservation(observation),
                     stateProjection.currentState(),
-                    stateProjection.observationContext()
+                    stateProjection.observationContext(),
+                    bodies
             );
         }
         if (observation.payload() instanceof StatusSnapshotObservation) {
@@ -63,19 +67,22 @@ public final class BehaviorGraphObservationProcessor
             return graphService.onStatusDeltas(
                     status,
                     statusDeltaAdapter.adapt(status),
-                    stateProjection.currentState()
+                    stateProjection.currentState(),
+                    bodies
             );
         }
         if (observation.payload() instanceof ObservationSourceSignal signal) {
             requireReplayExhaustion(observation, signal);
             return graphService.completeReplay(
                     observation,
-                    stateProjection.currentState()
+                    stateProjection.currentState(),
+                    bodies
             );
         }
         return graphService.onNotApplicable(
                 observation,
-                stateProjection.currentState()
+                stateProjection.currentState(),
+                bodies
         );
     }
 

@@ -2,7 +2,7 @@ package kairon.observer.decision;
 
 import kairon.behavior.normalize.NormalizedEventType;
 import kairon.llm.LlmClient;
-import kairon.state.CurrentGameStateSnapshot;
+import kairon.behavior.context.BodyDetail;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -110,7 +110,7 @@ final class NonPositiveSignalCountTest {
             pipeline.journal(signals("10:02:00Z", "SAASignalsFound", ""));
             pipeline.settle();
 
-            CurrentGameStateSnapshot state = state(pipeline);
+            BodyDetail state = body(pipeline);
             assertEquals(1, state.biologicalSignalCount());
             assertEquals(2, state.geologicalSignalCount());
             assertEquals(
@@ -136,7 +136,7 @@ final class NonPositiveSignalCountTest {
             pipeline.journal(signals("10:02:00Z", "SAASignalsFound", GEO_2));
             pipeline.settle();
 
-            CurrentGameStateSnapshot state = state(pipeline);
+            BodyDetail state = body(pipeline);
             assertEquals(
                     1,
                     state.biologicalSignalCount(),
@@ -188,7 +188,7 @@ final class NonPositiveSignalCountTest {
             ));
             pipeline.settle();
 
-            CurrentGameStateSnapshot state = state(pipeline);
+            BodyDetail state = body(pipeline);
             assertEquals(1, state.biologicalSignalCount());
             assertEquals(2, state.geologicalSignalCount());
             assertEquals(
@@ -233,7 +233,7 @@ final class NonPositiveSignalCountTest {
             ));
             pipeline.settle();
 
-            CurrentGameStateSnapshot state = state(pipeline);
+            BodyDetail state = body(pipeline);
             assertNull(
                     state.biologicalSignalCount(),
                     "a reading that counted nothing established nothing"
@@ -321,7 +321,7 @@ final class NonPositiveSignalCountTest {
             pipeline.journal(signals("10:02:00Z", eventName, BIO_0));
             pipeline.settle();
 
-            CurrentGameStateSnapshot state = state(pipeline);
+            BodyDetail state = body(pipeline);
             return "bio=" + state.biologicalSignalCount()
                     + " geo=" + state.geologicalSignalCount()
                     + " occurrences=" + pipeline.episodeTypes().size()
@@ -393,14 +393,13 @@ final class NonPositiveSignalCountTest {
                 + reported + "]}";
     }
 
-    private static CurrentGameStateSnapshot state(
-            DecisionProductionPipeline pipeline
-    ) {
-        return pipeline.capturedProjections().getLast().currentState();
+    /** What the current-system registry has established about the body. */
+    private static BodyDetail body(DecisionProductionPipeline pipeline) {
+        return pipeline.establishedBody(23155L, 20L);
     }
 
     private static Integer biological(DecisionProductionPipeline pipeline) {
-        return state(pipeline).biologicalSignalCount();
+        return body(pipeline).biologicalSignalCount();
     }
 
     private static String lastUserMessage(

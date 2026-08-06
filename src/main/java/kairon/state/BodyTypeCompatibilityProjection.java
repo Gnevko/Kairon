@@ -3,11 +3,11 @@ package kairon.state;
 /**
  * Canonical-to-legacy body type compatibility projection.
  *
- * <p>Projects three canonical body dimensions into the single legacy scalar
- * value the behavior graph's {@code ContextSnapshot.bodyType} carries. It is a
- * compatibility projection, never the canonical classification: the canonical
- * dimensions are {@code broadBodyType}, {@code planetClass} and
- * {@code starType}, and the model-facing context uses those three.</p>
+ * <p>Projects three body dimensions into the single legacy scalar value the
+ * behavior graph's {@code ContextSnapshot.bodyType} carries. It is a
+ * compatibility projection, never the classification: the dimensions are the
+ * coarse kind, {@code planetClass} and {@code starType}, they are the
+ * current-system registry's, and the model-facing context uses those three.</p>
  */
 public final class BodyTypeCompatibilityProjection {
 
@@ -23,19 +23,6 @@ public final class BodyTypeCompatibilityProjection {
                 normalizeOptional(broadBodyType),
                 normalizeOptional(planetClass),
                 normalizeOptional(starType)
-        );
-    }
-
-    public static String compatibleBodyType(
-            CurrentGameStateSnapshot snapshot
-    ) {
-        if (snapshot == null) {
-            return null;
-        }
-        return compatibleBodyTypeInternal(
-                normalizeOptional(snapshot.broadBodyType()),
-                normalizeOptional(snapshot.planetClass()),
-                normalizeOptional(snapshot.starType())
         );
     }
 

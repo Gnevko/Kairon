@@ -2,13 +2,6 @@ package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kairon.semantics.SemanticChangeKind;
-import kairon.semantics.SemanticField;
-import kairon.semantics.SemanticProvenance;
-import kairon.semantics.SemanticSourceRole;
-import kairon.semantics.SemanticStateChange;
-import kairon.semantics.SemanticValue;
-import kairon.semantics.SemanticValueOrigin;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -19,13 +12,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * What the projector recalls about a body, and where the model reads it.
+ * What is known about a body, and where the model reads it.
  *
  * <p>A body's ice, its signal counts and the fact that nobody has landed on it
  * were all true before the approach and are still true after it. They are the
- * situation, not an event, so they arrive as {@code context.body} — and the
- * internal write-path vocabulary that would otherwise be needed to explain that
- * never leaves Kairon.</p>
+ * situation, not an event, so they arrive as {@code context.body} — and since
+ * they are the current-system registry's rather than canonical state's
+ * (ADR-0025), there is no delta for anything to have to explain away.</p>
  */
 final class RecalledBodyFactsTest {
 
@@ -100,32 +93,15 @@ final class RecalledBodyFactsTest {
         );
     }
 
+    /** An approach to a known body reports no change at all. */
     @Test
-    void noWritePathVocabularyReachesTheModel() {
+    void noChangeVocabularyReachesTheModel() {
         String serialized = serializer.serialize(approachRequest());
 
-        assertFalse(serialized.contains("ACTIVATED_FROM_CONTEXT"));
-        assertFalse(serialized.contains("STORED_CONTEXT"));
+        assertFalse(serialized.contains("\"changes\""));
         assertFalse(serialized.contains("\"after\""));
         assertFalse(serialized.contains("eventId"));
         assertFalse(serialized.contains("\"subject\""));
-    }
-
-    @Test
-    void aRecallIsTheOnlyChangeKindThisRuleTouches() {
-        assertTrue(DecisionChangeSelector.recalledFromRegistry(
-                change(SemanticChangeKind.ACTIVATED_FROM_CONTEXT)
-        ));
-        for (SemanticChangeKind real : List.of(
-                SemanticChangeKind.ESTABLISHED,
-                SemanticChangeKind.UPDATED,
-                SemanticChangeKind.CLEARED
-        )) {
-            assertFalse(
-                    DecisionChangeSelector.recalledFromRegistry(change(real)),
-                    real + " is a real change and this rule must ignore it"
-            );
-        }
     }
 
     /**
@@ -135,7 +111,7 @@ final class RecalledBodyFactsTest {
      * something that happened, not something recalled, and it survives.</p>
      */
     @Test
-    void aRealChangeIsUnaffectedByTheRecallRule() {
+    void aRealChangeStillReachesTheModel() {
         DecisionTurnFixture fixture = new DecisionTurnFixture();
         fixture.inputs(List.of(fixture.graphDisabled("""
                 {"timestamp":"2026-07-30T10:00:00Z","event":"Embark",
@@ -204,31 +180,6 @@ final class RecalledBodyFactsTest {
 
     private JsonNode approach() {
         return read(serializer.serialize(approachRequest()));
-    }
-
-    private static SemanticStateChange change(SemanticChangeKind kind) {
-        SemanticValue before = kind == SemanticChangeKind.ESTABLISHED
-                || kind == SemanticChangeKind.ACTIVATED_FROM_CONTEXT
-                ? SemanticValue.unknown()
-                : SemanticValue.ofText("Rocky body");
-        SemanticValue after = kind == SemanticChangeKind.CLEARED
-                ? SemanticValue.unknown()
-                : SemanticValue.ofText("Icy body");
-        return new SemanticStateChange(
-                SemanticField.PLANET_CLASS,
-                before,
-                after,
-                kind,
-                kind == SemanticChangeKind.ACTIVATED_FROM_CONTEXT
-                        ? SemanticValueOrigin.STORED_CONTEXT
-                        : SemanticValueOrigin.OBSERVATION,
-                new SemanticProvenance(
-                        1L,
-                        SemanticSourceRole.NEW,
-                        "ApproachBody",
-                        "observation-1"
-                )
-        );
     }
 
     private static JsonNode read(String serialized) {

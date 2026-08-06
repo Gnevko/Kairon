@@ -198,7 +198,8 @@ final class ModelFacingEventDescriptionTest {
                 trigger.stateChanges(),
                 trigger.graphResult(),
                 trigger.behaviorSituation(),
-                trigger.semanticEnvelope()
+                trigger.semanticEnvelope(),
+                trigger.systemRegistry()
         );
 
         IllegalStateException refusal = assertThrows(

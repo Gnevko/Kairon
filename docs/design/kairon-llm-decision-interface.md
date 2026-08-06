@@ -347,8 +347,8 @@ and still reaches the trace and diagnostics untouched. Only what a decision
 needs is sent, and the default is no.
 
 ```json
-{"subject": "body", "kind": "ACTIVATED_FROM_CONTEXT",
- "fields": {"planetClass": {"after": "Icy body"}, "landable": {"after": true}}}
+{"subject": "commander", "kind": "UPDATED",
+ "fields": {"presence": {"before": "ON_FOOT", "after": "SHIP"}}}
 ```
 
 A change says what changed and about what. It does not say which event caused
@@ -358,12 +358,12 @@ event name, the selection role and the write-path origin all stay inside Kairon
 too.
 
 `kind` is retained because `ESTABLISHED` and `UPDATED` are different news:
-learning a body's class for the first time is not the same as it changing.
-`ACTIVATED_FROM_CONTEXT` never appears — a recall from the stored body registry
-is not a change at all, and its values arrive as `context.body` instead. §7
-covers why.
+learning a fact for the first time is not the same as it changing. There is no
+kind for a fact that was already true and is only now being looked at: what a
+body **is** is not canonical state and cannot be a change at all
+(ADR-0025). Those values arrive as `context.body`; §7 covers why.
 
-### The eleven reasons a change is dropped
+### The nine reasons a change is dropped
 
 1. the field has no model-facing name at all — an account identifier, a vessel
    id, a system address beside a system name, a raw taxon key;
@@ -372,32 +372,27 @@ covers why.
 4. the change is a clearing — "no longer known" is what the absence of the field
    from the context already says, and whatever replaced it arrives as its own
    change;
-5. the change establishes the coarse body type for the first time. A body did
-   not become a planet when the ship dropped out of supercruise; it always was
-   one, and Kairon simply learned which. A later change of type is a real
-   update and passes through;
-6. the change is a recall from the stored per-body registry. The ice, the signal
-   counts and the fact that nobody has landed there were all true before the
-   approach and are still true after it; presenting them as a change invites a
-   comment about something having just happened, and the qualifier that would
-   prevent it is an internal write-path term. Nothing is lost: every recallable
-   field is a body fact, and every mechanism that can trigger a recall asks for
-   the body in its context, so the same values arrive as `context.body`;
-7. the change establishes `activeOrganicSampling` as inactive for the first
+5. the change establishes `activeOrganicSampling` as inactive for the first
    time. The flag starts unestablished and becomes `false` the moment anything
    deselects a body, which is Kairon learning its value — not the game reporting
    that a sequence finished or was interrupted. A reader shown `active: false`
    cannot tell those apart. The rule is deliberately narrow: a sequence starting
    and a running sequence ending are real transitions and pass through
    untouched;
-8. the text differs only in case, which is a normalisation artefact;
-9. the observation was kept for diagnostics only;
-10. the turn is the session's identity bootstrap, where every field is being
+6. the text differs only in case, which is a normalisation artefact;
+7. the observation was kept for diagnostics only;
+8. the turn is the session's identity bootstrap, where every field is being
    established for the first time and none of it is news;
-11. a hidden observation changed a subject none of this turn's mechanisms has any
+9. a hidden observation changed a subject none of this turn's mechanisms has any
    business hearing about.
 
-Rule 11 is what stops a chat message arriving with the ship, the system and the
+Two rules that used to stand here are gone rather than relaxed. A body's coarse
+type establishing itself for the first time, and a body fact re-served because
+the selection moved back to a body already seen, were both consequences of
+holding body detail as fields of "the current body". They are the
+current-system registry's now, so neither can occur (ADR-0025).
+
+Rule 9 is what stops a chat message arriving with the ship, the system and the
 flight mode a startup event happened to establish a minute earlier.
 
 ---

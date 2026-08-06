@@ -8,6 +8,7 @@ import kairon.behavior.classify.EventSignificancePolicy;
 import kairon.behavior.classify.EventSignificancePolicy.EventSignificance;
 import kairon.behavior.classify.RouteTargetSelectionPolicy;
 import kairon.behavior.context.BehaviorContextAdapter;
+import kairon.behavior.context.BodyDetailLookup;
 import kairon.behavior.context.TransitionContextKeyFactory;
 import kairon.behavior.event.BehaviorGraphEvent;
 import kairon.behavior.event.BehaviorGraphEvent.ActiveGraphChanged;
@@ -125,6 +126,16 @@ public final class BehaviorGraphService {
     private int significantEventsSinceSnapshot;
     private PendingLocation pendingLocation;
     private ContextSnapshot currentContext;
+
+    /**
+     * What is established about the bodies of the system, for this observation.
+     *
+     * <p>Held as state for the same reason {@link #currentContext} is: every
+     * entry point is handed the answer belonging to the observation it is
+     * applying, and the capture that follows on the same thread describes that
+     * same observation. It is never asked for later and never fetched.</p>
+     */
+    private BodyDetailLookup bodyDetail = BodyDetailLookup.NONE;
     private boolean closed;
 
     public BehaviorGraphService(
@@ -159,7 +170,8 @@ public final class BehaviorGraphService {
         this.registry = new BehaviorGraphRegistry(store);
         this.contextAdapter = new BehaviorContextAdapter();
         this.currentContext = contextAdapter.toContextSnapshot(
-                CurrentGameStateSnapshot.unknown()
+                CurrentGameStateSnapshot.unknown(),
+                bodyDetail
         );
         this.significancePolicy = Objects.requireNonNull(
                 significancePolicy,
@@ -192,15 +204,34 @@ public final class BehaviorGraphService {
         );
     }
 
+    /**
+     * Takes the body detail belonging to the observation about to be applied.
+     *
+     * <p>Every entry point calls this before anything reads a context, and the
+     * capture that follows reads the same answer. Nothing outside an
+     * application ever sets it, so a context built between observations is
+     * built from the last observation's system rather than from a fresh
+     * blank.</p>
+     */
+    private void useBodyDetail(BodyDetailLookup bodies) {
+        this.bodyDetail = Objects.requireNonNull(bodies, "bodies");
+    }
+
+    private ContextSnapshot contextSnapshot(CurrentGameStateSnapshot state) {
+        return contextAdapter.toContextSnapshot(state, bodyDetail);
+    }
+
     public synchronized BehaviorGraphApplyResult onObservation(
             PublishedObservation<? extends JournalEventObservation> observation,
             CurrentGameStateSnapshot currentState,
-            CurrentGameStateSnapshot observationContext
+            CurrentGameStateSnapshot observationContext,
+            BodyDetailLookup bodies
     ) {
         requireOpen();
         Objects.requireNonNull(observation, "observation");
         Objects.requireNonNull(currentState, "currentState");
         Objects.requireNonNull(observationContext, "observationContext");
+        useBodyDetail(bodies);
         requireIncreasingBusSequence(observation);
         GraphCommitMarker before = graphCommitMarker();
 
@@ -210,9 +241,9 @@ public final class BehaviorGraphService {
             latestEventTime = eventTime;
         }
 
-        currentContext = contextAdapter.toContextSnapshot(currentState);
+        currentContext = contextSnapshot(currentState);
         ContextSnapshot occurrenceContext =
-                contextAdapter.toContextSnapshot(observationContext);
+                contextSnapshot(observationContext);
         JournalEventObservation payload = observation.payload();
         Optional<GraphId> resolvedGraphId =
                 contextAdapter.graphId(currentState);
@@ -392,13 +423,15 @@ public final class BehaviorGraphService {
 
     public synchronized BehaviorGraphApplyResult completeReplay(
             PublishedObservation<?> observation,
-            CurrentGameStateSnapshot currentState
+            CurrentGameStateSnapshot currentState,
+            BodyDetailLookup bodies
     ) {
         requireOpen();
         Objects.requireNonNull(observation, "observation");
         Objects.requireNonNull(currentState, "currentState");
+        useBodyDetail(bodies);
         requireIncreasingBusSequence(observation);
-        currentContext = contextAdapter.toContextSnapshot(currentState);
+        currentContext = contextSnapshot(currentState);
         GraphCommitMarker before = graphCommitMarker();
         GraphId replayGraphId = activeGraphId;
         completeCurrentEpisode(
@@ -430,14 +463,16 @@ public final class BehaviorGraphService {
     public synchronized BehaviorGraphApplyResult onStatusDeltas(
             PublishedObservation<StatusSnapshotObservation> observation,
             StatusDeltaBatch batch,
-            CurrentGameStateSnapshot currentState
+            CurrentGameStateSnapshot currentState,
+            BodyDetailLookup bodies
     ) {
         requireOpen();
         Objects.requireNonNull(observation, "observation");
         Objects.requireNonNull(batch, "batch");
         Objects.requireNonNull(currentState, "currentState");
+        useBodyDetail(bodies);
         requireIncreasingBusSequence(observation);
-        currentContext = contextAdapter.toContextSnapshot(currentState);
+        currentContext = contextSnapshot(currentState);
         GraphCommitMarker before = graphCommitMarker();
 
         SourceReference source = statusSourceReference(observation);
@@ -511,13 +546,15 @@ public final class BehaviorGraphService {
 
     public synchronized BehaviorGraphApplyResult onNotApplicable(
             PublishedObservation<?> observation,
-            CurrentGameStateSnapshot currentState
+            CurrentGameStateSnapshot currentState,
+            BodyDetailLookup bodies
     ) {
         requireOpen();
         Objects.requireNonNull(observation, "observation");
         Objects.requireNonNull(currentState, "currentState");
+        useBodyDetail(bodies);
         requireIncreasingBusSequence(observation);
-        currentContext = contextAdapter.toContextSnapshot(currentState);
+        currentContext = contextSnapshot(currentState);
         return applyResult(
                 observation,
                 BehaviorGraphApplyStatus.NOT_APPLICABLE,
@@ -2349,7 +2386,7 @@ public final class BehaviorGraphService {
                 probabilityCalculator.predict(
                         graph,
                         cursor,
-                        contextAdapter.toContextSnapshot(currentState),
+                        contextSnapshot(currentState),
                         latestEventTime,
                         Math.max(1, graph.edges().size())
                 );
@@ -2414,8 +2451,7 @@ public final class BehaviorGraphService {
                             .orElse("<none>")
             );
         }
-        if (!contextAdapter.toContextSnapshot(currentState)
-                .equals(currentContext)) {
+        if (!contextSnapshot(currentState).equals(currentContext)) {
             throw inconsistent(
                     "canonical state does not match committed graph context"
             );

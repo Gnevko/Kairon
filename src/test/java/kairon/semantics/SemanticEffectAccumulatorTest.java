@@ -525,7 +525,6 @@ class SemanticEffectAccumulatorTest {
                         SemanticValue.ofText("System" + busSequence),
                         SemanticValue.ofText("System" + (busSequence + 1)),
                         SemanticChangeKind.UPDATED,
-                        SemanticValueOrigin.OBSERVATION,
                         provenance
                 )),
                 List.of()
@@ -647,7 +646,6 @@ class SemanticEffectAccumulatorTest {
                         before,
                         after,
                         kind,
-                        SemanticValueOrigin.OBSERVATION,
                         provenance
                 )),
                 List.of()

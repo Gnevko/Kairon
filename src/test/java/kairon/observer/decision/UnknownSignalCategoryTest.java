@@ -2,7 +2,7 @@ package kairon.observer.decision;
 
 import kairon.behavior.normalize.NormalizedEventType;
 import kairon.semantics.SemanticField;
-import kairon.state.CurrentGameStateSnapshot;
+import kairon.behavior.context.BodyDetail;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -49,7 +49,7 @@ final class UnknownSignalCategoryTest {
             harness.journal(signals("10:01:00Z", "FSSBodySignals", BIO_1))
                     .closeBatch();
             PipelineTrace trace = harness.trace();
-            CurrentGameStateSnapshot state = trace.finalState().orElseThrow();
+            BodyDetail state = trace.finalBody(23155L, 20L);
 
             assertEquals(1, state.biologicalSignalCount());
             assertNull(state.geologicalSignalCount(), "nobody counted geology");
@@ -84,7 +84,7 @@ final class UnknownSignalCategoryTest {
             harness.journal(signals("10:01:00Z", "FSSBodySignals", GEO_2))
                     .closeBatch();
             PipelineTrace trace = harness.trace();
-            CurrentGameStateSnapshot state = trace.finalState().orElseThrow();
+            BodyDetail state = trace.finalBody(23155L, 20L);
 
             assertEquals(2, state.geologicalSignalCount());
             assertNull(
@@ -121,7 +121,7 @@ final class UnknownSignalCategoryTest {
             harness.journal(signals("10:01:00Z", "SAASignalsFound", ""))
                     .closeBatch();
             PipelineTrace trace = harness.trace();
-            CurrentGameStateSnapshot state = trace.finalState().orElseThrow();
+            BodyDetail state = trace.finalBody(23155L, 20L);
 
             assertNull(state.biologicalSignalCount());
             assertNull(state.geologicalSignalCount());
@@ -216,10 +216,14 @@ final class UnknownSignalCategoryTest {
                     zone.","A full spectrum system scan reported signal data for a body."]}}""",
                     trace.turns().getLast().userMessage()
             );
-            assertEquals(1, trace.finalState().orElseThrow()
-                    .biologicalSignalCount());
-            assertEquals(2, trace.finalState().orElseThrow()
-                    .geologicalSignalCount());
+            assertEquals(
+                    1,
+                    trace.finalBody(23155L, 20L).biologicalSignalCount()
+            );
+            assertEquals(
+                    2,
+                    trace.finalBody(23155L, 20L).geologicalSignalCount()
+            );
             assertChangesAndContextPartition(trace);
         }
     }
@@ -236,7 +240,7 @@ final class UnknownSignalCategoryTest {
             harness.journal(signals("10:02:00Z", "SAASignalsFound", GEO_2))
                     .closeBatch();
             PipelineTrace trace = harness.trace();
-            CurrentGameStateSnapshot state = trace.finalState().orElseThrow();
+            BodyDetail state = trace.finalBody(23155L, 20L);
 
             assertEquals(1, state.biologicalSignalCount(), "still counted");
             assertEquals(2, state.geologicalSignalCount(), "now counted too");

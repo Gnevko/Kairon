@@ -37,6 +37,10 @@ import kairon.projection.SemanticEnvelopeFactory;
 import kairon.semantics.SemanticEffectAccumulator;
 import kairon.state.CurrentGameStateProjection;
 import kairon.state.CurrentGameStateProjector;
+import kairon.state.CurrentGameStateSnapshot;
+import kairon.system.CurrentSystemRegistry;
+import kairon.system.SystemRegistrySnapshot;
+import kairon.system.VisitIdentity;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -74,6 +78,16 @@ final class DecisionTurnFixture {
             new JournalObservationAdapter(SOURCE);
     private final CurrentGameStateProjector projector =
             new CurrentGameStateProjector();
+    /**
+     * The real registry, driven exactly as the coordinator drives it.
+     *
+     * <p>It used to be a stubbed empty snapshot, which was invisible while
+     * nothing read it and became a silent loss of every body fact the moment
+     * {@code context.body} started reading it. A fixture that stands in for a
+     * production collaborator has to keep standing in for it.</p>
+     */
+    private final CurrentSystemRegistry systemRegistry =
+            new CurrentSystemRegistry();
     private final SemanticEnvelopeFactory semantics =
             SemanticEnvelopeFactory.production();
     private final SemanticEffectAccumulator effects;
@@ -88,6 +102,23 @@ final class DecisionTurnFixture {
     /** A smaller bound forces the accumulator to fold and report suppression. */
     DecisionTurnFixture(int maxRetainedEnvelopes) {
         this.effects = new SemanticEffectAccumulator(maxRetainedEnvelopes);
+    }
+
+    /** The registry applied to this observation, as the coordinator does it. */
+    private SystemRegistrySnapshot registrySnapshot(
+            PublishedObservation<?> observation,
+            CurrentGameStateProjection projection
+    ) {
+        CurrentGameStateSnapshot state = projection.currentState();
+        return systemRegistry.applyAndCapture(
+                observation,
+                new VisitIdentity(
+                        state.commanderFid(),
+                        state.shipId(),
+                        state.systemAddress(),
+                        state.systemName()
+                )
+        );
     }
 
     /** Projects one event with the behavior graph switched off. */
@@ -109,7 +140,8 @@ final class DecisionTurnFixture {
                         apply,
                         BehaviorSituationCaptureStatus.GRAPH_DISABLED
                 ),
-                semantics.create(observation, projection.applied())
+                semantics.create(observation, projection.applied()),
+                registrySnapshot(observation, projection)
         ));
     }
 
@@ -261,7 +293,8 @@ final class DecisionTurnFixture {
                                 contextKey
                         )
                 ),
-                semantics.create(observation, projection.applied())
+                semantics.create(observation, projection.applied()),
+                registrySnapshot(observation, projection)
         ));
     }
 
@@ -336,7 +369,8 @@ final class DecisionTurnFixture {
                 projection.changes(),
                 apply,
                 BehaviorSituationSnapshot.available(apply, active, List.of()),
-                semantics.create(observation, projection.applied())
+                semantics.create(observation, projection.applied()),
+                registrySnapshot(observation, projection)
         ));
     }
 
@@ -370,7 +404,8 @@ final class DecisionTurnFixture {
                 projection.changes(),
                 apply,
                 BehaviorSituationSnapshot.unavailable(apply, captureStatus),
-                semantics.create(observation, projection.applied())
+                semantics.create(observation, projection.applied()),
+                registrySnapshot(observation, projection)
         ));
     }
 
@@ -416,7 +451,8 @@ final class DecisionTurnFixture {
                         apply,
                         BehaviorSituationCaptureStatus.GRAPH_DISABLED
                 ),
-                semantics.create(observation, projection.applied())
+                semantics.create(observation, projection.applied()),
+                registrySnapshot(observation, projection)
         ));
     }
 
@@ -453,7 +489,8 @@ final class DecisionTurnFixture {
                         apply,
                         BehaviorSituationCaptureStatus.GRAPH_DISABLED
                 ),
-                semantics.create(observation, projection.applied())
+                semantics.create(observation, projection.applied()),
+                registrySnapshot(observation, projection)
         ));
     }
 

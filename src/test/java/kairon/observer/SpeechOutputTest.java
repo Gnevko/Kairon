@@ -46,6 +46,7 @@ import kairon.speech.SpeechSynthesisClient.SpeechFailureCategory;
 import kairon.speech.SpeechSynthesisClient.SpeechSynthesisException;
 import kairon.state.CurrentGameStateProjection;
 import kairon.state.CurrentGameStateProjector;
+import kairon.system.SystemRegistrySnapshot;
 import kairon.trace.JsonLinesTurnTraceWriter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -983,7 +984,8 @@ final class SpeechOutputTest {
                 SemanticEnvelopeFactory.production().create(
                         observation,
                         state.applied()
-                )
+                ),
+                SystemRegistrySnapshot.empty(observation.busSequence())
         );
     }
 

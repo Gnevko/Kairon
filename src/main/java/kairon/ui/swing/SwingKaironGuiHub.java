@@ -3,6 +3,7 @@ package kairon.ui.swing;
 import kairon.behavior.event.BehaviorGraphEventSource;
 import kairon.behavior.graph.BehaviorGraphVisualizationQuery;
 import kairon.config.KaironConfiguration.UiConfiguration;
+import kairon.system.SystemRegistrySnapshot;
 import kairon.ui.KaironGuiHub;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -167,6 +168,13 @@ public final class SwingKaironGuiHub implements KaironGuiHub {
     }
 
     @Override
+    public void postSystemRegistry(SystemRegistrySnapshot snapshot) {
+        offer(new SystemRegistryUpdate(
+                Objects.requireNonNull(snapshot, "snapshot")
+        ));
+    }
+
+    @Override
     public CompletionStage<Void> closeRequested() {
         return closeRequested;
     }
@@ -302,6 +310,8 @@ public final class SwingKaironGuiHub implements KaironGuiHub {
 
         void completeModelTurn(ModelCompletionView completion);
 
+        void updateSystemRegistry(SystemRegistrySnapshot snapshot);
+
         void updateDroppedCount(long droppedCount);
 
         void showStopping();
@@ -330,7 +340,8 @@ public final class SwingKaironGuiHub implements KaironGuiHub {
             ObservationUpdate,
             ObservationEffectUpdate,
             ModelDecisionUpdate,
-            ModelCompletionUpdate {
+            ModelCompletionUpdate,
+            SystemRegistryUpdate {
 
         void apply(GuiView view);
     }
@@ -368,6 +379,15 @@ public final class SwingKaironGuiHub implements KaironGuiHub {
         @Override
         public void apply(GuiView view) {
             view.completeModelTurn(completion);
+        }
+    }
+
+    private record SystemRegistryUpdate(SystemRegistrySnapshot snapshot)
+            implements UiUpdate {
+
+        @Override
+        public void apply(GuiView view) {
+            view.updateSystemRegistry(snapshot);
         }
     }
 

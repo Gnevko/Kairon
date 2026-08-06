@@ -27,6 +27,7 @@ import kairon.semantics.SemanticObservationEnvelope;
 import kairon.state.CurrentGameStateSnapshot;
 import kairon.state.CurrentGameStateChangeSet;
 import kairon.state.AppliedObservation;
+import kairon.system.SystemRegistrySnapshot;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -253,7 +254,8 @@ final class BehaviorSituationSnapshotTest {
                         ),
                         differentResult,
                         valid,
-                        envelope(observation(1))
+                        envelope(observation(1)),
+                        SystemRegistrySnapshot.empty(1)
                 )
         );
         assertThrows(
@@ -267,7 +269,8 @@ final class BehaviorSituationSnapshotTest {
                         ),
                         applyResult,
                         valid,
-                        envelope(observation(2))
+                        envelope(observation(2)),
+                        SystemRegistrySnapshot.empty(2)
                 )
         );
     }

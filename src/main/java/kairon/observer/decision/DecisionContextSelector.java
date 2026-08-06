@@ -6,10 +6,19 @@ import kairon.semantics.SemanticField;
 import kairon.semantics.SemanticValue;
 import kairon.state.CurrentGameStateSemantics;
 import kairon.state.CurrentGameStateSnapshot;
+import kairon.semantics.BodySurveyFacts;
+import kairon.system.BiologicalSurvey;
+import kairon.system.PlanetBody;
+import kairon.system.StarBody;
+import kairon.system.SystemObject;
+import kairon.system.SystemObjectKind;
+import kairon.system.SystemRegistrySnapshot;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -40,11 +49,13 @@ public final class DecisionContextSelector {
 
     public List<LlmDecisionRequest.ContextGroup> select(
             CurrentGameStateSnapshot state,
+            SystemRegistrySnapshot registry,
             List<ProjectedEvent> events,
             List<LlmDecisionRequest.Change> changes,
             StatedFacts eventFacts
     ) {
         Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(registry, "registry");
         Objects.requireNonNull(events, "events");
         Objects.requireNonNull(changes, "changes");
         Objects.requireNonNull(eventFacts, "eventFacts");
@@ -59,7 +70,8 @@ public final class DecisionContextSelector {
         List<LlmDecisionRequest.ContextGroup> groups = new ArrayList<>();
         addSystem(groups, state, needs, stated);
         if (DecisionBodyScope.canonicalBodyIsInScope(events, state)) {
-            addBody(groups, state, needs, stated);
+            addBody(groups, state, registry, needs, stated);
+            addBiology(groups, state, registry, needs);
         }
         addNavigation(groups, state, needs, stated);
         addCommander(groups, state, needs, stated);
@@ -104,6 +116,7 @@ public final class DecisionContextSelector {
     private static void addBody(
             List<LlmDecisionRequest.ContextGroup> groups,
             CurrentGameStateSnapshot state,
+            SystemRegistrySnapshot registry,
             Set<ContextNeed> needs,
             StatedFacts stated
     ) {
@@ -111,6 +124,7 @@ public final class DecisionContextSelector {
         if (!detail && !needs.contains(ContextNeed.BODY_IDENTITY)) {
             return;
         }
+        SystemObject body = bodyInRegistry(registry, state);
         List<LlmDecisionRequest.Field> facts = new ArrayList<>();
         add(
                 facts,
@@ -118,69 +132,177 @@ public final class DecisionContextSelector {
                 SemanticField.BODY_NAME,
                 SemanticValue.ofText(state.bodyName())
         );
-        if (detail) {
-            SemanticValue planetClass =
-                    SemanticValue.ofText(state.planetClass());
-            SemanticValue starType = SemanticValue.ofText(state.starType());
+        if (detail && body != null) {
             add(
                     facts,
                     stated,
                     SemanticField.BROAD_BODY_TYPE,
-                    DecisionNames.closedToken(
-                            SemanticValue.ofSymbol(state.broadBodyType())
-                    )
+                    body.kind() == SystemObjectKind.UNCLASSIFIED
+                            ? SemanticValue.unknown()
+                            : SemanticValue.ofSymbol(body.kind().name())
             );
             add(
                     facts,
                     stated,
                     SemanticField.PLANET_CLASS,
-                    planetClass
+                    body instanceof PlanetBody planet
+                            ? SemanticValue.ofText(planet.planetClass())
+                            : SemanticValue.unknown()
             );
-            add(facts, stated, SemanticField.STAR_TYPE, starType);
+            add(
+                    facts,
+                    stated,
+                    SemanticField.STAR_TYPE,
+                    body instanceof StarBody star
+                            ? SemanticValue.ofText(star.starType())
+                            : SemanticValue.unknown()
+            );
             add(
                     facts,
                     stated,
                     SemanticField.LANDABLE,
-                    SemanticValue.ofBoolean(state.landable())
+                    body instanceof PlanetBody planet
+                            ? SemanticValue.ofBoolean(planet.landable())
+                            : SemanticValue.unknown()
             );
             add(
                     facts,
                     stated,
                     SemanticField.WAS_DISCOVERED,
-                    SemanticValue.ofBoolean(state.wasDiscovered())
+                    SemanticValue.ofBoolean(body.profile().wasDiscovered())
             );
             add(
                     facts,
                     stated,
                     SemanticField.WAS_MAPPED,
-                    SemanticValue.ofBoolean(state.wasMapped())
+                    SemanticValue.ofBoolean(body.profile().wasMapped())
             );
             add(
                     facts,
                     stated,
                     SemanticField.WAS_FOOTFALLED,
-                    SemanticValue.ofBoolean(state.wasFootfalled())
+                    SemanticValue.ofBoolean(body.profile().wasFootfalled())
             );
             add(
                     facts,
                     stated,
                     SemanticField.DISTANCE_FROM_ARRIVAL_LS,
-                    SemanticValue.ofDecimal(state.distanceFromArrivalLs())
+                    SemanticValue.ofDecimal(
+                            body.profile().distanceFromArrivalLs()
+                    )
             );
             add(
                     facts,
                     stated,
                     SemanticField.BIOLOGICAL_SIGNAL_COUNT,
-                    SemanticValue.ofIntegral(state.biologicalSignalCount())
+                    signalCount(body, BodySurveyFacts.BIOLOGICAL)
             );
             add(
                     facts,
                     stated,
                     SemanticField.GEOLOGICAL_SIGNAL_COUNT,
-                    SemanticValue.ofIntegral(state.geologicalSignalCount())
+                    signalCount(body, BodySurveyFacts.GEOLOGICAL)
             );
         }
         group(groups, "body", facts);
+    }
+
+    /**
+     * The registry's entry for the body canonical state has selected.
+     *
+     * <p>Null when the registry is describing another system or holds nothing
+     * for this body. Both are the fail-closed answer: the group then carries
+     * the body's name and nothing about what it is, which is exactly what is
+     * established.</p>
+     */
+    private static SystemObject bodyInRegistry(
+            SystemRegistrySnapshot registry,
+            CurrentGameStateSnapshot state
+    ) {
+        if (state.bodyId() == null
+                || !registry.available()
+                || !Objects.equals(
+                        registry.systemAddress(),
+                        state.systemAddress()
+                )) {
+            return null;
+        }
+        return registry.object(state.bodyId());
+    }
+
+    private static SemanticValue signalCount(
+            SystemObject body,
+            String category
+    ) {
+        return SemanticValue.ofIntegral(
+                body.profile().signalCounts().get(category)
+        );
+    }
+
+    /**
+     * What grows on this body and what has been collected of it.
+     *
+     * <p>The one thing in the request that comes from the current-system
+     * registry rather than from canonical state, and it has to: only
+     * {@code SAASignalsFound} names the genera, and when it restates counts the
+     * system scanner already reported it opens no turn at all. The names would
+     * otherwise live for exactly one observation that the model never sees.</p>
+     *
+     * <p>One field per genus, named by the organism and valued
+     * {@code COLLECTED} or {@code NOT_COLLECTED}. Not one field carrying a list:
+     * {@link SemanticValue} is a closed set with no list in it, and adding one
+     * would put back the compound value ADR-0024 removed. A genus the game has
+     * no word for is left out rather than spelled as its {@code $Codex_Ent_…}
+     * symbol — the same rule every other model-facing label obeys.</p>
+     *
+     * <p>The whole inventory is sent, including a genus the turn's own event has
+     * just finished. That is not the event said twice: the event reports an
+     * action, this reports what is standing on the body, and its worth is in
+     * being complete — a list with the just-collected organism missing would
+     * read as a list of what is left, one item short.</p>
+     *
+     * <p>Absent when no survey has named anything. A biological signal count
+     * without names is how many there are and not which, and a body with three
+     * signals and no survey would otherwise read as three organisms nobody has
+     * collected.</p>
+     */
+    private static void addBiology(
+            List<LlmDecisionRequest.ContextGroup> groups,
+            CurrentGameStateSnapshot state,
+            SystemRegistrySnapshot registry,
+            Set<ContextNeed> needs
+    ) {
+        if (!needs.contains(ContextNeed.BODY_DETAIL)
+                || state.bodyId() == null
+                || !registry.available()
+                || !Objects.equals(
+                        registry.systemAddress(),
+                        state.systemAddress()
+                )) {
+            return;
+        }
+        SystemObject body = registry.object(state.bodyId());
+        if (body == null) {
+            return;
+        }
+        BiologicalSurvey survey = body.biology();
+        if (survey.genera().isEmpty()) {
+            return;
+        }
+        List<LlmDecisionRequest.Field> facts = survey.genera().entrySet()
+                .stream()
+                .filter(genus -> genus.getValue() != null)
+                .sorted(Comparator.comparing(Map.Entry::getValue))
+                .map(genus -> new LlmDecisionRequest.Field(
+                        genus.getValue(),
+                        SemanticValue.ofSymbol(
+                                survey.completed().contains(genus.getKey())
+                                        ? "COLLECTED"
+                                        : "NOT_COLLECTED"
+                        )
+                ))
+                .toList();
+        group(groups, "biology", facts);
     }
 
     private static void addNavigation(

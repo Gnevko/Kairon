@@ -2,6 +2,7 @@ package kairon.behavior;
 
 import kairon.behavior.bus.BehaviorGraphObservationProcessor;
 import kairon.behavior.context.BehaviorContextAdapter;
+import kairon.projection.RegistryBodyDetail;
 import kairon.behavior.graph.BehaviorGraphApplyResult;
 import kairon.behavior.graph.BehaviorGraphApplyStatus;
 import kairon.behavior.graph.BehaviorGraphChangeSet;
@@ -321,7 +322,10 @@ final class BehaviorSituationProjectionTest {
                     harness.query.predictNext(
                             GRAPH_ID,
                             new BehaviorContextAdapter().toContextSnapshot(
-                                    current.currentState()
+                                    current.currentState(),
+                                    new RegistryBodyDetail(
+                                            current.systemRegistry()
+                                    )
                             ),
                             Instant.parse(time),
                             100

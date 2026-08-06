@@ -1,7 +1,6 @@
 package kairon.state;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import kairon.semantics.BodyIdentity;
 import kairon.observation.PublishedObservation;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.semantics.AuxiliaryVehicleTypes;
@@ -11,10 +10,8 @@ import kairon.semantics.SemanticProvenance;
 import kairon.semantics.SemanticSourceRoles;
 import kairon.semantics.SemanticStateChange;
 import kairon.semantics.SemanticValue;
-import kairon.semantics.SemanticValueOrigin;
 import kairon.observation.journal.event.exploration.FSSBodySignals;
 import kairon.observation.journal.event.exploration.SAASignalsFound;
-import kairon.observation.journal.event.exploration.Scan;
 import kairon.observation.journal.event.inventory.Cargo;
 import kairon.observation.journal.event.exploration.ScanOrganic;
 import kairon.observation.journal.event.session.Commander;
@@ -49,8 +46,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 
-import kairon.semantics.BodySurveyFacts;
-
 import static kairon.state.CurrentGameStateSnapshot.VEHICLE_SHIP;
 import static kairon.state.CurrentGameStateSnapshot.VEHICLE_SLV;
 import static kairon.state.CurrentGameStateSnapshot.VEHICLE_SRV;
@@ -62,11 +57,16 @@ import static kairon.state.CurrentGameStateSnapshot.VEHICLE_UNKNOWN;
  * <p>All mutation and read operations are synchronized. The projection
  * coordinator is the production writer; readers on other executors receive a
  * complete immutable snapshot.</p>
+ *
+ * <p>What a body <em>is</em> is not projected here. This keeps which body the
+ * Commander is at; the current-system registry keeps what is known about it
+ * ({@code ADR-0025}). A scanner reading therefore moves nothing in this
+ * projection, which is exactly right: reading a planet from across the system
+ * does not move the ship.</p>
  */
 public final class CurrentGameStateProjector
         implements CurrentGameStateProjectionWriter {
 
-    private final Map<BodyIdentity, BodyContext> bodies = new TreeMap<>();
     private final Map<Long, String> vehicleKindsById = new TreeMap<>();
 
     private String commanderFid;
@@ -79,7 +79,6 @@ public final class CurrentGameStateProjector
     private String systemName;
     private Long bodyId;
     private String bodyName;
-    private String broadBodyType;
 
     private CommanderLocationMode commanderMode =
             CommanderLocationMode.UNKNOWN;
@@ -103,23 +102,11 @@ public final class CurrentGameStateProjector
     private Boolean activeOrganicSampling;
     private BiologicalSamplingProcess samplingProcess;
 
-    /**
-     * Write-path marker for the observation currently being applied.
-     *
-     * <p>Holds the body key this observation wrote into {@link #bodies}, or
-     * {@code null} when it wrote none. This is the only way to distinguish a
-     * fact newly learned from this observation from one merely re-activated
-     * out of storage: a re-visited body can carry a stored value identical to
-     * a freshly observed one, so value comparison cannot tell them apart.</p>
-     */
-    private BodyIdentity bodyRegistryWriteKey;
-
     @Override
     public synchronized CurrentGameStateProjection applyAndCapture(
             PublishedObservation<?> observation
     ) {
         Objects.requireNonNull(observation, "observation");
-        bodyRegistryWriteKey = null;
         CurrentGameStateSnapshot previousState = snapshot();
         JournalEventObservation journalEvent =
                 observation.payload() instanceof JournalEventObservation event
@@ -155,21 +142,25 @@ public final class CurrentGameStateProjector
     /**
      * The exact field-level delta for this observation.
      *
-     * <p>Pure with respect to the two snapshots plus the write-path marker.
-     * Computed here because {@code previousState} exists only inside this
-     * boundary; nothing downstream can reconstruct it.</p>
+     * <p>Pure with respect to the two snapshots. Computed here because
+     * {@code previousState} exists only inside this boundary; nothing
+     * downstream can reconstruct it.</p>
+     *
+     * <p>Every change is now something the observation did. There is no longer
+     * a second kind of change to tell apart — a fact served out of storage
+     * because a different body was selected — because the facts that behaved
+     * that way are no longer canonical state's.</p>
      */
     private List<SemanticStateChange> semanticChanges(
             CurrentGameStateSnapshot previousState,
             CurrentGameStateSnapshot currentState,
             SemanticProvenance provenance
     ) {
-        boolean registryWrittenForCurrentBody =
-                registryWriteAppliesToCurrentBody();
-        boolean bodyNameHeldDirectly =
-                bodyName != null && !bodyName.isBlank();
         List<SemanticStateChange> changes = new ArrayList<>();
         for (SemanticField field : SemanticField.values()) {
+            if (!field.answeredByCanonicalState()) {
+                continue;
+            }
             SemanticValue before = CurrentGameStateSemantics.valueOf(
                     field,
                     previousState
@@ -181,66 +172,27 @@ public final class CurrentGameStateProjector
             if (before.equals(after)) {
                 continue;
             }
-            SemanticValueOrigin origin = originOf(
-                    field,
-                    registryWrittenForCurrentBody,
-                    bodyNameHeldDirectly
-            );
             changes.add(new SemanticStateChange(
                     field,
                     before,
                     after,
-                    changeKindOf(field, before, after, origin),
-                    origin,
+                    changeKindOf(before, after),
                     provenance
             ));
         }
         return List.copyOf(changes);
     }
 
-    private static SemanticValueOrigin originOf(
-            SemanticField field,
-            boolean registryWrittenForCurrentBody,
-            boolean bodyNameHeldDirectly
-    ) {
-        if (!field.bodyRegistryDerived()) {
-            return SemanticValueOrigin.OBSERVATION;
-        }
-        if (field == SemanticField.BODY_NAME && bodyNameHeldDirectly) {
-            return SemanticValueOrigin.OBSERVATION;
-        }
-        return registryWrittenForCurrentBody
-                ? SemanticValueOrigin.OBSERVATION
-                : SemanticValueOrigin.STORED_CONTEXT;
-    }
-
     private static SemanticChangeKind changeKindOf(
-            SemanticField field,
             SemanticValue before,
-            SemanticValue after,
-            SemanticValueOrigin origin
+            SemanticValue after
     ) {
         if (!after.known()) {
             return SemanticChangeKind.CLEARED;
         }
-        if (field.bodyRegistryDerived()
-                && origin == SemanticValueOrigin.STORED_CONTEXT) {
-            return SemanticChangeKind.ACTIVATED_FROM_CONTEXT;
-        }
         return before.known()
                 ? SemanticChangeKind.UPDATED
                 : SemanticChangeKind.ESTABLISHED;
-    }
-
-    private boolean registryWriteAppliesToCurrentBody() {
-        if (bodyRegistryWriteKey == null
-                || systemAddress == null
-                || bodyId == null) {
-            return false;
-        }
-        return bodyRegistryWriteKey.equals(
-                new BodyIdentity(systemAddress, bodyId)
-        );
     }
 
     private static SemanticProvenance provenanceOf(
@@ -272,11 +224,6 @@ public final class CurrentGameStateProjector
             samplingProcess = null;
         } else if (event instanceof Location) {
             updateLocation(raw);
-        } else if (event instanceof Scan) {
-            updateBodyFromScan(raw);
-        } else if (event instanceof FSSBodySignals
-                || event instanceof SAASignalsFound) {
-            updateBodySignals(raw);
         } else if (event instanceof ApproachBody) {
             selectBody(raw);
         } else if (event instanceof SupercruiseEntry) {
@@ -334,9 +281,6 @@ public final class CurrentGameStateProjector
     }
 
     private CurrentGameStateSnapshot snapshot() {
-        BodyContext body = currentBodyContext().orElse(null);
-        Integer biologicalSignals =
-                body == null ? null : body.biologicalSignalCount();
         return new CurrentGameStateSnapshot(
                 commanderFid,
                 shipId,
@@ -346,27 +290,11 @@ public final class CurrentGameStateProjector
                 systemAddress,
                 systemName,
                 bodyId,
-                firstNonBlank(
-                        bodyName,
-                        body == null ? null : body.bodyName()
-                ),
-                firstNonBlank(broadBodyType, null),
-                body == null ? null : body.planetClass(),
-                body == null ? null : body.starType(),
+                bodyName,
                 commanderMode,
                 flightMode,
                 vehicleKind,
                 activeVehicleId,
-                biologicalSignals,
-                body == null ? null : body.geologicalSignalCount(),
-                body == null ? null : body.landable(),
-                body == null ? null : body.wasDiscovered(),
-                body == null ? null : body.wasMapped(),
-                body == null ? null : body.wasFootfalled(),
-                body == null ? null : body.distanceFromArrivalLs(),
-                biologicalSignals == null
-                        ? null
-                        : biologicalSignals > 0,
                 activeOrganicSampling,
                 samplingProcess
         );
@@ -375,6 +303,12 @@ public final class CurrentGameStateProjector
     /**
      * Captures the technical context of the journal fact itself without
      * incorrectly changing the commander's physical current-body selection.
+     *
+     * <p>Which body the record is about, not what is known about it: the
+     * reading belongs to the body it names, and a scanner result reported from
+     * across a system must not be filed against the body the ship is at. What
+     * that body is like is answered by the registry, which is asked by the
+     * same identity.</p>
      */
     private CurrentGameStateSnapshot snapshotFor(
             JournalEventObservation event,
@@ -393,13 +327,6 @@ public final class CurrentGameStateProjector
         if (address.isEmpty() || id.isEmpty()) {
             return base;
         }
-
-        BodyContext body = bodies.get(new BodyIdentity(
-                address.orElseThrow(),
-                id.orElseThrow()
-        ));
-        Integer biologicalSignals =
-                body == null ? null : body.biologicalSignalCount();
         return new CurrentGameStateSnapshot(
                 base.commanderFid(),
                 base.shipId(),
@@ -411,24 +338,11 @@ public final class CurrentGameStateProjector
                 id.orElseThrow(),
                 textual(raw, "BodyName")
                         .or(() -> textual(raw, "Body"))
-                        .orElse(body == null ? null : body.bodyName()),
-                body == null ? null : body.bodyType(),
-                body == null ? null : body.planetClass(),
-                body == null ? null : body.starType(),
+                        .orElse(null),
                 base.commanderMode(),
                 base.flightMode(),
                 base.vehicleKind(),
                 base.activeVehicleId(),
-                biologicalSignals,
-                body == null ? null : body.geologicalSignalCount(),
-                body == null ? null : body.landable(),
-                body == null ? null : body.wasDiscovered(),
-                body == null ? null : body.wasMapped(),
-                body == null ? null : body.wasFootfalled(),
-                body == null ? null : body.distanceFromArrivalLs(),
-                biologicalSignals == null
-                        ? null
-                        : biologicalSignals > 0,
                 base.activeOrganicSampling(),
                 base.samplingProcess()
         );
@@ -465,7 +379,6 @@ public final class CurrentGameStateProjector
             systemAddress = null;
             systemName = null;
             clearSelectedBody();
-            bodies.clear();
             vehicleKindsById.clear();
             activeVehicleId = null;
             activeVehicleFromAmbiguousLaunch = false;
@@ -530,169 +443,24 @@ public final class CurrentGameStateProjector
     /**
      * Selects the body a record names as the Commander's current one.
      *
-     * <p>The coarse type belongs to the body it was reported for. Only records
-     * that select a body carry {@code BodyType} at all — a jump reports
-     * {@code Star}, a supercruise exit reports {@code Planet} — and an approach
-     * or a landing reports none, so holding the field until something overwrote
-     * it left the previous body's type standing beside the new body's class and
-     * signals. A star and a planet were described as one body.</p>
-     *
-     * <p>So a real change of body drops it: what is then known about the new
-     * body is whatever was established for that body before, and nothing if
-     * nothing was. Re-selecting the same body keeps what is known, because
-     * approaching a body twice does not unlearn its type, and a record that
-     * does report a type establishes it for the body it just named.</p>
+     * <p>Which body, and nothing about what it is. A record's {@code BodyType}
+     * is read by the current-system registry, where it is a statement about
+     * that body rather than a field of the ship's position — which is what let
+     * a jump's {@code Star} stand beside a planet's class and describe two
+     * bodies as one.</p>
      */
     private void selectBody(JsonNode raw) {
-        Long previousSystemAddress = systemAddress;
-        Long previousBodyId = bodyId;
-        String previousBodyName = bodyName;
         updateSystem(raw);
         positiveOrZeroLong(raw, "BodyID").ifPresent(value -> bodyId = value);
         textual(raw, "Body").ifPresent(value -> bodyName = value);
         textual(raw, "BodyName").ifPresent(value -> bodyName = value);
-        boolean differentBody =
-                !Objects.equals(previousSystemAddress, systemAddress)
-                        || !Objects.equals(previousBodyId, bodyId)
-                        || !Objects.equals(previousBodyName, bodyName);
-        if (differentBody) {
-            broadBodyType = currentBodyContext()
-                    .map(BodyContext::bodyType)
-                    .orElse(null);
-        }
-        textual(raw, "BodyType").ifPresent(this::establishBodyType);
-    }
-
-    /**
-     * Keeps the coarse type a record reported for the body it selected.
-     *
-     * <p>Kept per body so that returning to it later recovers what was already
-     * established rather than starting from nothing. It deliberately does not
-     * mark the registry as written for this observation: that marker says the
-     * body facts this snapshot publishes came from the record rather than from
-     * storage, and this record <em>is</em> the direct source of the type it
-     * reports. Nothing else about the body is touched.</p>
-     */
-    private void establishBodyType(String reportedType) {
-        broadBodyType = reportedType;
-        if (systemAddress == null || bodyId == null) {
-            return;
-        }
-        BodyIdentity key = new BodyIdentity(systemAddress, bodyId);
-        BodyContext previous = bodies.get(key);
-        bodies.put(key, new BodyContext(
-                previous == null ? Map.of() : previous.signalCounts(),
-                value(previous, BodyContext::landable),
-                value(previous, BodyContext::wasDiscovered),
-                value(previous, BodyContext::wasMapped),
-                value(previous, BodyContext::wasFootfalled),
-                value(previous, BodyContext::distanceFromArrivalLs),
-                value(previous, BodyContext::bodyName),
-                reportedType,
-                value(previous, BodyContext::planetClass),
-                value(previous, BodyContext::starType)
-        ));
     }
 
     private void clearSelectedBody() {
         bodyId = null;
         bodyName = null;
-        broadBodyType = null;
         activeOrganicSampling = false;
         samplingProcess = null;
-    }
-
-    private void updateBodyFromScan(JsonNode raw) {
-        Optional<Long> address = positiveOrZeroLong(raw, "SystemAddress");
-        Optional<Long> id = positiveOrZeroLong(raw, "BodyID");
-        if (address.isEmpty() || id.isEmpty()) {
-            return;
-        }
-        BodyIdentity key = new BodyIdentity(address.orElseThrow(), id.orElseThrow());
-        BodyContext previous = bodies.get(key);
-        BodyContext updated = new BodyContext(
-                previous == null ? Map.of() : previous.signalCounts(),
-                booleanValue(raw, "Landable")
-                        .orElse(value(previous, BodyContext::landable)),
-                booleanValue(raw, "WasDiscovered")
-                        .orElse(value(previous, BodyContext::wasDiscovered)),
-                booleanValue(raw, "WasMapped")
-                        .orElse(value(previous, BodyContext::wasMapped)),
-                booleanValue(raw, "WasFootfalled")
-                        .orElse(value(previous, BodyContext::wasFootfalled)),
-                finiteDouble(raw, "DistanceFromArrivalLS")
-                        .orElse(value(
-                                previous,
-                                BodyContext::distanceFromArrivalLs
-                        )),
-                textual(raw, "BodyName")
-                        .orElse(value(previous, BodyContext::bodyName)),
-                textual(raw, "BodyType")
-                        .orElse(value(previous, BodyContext::bodyType)),
-                textual(raw, "PlanetClass")
-                        .orElse(value(previous, BodyContext::planetClass)),
-                textual(raw, "StarType")
-                        .orElse(value(previous, BodyContext::starType))
-        );
-        bodies.put(key, updated);
-        bodyRegistryWriteKey = key;
-    }
-
-    /**
-     * Records everything a scanner reported about one body.
-     *
-     * <p>Every category is retained, not only the two the snapshot publishes.
-     * A reading that reports nothing clears nothing: the game does not say a
-     * signal is gone by omitting it, and treating silence as a retraction
-     * would erase what an earlier scanner established. Neither does a category
-     * reported at zero or below — {@link BodySurveyFacts#normalizedSignalCounts}
-     * keeps only what a reading positively established, so what merges here is
-     * additions and corrections upward and never a deletion.</p>
-     *
-     * <p>And nothing is invented. A category no reading has counted stays out
-     * of the map, so it reads as unknown everywhere downstream: absence is how
-     * this contract says "nobody has looked", and a zero would say "somebody
-     * looked and there are none".</p>
-     */
-    private void updateBodySignals(JsonNode raw) {
-        Optional<Long> address = positiveOrZeroLong(raw, "SystemAddress");
-        Optional<Long> id = positiveOrZeroLong(raw, "BodyID");
-        if (address.isEmpty() || id.isEmpty()) {
-            return;
-        }
-        BodyIdentity key = new BodyIdentity(address.orElseThrow(), id.orElseThrow());
-        BodyContext previous = bodies.get(key);
-        Map<String, Integer> reported =
-                BodySurveyFacts.normalizedSignalCounts(raw);
-        Map<String, Integer> merged = new TreeMap<>(
-                previous == null ? Map.of() : previous.signalCounts()
-        );
-        // Only what a reading positively established. A category the reading
-        // never mentions, and a category it lists at zero, are the same thing:
-        // nothing was established there. Writing a zero for either would turn
-        // "nobody has counted" into "counted, and there are none" — a claim no
-        // source made, and one the model cannot tell from a measurement.
-        merged.putAll(reported);
-        bodies.put(
-                key,
-                new BodyContext(
-                        merged,
-                        value(previous, BodyContext::landable),
-                        value(previous, BodyContext::wasDiscovered),
-                        value(previous, BodyContext::wasMapped),
-                        value(previous, BodyContext::wasFootfalled),
-                        value(previous, BodyContext::distanceFromArrivalLs),
-                        textual(raw, "BodyName")
-                                .orElse(value(
-                                        previous,
-                                        BodyContext::bodyName
-                                )),
-                        value(previous, BodyContext::bodyType),
-                        value(previous, BodyContext::planetClass),
-                        value(previous, BodyContext::starType)
-                )
-        );
-        bodyRegistryWriteKey = key;
     }
 
     private void updateStartJump(JsonNode raw) {
@@ -953,15 +721,6 @@ public final class CurrentGameStateProjector
         commanderMode = CommanderLocationMode.SHIP;
     }
 
-    private Optional<BodyContext> currentBodyContext() {
-        if (systemAddress == null || bodyId == null) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(
-                bodies.get(new BodyIdentity(systemAddress, bodyId))
-        );
-    }
-
     /**
      * The class a record's own type fields establish, if they establish one.
      *
@@ -1012,44 +771,6 @@ public final class CurrentGameStateProjector
                 && value.longValue() >= 0
                 ? Optional.of(value.longValue())
                 : Optional.empty();
-    }
-
-    private static Optional<Integer> nonNegativeInt(
-            JsonNode raw,
-            String name
-    ) {
-        JsonNode value = raw.get(name);
-        return value != null
-                && value.isIntegralNumber()
-                && value.canConvertToInt()
-                && value.intValue() >= 0
-                ? Optional.of(value.intValue())
-                : Optional.empty();
-    }
-
-    private static Optional<Double> finiteDouble(
-            JsonNode raw,
-            String name
-    ) {
-        JsonNode value = raw.get(name);
-        if (value == null || !value.isNumber()) {
-            return Optional.empty();
-        }
-        double number = value.doubleValue();
-        return Double.isFinite(number) && number >= 0.0
-                ? Optional.of(number)
-                : Optional.empty();
-    }
-
-    private static String firstNonBlank(String first, String second) {
-        return first != null && !first.isBlank() ? first : second;
-    }
-
-    private static <T> T value(
-            BodyContext context,
-            java.util.function.Function<BodyContext, T> getter
-    ) {
-        return context == null ? null : getter.apply(context);
     }
 
 }
