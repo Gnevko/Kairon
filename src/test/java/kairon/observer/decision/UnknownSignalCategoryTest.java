@@ -67,9 +67,7 @@ final class UnknownSignalCategoryTest {
                     """
                     {"events":[{"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "biologicalSignals":1}],\
-                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
-                    "A ship in supercruise came within a body's orbital-cruise zone."]}}""",
+                    "biologicalSignals":1}]}""",
                     trace.turns().getLast().userMessage(),
                     "the set already says what was found, so nothing repeats it"
             );
@@ -169,9 +167,7 @@ final class UnknownSignalCategoryTest {
                     {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "geologicalSignals":2}],\
-                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
-                    "A ship in supercruise came within a body's orbital-cruise zone."]}}""",
+                    "geologicalSignals":2}]}""",
                     turn.userMessage()
             );
             assertEquals(
@@ -210,10 +206,7 @@ final class UnknownSignalCategoryTest {
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
                     "geologicalSignals":2}],\
-                    "context":{"body":{"biologicalSignals":1}},\
-                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
-                    "A ship in supercruise came within a body's orbital-cruise \
-                    zone.","A full spectrum system scan reported signal data for a body."]}}""",
+                    "context":{"body":{"biologicalSignals":1}}}""",
                     trace.turns().getLast().userMessage()
             );
             assertEquals(

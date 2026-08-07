@@ -17,6 +17,8 @@ import kairon.observation.journal.event.ship.*;
 import kairon.observation.journal.event.social.*;
 import kairon.observation.journal.event.trade.*;
 import kairon.observation.journal.event.travel.*;
+import kairon.semantics.SemanticField;
+import kairon.state.FlightMode;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -211,15 +213,27 @@ public final class DecisionEventCatalog {
         put(rules, FSDJump.class,
                 DecisionEventRule.of("SYSTEM_JUMP",
                         DecisionMechanism.TRAVEL, "distanceLy").uncounted());
+        // The three events whose description names the flight mode outright, so
+        // the navigation context would repeat their own sentence. A jump is not
+        // among them: it leaves the ship in supercruise and never says so.
         put(rules, SupercruiseEntry.class,
                 DecisionEventRule.of("SUPERCRUISE_ENTERED",
-                        DecisionMechanism.TRAVEL));
+                                DecisionMechanism.TRAVEL)
+                        .stating(SemanticField.FLIGHT_MODE,
+                                FlightMode.SUPERCRUISE));
         put(rules, SupercruiseExit.class,
                 DecisionEventRule.of("SUPERCRUISE_EXITED",
-                        DecisionMechanism.BODY_TRANSIT));
+                                DecisionMechanism.BODY_TRANSIT)
+                        .stating(SemanticField.FLIGHT_MODE,
+                                FlightMode.NORMAL_SPACE));
+        // An approach does not move the flight mode at all — it says the ship
+        // is in supercruise, which is why the claim belongs to the event and
+        // not to the mechanism's caused fields.
         put(rules, ApproachBody.class,
                 DecisionEventRule.of("BODY_APPROACHED",
-                        DecisionMechanism.BODY_TRANSIT));
+                                DecisionMechanism.BODY_TRANSIT)
+                        .stating(SemanticField.FLIGHT_MODE,
+                                FlightMode.SUPERCRUISE));
         put(rules, LeaveBody.class,
                 DecisionEventRule.of("BODY_LEFT",
                         DecisionMechanism.BODY_TRANSIT));
@@ -240,7 +254,10 @@ public final class DecisionEventCatalog {
     ) {
         put(rules, Touchdown.class,
                 DecisionEventRule.of("TOUCHDOWN",
-                        DecisionMechanism.SURFACE));
+                                DecisionMechanism.SURFACE)
+                        .stating(SemanticField.FLIGHT_MODE, FlightMode.LANDED));
+        // A lift-off says the ship left the surface, not what it is doing now:
+        // normal space is the inference, and inferences are not statements.
         put(rules, Liftoff.class,
                 DecisionEventRule.of("LIFTOFF",
                         DecisionMechanism.SURFACE));
@@ -281,14 +298,17 @@ public final class DecisionEventCatalog {
         // that does establish the type reports it then; nothing is guessed here
         // and nothing already sent is rewritten.
         //
-        // The kind settles the action itself. Its named object is the loadout
-        // rather than a vessel, its START is the adapter noting a deployment
-        // beginning rather than a stage anyone can act on, and launching a
-        // vehicle says nothing about where the Commander is — which the context
-        // answers directly with commander.presence.
+        // The kind settles the action itself. Its START is the adapter noting a
+        // deployment beginning rather than a stage anyone can act on, and
+        // launching a vehicle says nothing about where the Commander is — which
+        // the context answers directly with commander.presence.
+        //
+        // The object goes unnamed because the record has no vessel name in it:
+        // the adapter falls back to the journal's Loadout string, so the field
+        // that should say what was launched said "base".
         put(rules, LaunchFighter.class,
                 DecisionEventRule.of("VEHICLE_LAUNCHED",
-                        DecisionMechanism.VEHICLE).named("loadout").whole());
+                        DecisionMechanism.VEHICLE).unnamed().whole());
         put(rules, FighterDestroyed.class,
                 DecisionEventRule.of("FIGHTER_DESTROYED",
                         DecisionMechanism.VEHICLE));
@@ -305,7 +325,8 @@ public final class DecisionEventCatalog {
                     DecisionEventRule> rules
     ) {
         put(rules, Docked.class,
-                DecisionEventRule.of("DOCKED", DecisionMechanism.DOCKING));
+                DecisionEventRule.of("DOCKED", DecisionMechanism.DOCKING)
+                        .stating(SemanticField.FLIGHT_MODE, FlightMode.DOCKED));
         put(rules, Undocked.class,
                 DecisionEventRule.of("UNDOCKED", DecisionMechanism.DOCKING));
         put(rules, DockingDenied.class,
@@ -370,9 +391,14 @@ public final class DecisionEventCatalog {
         put(rules, FSSBodySignals.class,
                 DecisionEventRule.of("BODY_SIGNALS_FOUND",
                         DecisionMechanism.EXPLORATION).uncounted());
+        // The surface scanner is the only instrument that names what it found,
+        // and the whole point of firing probes is to learn which organisms are
+        // down there. The system scanner counts signals and names nothing, so
+        // it lists nothing.
         put(rules, SAASignalsFound.class,
                 DecisionEventRule.of("BODY_SIGNALS_FOUND",
-                        DecisionMechanism.EXPLORATION).uncounted());
+                        DecisionMechanism.EXPLORATION)
+                        .uncounted().namingOrganisms());
         // Scoped to the system, like a jump: whichever body happened to be
         // selected when the survey completed is not what the survey is about.
         put(rules, FSSAllBodiesFound.class,
@@ -384,14 +410,24 @@ public final class DecisionEventCatalog {
         // that emits it — the measured replay files a Sudarsky-class gas giant
         // and a T Tauri star under body 0 of systems whose body 0 the adjacent
         // scans report as a K star and a B star — so attaching what Kairon
-        // knows about the current body to it describes two objects as one. The
-        // entry stands on what it says: its name, its category, its region and
-        // its system. A narrower slice, not a different family of game event.
+        // knows about the current body to it describes two objects as one. A
+        // narrower slice, not a different family of game event.
+        //
+        // The entry stands on its name and on whether it is new. Its category
+        // and region are the journal's own rubric in the client's language —
+        // "Био- и геонаходки" for $Codex_Category_Biology; — and a rubric is not
+        // a fact about the discovery. The region is worse than useless beside
+        // isNewEntry: the game means new *for that region*, the document never
+        // says so, and the measured run produced "already found in other
+        // regions, and here it is the first" out of the two standing together.
+        // The system it was filed in is the situation, and context.system says
+        // it under the name the whole document uses.
         put(rules, CodexEntry.class,
                 DecisionEventRule.of("CODEX_ENTRY_RECORDED",
                                 DecisionMechanism.EXPLORATION)
                         .reading(DecisionContextProfile.SYSTEM_ONLY)
-                        .named("entry"));
+                        .named("entry")
+                        .retaining("isNewEntry"));
         put(rules, SellExplorationData.class,
                 DecisionEventRule.of("EXPLORATION_DATA_SOLD",
                         DecisionMechanism.COMMERCE, "credits"));
@@ -423,10 +459,19 @@ public final class DecisionEventCatalog {
         // model reads, "occurrenceOnBody: 1" on a FINAL scan says the first
         // analysis, and reads as the first sample on the body. The count is
         // therefore not sent; stage and complete say where the sequence is.
-        put(rules, ScanOrganic.class,
-                DecisionEventRule.of("BIOLOGICAL_SAMPLE",
+        DecisionEventRule sample = DecisionEventRule.of("BIOLOGICAL_SAMPLE",
                         DecisionMechanism.SAMPLING).named("organism")
-                        .staged().countedPerStage());
+                .staged().countedPerStage();
+        put(rules, ScanOrganic.class, sample);
+        // One kind, two slices. The analysis that finishes a sample is the one
+        // turn where what else grows here answers a question the Commander is
+        // actually in the middle of; the log and the sample before it are not,
+        // and the inventory was travelling with every landing and approach of
+        // the body saying "not collected" about an organism nobody had started
+        // on. Registered per variant because it is the same domain event read
+        // against more of the situation — the kind is unchanged.
+        put(rules, ScanOrganic.Analysed.class,
+                sample.reading(DecisionContextProfile.SAMPLING_ANALYSED));
     }
 
     private static void registerMission(

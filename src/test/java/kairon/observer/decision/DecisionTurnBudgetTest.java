@@ -141,8 +141,7 @@ final class DecisionTurnBudgetTest {
         assertEquals(
                 Set.of(
                         DecisionSections.EVENTS,
-                        DecisionSections.CHANGES,
-                        DecisionSections.TRAJECTORY
+                        DecisionSections.CHANGES
                 ),
                 sections.stream()
                         .map(LlmDecisionRequestCompactor.Result.SectionWeight

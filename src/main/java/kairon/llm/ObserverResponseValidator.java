@@ -32,6 +32,20 @@ import static java.util.regex.Pattern.UNICODE_CHARACTER_CLASS;
  * produced from — is a fact about the batch that the coordinator already holds,
  * and it is attached there rather than smuggled through a response record that
  * would then be part model and part Kairon.</p>
+ *
+ * <h2>How long a comment may be</h2>
+ * <p>The ceiling is a shape rule: it refuses what is no longer a remark. It is
+ * not the place where brevity is asked for — that is the role, and the prompt
+ * says nothing about length. A refusal costs the whole turn, because the batch
+ * is consumed once and there is no second decision, so the bound has to sit
+ * above what a restrained answer actually looks like.</p>
+ *
+ * <p>Measured on the 300-observation replay of 2026-08-06, the first live run
+ * under the two-block prompt: fifteen of seventy-five turns were refused for
+ * their sentence count alone under a ceiling of two — eleven answers of three
+ * sentences and four of four, the longest 265 characters. Every one of them was
+ * a comment Kairon would have spoken. Four accepts all of them and still refuses
+ * a fifth sentence, which is where a remark becomes a paragraph.</p>
  */
 public final class ObserverResponseValidator {
 
@@ -40,6 +54,7 @@ public final class ObserverResponseValidator {
             "decision",
             "comment"
     );
+    private static final int MAXIMUM_COMMENT_SENTENCES = 4;
     private static final Pattern SENTENCE_TERMINATOR =
             Pattern.compile(
                     "[.!?\\u2026]+(?=\\s|$)",
@@ -126,7 +141,8 @@ public final class ObserverResponseValidator {
             violations.add("COMMENT_BLANK");
         } else {
             int sentenceCount = countSentences(comment);
-            if (sentenceCount < 1 || sentenceCount > 2) {
+            if (sentenceCount < 1
+                    || sentenceCount > MAXIMUM_COMMENT_SENTENCES) {
                 violations.add("COMMENT_SENTENCE_COUNT");
             }
             noveltyGuard.findViolation(comment, previousComments)

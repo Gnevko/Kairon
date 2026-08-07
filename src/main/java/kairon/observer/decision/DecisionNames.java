@@ -97,6 +97,15 @@ final class DecisionNames {
      * milestone is about the star the ship arrived at, and canonical body facts
      * belong in that turn only while they are still that star's.</p>
      */
+    /** How the journal spells a genus identity, either side of the word. */
+    private static final String GENUS_SYMBOL_PREFIX = "$Codex_Ent_";
+    private static final String GENUS_SYMBOL_SUFFIX = "_Genus_Name;";
+
+    /** Earth's pull in metres per second squared, and the two bands off it. */
+    private static final double STANDARD_GRAVITY = 9.80665;
+    private static final double LOW_GRAVITY_LIMIT = 0.5;
+    private static final double NORMAL_GRAVITY_LIMIT = 1.5;
+
     private static final Map<String, String> CONTEXT_SLOTS_STATED_BY_EVENT =
             Map.of(
                     "vehicleKind", "vehicle.kind",
@@ -107,6 +116,76 @@ final class DecisionNames {
             );
 
     private DecisionNames() {
+    }
+
+    /**
+     * How heavily a body pulls, in three words, or null.
+     *
+     * <p>The measurement is metres per second squared and the bands are against
+     * Earth's own pull: <strong>below half a g</strong> is {@code LOW},
+     * <strong>up to one and a half</strong> is {@code NORMAL}, and anything
+     * above that is {@code HIGH}. Earth is the anchor because it is the one
+     * weight the Commander has felt, and because the landings that go wrong are
+     * the ones where the ship weighs more than it was built to.</p>
+     *
+     * <p>A band rather than the number, because the number is not what a remark
+     * rests on: {@code 0.2371} is a measurement Kairon cannot speak, and asking
+     * the model to decide whether it is a lot is asking it to know what the
+     * ordinary is. Deterministic code stating a band is a claim about the game —
+     * these three thresholds are that claim, and they are here to be argued
+     * with rather than buried in a comparison.</p>
+     *
+     * <p>Null when nothing measured it. Absence is unknown, exactly as it is for
+     * every other body fact, and a body with no reading says nothing about how
+     * heavy it is.</p>
+     */
+    static SemanticValue gravityBand(Double metresPerSecondSquared) {
+        if (metresPerSecondSquared == null) {
+            return SemanticValue.unknown();
+        }
+        double earthPull = metresPerSecondSquared / STANDARD_GRAVITY;
+        if (earthPull < LOW_GRAVITY_LIMIT) {
+            return SemanticValue.ofSymbol("LOW");
+        }
+        return earthPull <= NORMAL_GRAVITY_LIMIT
+                ? SemanticValue.ofSymbol("NORMAL")
+                : SemanticValue.ofSymbol("HIGH");
+    }
+
+    /**
+     * What one genus is called in the document, or null.
+     *
+     * <p>Read off the game's own {@code $Codex_Ent_<word>_Genus_Name;} symbol
+     * rather than off the localised label beside it. The label is whatever
+     * language the game is running in — with a Russian client the biology group
+     * was the one Cyrillic key in an otherwise English document, so the
+     * <em>contract</em> moved with the output language while everything around
+     * it stayed put. Names in this document are its own; the words a comment is
+     * spoken in are the model's.</p>
+     *
+     * <p>The word is Frontier's, not a translation of it: {@code Shrubs} where
+     * the catalogue says Frutexa. That is the identity the journal actually
+     * carries, and inventing a nicer one would be a table of taxonomy to keep in
+     * step with a game that adds to it.</p>
+     *
+     * <p>Null when the symbol is not a genus symbol. A genus is then left out of
+     * the group, exactly as an unlabelled one was before — the identity is still
+     * recorded, still counted and still compared everywhere else.</p>
+     */
+    static String genusField(String genusIdentifier) {
+        if (genusIdentifier == null) {
+            return null;
+        }
+        String symbol = genusIdentifier.strip();
+        if (!symbol.startsWith(GENUS_SYMBOL_PREFIX)
+                || !symbol.endsWith(GENUS_SYMBOL_SUFFIX)) {
+            return null;
+        }
+        String word = symbol.substring(
+                GENUS_SYMBOL_PREFIX.length(),
+                symbol.length() - GENUS_SYMBOL_SUFFIX.length()
+        );
+        return word.isBlank() ? null : word;
     }
 
     /**
@@ -171,6 +250,11 @@ final class DecisionNames {
             case LOADOUT_HASH -> null;
             case SYSTEM_ADDRESS -> null;
             case SYSTEM_NAME -> "name";
+            // The same word the completed-survey event says it in, so the two
+            // are one fact under one spelling and the context drops it in the
+            // turn that reports it.
+            case SYSTEM_BODY_COUNT -> "bodyCount";
+            case SYSTEM_SCANNED_COUNT -> "scannedCount";
             case BODY_ID -> null;
             case BODY_NAME -> "name";
             case BROAD_BODY_TYPE -> "type";
@@ -180,7 +264,13 @@ final class DecisionNames {
             case WAS_DISCOVERED -> "previouslyDiscovered";
             case WAS_MAPPED -> "previouslyMapped";
             case WAS_FOOTFALLED -> "previouslyFootfalled";
-            case DISTANCE_FROM_ARRIVAL_LS -> "distanceFromArrivalLs";
+            // A distance in light seconds to eleven significant figures, which
+            // no decision has been shown to rest on and no comment can speak.
+            // Withdrawn rather than rounded: what it would be for is not
+            // settled, and a number sent without that answer invites a remark
+            // built on it.
+            case DISTANCE_FROM_ARRIVAL_LS -> null;
+            case SURFACE_GRAVITY -> "gravity";
             case BIOLOGICAL_SIGNAL_COUNT -> "biologicalSignals";
             case GEOLOGICAL_SIGNAL_COUNT -> "geologicalSignals";
             case COMMANDER_MODE -> "presence";

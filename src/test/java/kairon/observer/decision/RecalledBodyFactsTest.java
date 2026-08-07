@@ -44,11 +44,9 @@ final class RecalledBodyFactsTest {
                     event.path("event").textValue());
         assertEquals("Icy One", event.path("body").textValue());
         assertEquals("Icy System", event.path("system").textValue());
-        assertEquals(
-                "SUPERCRUISE",
-                request.path("context").path("navigation")
-                        .path("flightMode").textValue(),
-                "navigation context is untouched"
+        assertFalse(
+                request.path("context").has("navigation"),
+                "the approach says the ship is in supercruise in its own words"
         );
     }
 
@@ -58,12 +56,43 @@ final class RecalledBodyFactsTest {
 
         assertEquals("Icy body", body.path("planetClass").textValue());
         assertTrue(body.path("landable").booleanValue());
-        assertEquals(
-                1081.453145,
-                body.path("distanceFromArrivalLs").doubleValue(),
-                0.000001
-        );
+        assertFalse(body.has("distanceFromArrivalLs"));
         assertEquals(1, body.path("biologicalSignals").intValue());
+    }
+
+    /**
+     * How heavily the body pulls, in the three words the contract has for it.
+     *
+     * <p>Both halves of the claim are asserted: the band each side of both
+     * thresholds, and that the number itself never travels. A measurement in
+     * metres per second squared is not what a remark rests on, and the
+     * thresholds — half a g and one and a half — are stated in
+     * {@code DecisionNames.gravityBand} rather than here, so this reads them
+     * rather than restating them.</p>
+     */
+    @Test
+    void aLandableBodyIsBandedByHowHeavilyItPulls() {
+        assertEquals("LOW", gravityOf(2.0, true));
+        assertEquals("LOW", gravityOf(4.8, true));
+        assertEquals("NORMAL", gravityOf(4.95, true));
+        assertEquals("NORMAL", gravityOf(9.80665, true));
+        assertEquals("NORMAL", gravityOf(14.7, true));
+        assertEquals("HIGH", gravityOf(14.85, true));
+        assertEquals("HIGH", gravityOf(30.0, true));
+
+        assertFalse(
+                bodyWithGravity(20.0, false).has("gravity"),
+                "nothing puts down on it, so how heavy it is says nothing"
+        );
+        assertFalse(
+                approach().path("context").path("body").has("gravity"),
+                "nothing measured it, and absence is unknown"
+        );
+        assertFalse(
+                serializer.serialize(approachRequest(2.0, true))
+                        .contains("2.0"),
+                "the measurement itself never travels"
+        );
     }
 
     /**
@@ -180,6 +209,45 @@ final class RecalledBodyFactsTest {
 
     private JsonNode approach() {
         return read(serializer.serialize(approachRequest()));
+    }
+
+    /** The same approach, with a body that was measured and may be landed on. */
+    private LlmDecisionRequest approachRequest(
+            double surfaceGravity,
+            boolean landable
+    ) {
+        DecisionTurnFixture fixture = new DecisionTurnFixture();
+        fixture.inputs(List.of(fixture.graphDisabled("""
+                {"timestamp":"2026-07-30T10:00:00Z","event":"SupercruiseEntry",
+                 "StarSystem":"Icy System","SystemAddress":23155}
+                """)));
+        fixture.graphDisabled("""
+                {"timestamp":"2026-07-30T10:00:01Z","event":"Scan",
+                 "SystemAddress":23155,"BodyID":20,"BodyName":"Icy One",
+                 "PlanetClass":"Icy body","Landable":%s,
+                 "SurfaceGravity":%s,
+                 "WasDiscovered":false,"WasMapped":false,
+                 "WasFootfalled":false}
+                """.formatted(landable, surfaceGravity));
+        return factory.create(fixture.inputs(List.of(
+                fixture.graphDisabled("""
+                        {"timestamp":"2026-07-30T10:00:03Z",
+                         "event":"ApproachBody","StarSystem":"Icy System",
+                         "SystemAddress":23155,"Body":"Icy One","BodyID":20}
+                        """)
+        )));
+    }
+
+    private JsonNode bodyWithGravity(double surfaceGravity, boolean landable) {
+        return read(serializer.serialize(
+                approachRequest(surfaceGravity, landable)
+        )).path("context").path("body");
+    }
+
+    private String gravityOf(double surfaceGravity, boolean landable) {
+        return bodyWithGravity(surfaceGravity, landable)
+                .path("gravity")
+                .textValue();
     }
 
     private static JsonNode read(String serialized) {

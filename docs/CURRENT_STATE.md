@@ -161,7 +161,11 @@ by exactly four lines, all four a sampling event naming its step. The four
 the last of these stops reporting a conversion for a record that does not say
 whether it was one.
 
-**The trajectory speaks the same sentences.** `DecisionTrajectoryNames` is
+**The trajectory speaks the same sentences.** *(Historical: the model-facing
+trajectory was removed entirely by
+[ADR-0026](decisions/ADR-0026-THE-REQUEST-CARRIES-NO-TRAJECTORY.md), and with it
+`DecisionTrajectoryDescriptions`. What follows records what ADR-0023 decided
+while it existed.)* `DecisionTrajectoryNames` is
 `DecisionTrajectoryDescriptions` and holds statements rather than identifiers,
 and `likelyNext[].kind` is `likelyNext[].event`. A prediction reads the same
 past-tense sentence as a memory of the same event; the field it sits in and its
@@ -484,7 +488,42 @@ never from the clock. A detailed `Scan` is now structural as `BODY_SCANNED`
 `BODY_SIGNALS_FOUND` with `SAA_SIGNALS_FOUND` — what the Commander learned is
 what is on the body, and which instrument reported it is Kairon's
 bookkeeping. Neither new kind carries `occurrenceOnBody`: a repeat is never
-recorded, so the count could only ever be one. Graphs written before this
+recorded, so the count could only ever be one.
+
+**The surface scanner lists the organisms it named; the system scanner lists
+nothing.** `SAASignalsFound` carries a `Genuses` array and `FSSBodySignals` does
+not, so `DecisionEventRule.namesOrganisms` (set by `.namingOrganisms()`) is
+declared on the first and not the second, and the event gains
+`"organisms": ["Bacterial", "Fonticulus", "Tussocks"]` beside its
+`biologicalSignals` count. The names are read off the body in the
+`SystemRegistrySnapshot` captured with that very observation — the reading is
+already folded into it — and are resolved to the same word `context.biology`
+uses, so one organism has one spelling in the document. The body is the one the
+reading identified, not the one canonical state has selected: probes are fired
+at a body the ship need not be at.
+
+Geological signals get no such list, because the game supplies no names for
+them: the measured journal's geological readings carry `"Genuses": []` beside
+`Count: 3`. The count is everything that is known at that moment.
+
+**A reading is now compared only against readings by the same instrument.**
+`BodySurveySelectionPolicy` compares the candidate against its own
+`NormalizedEventType` and `BodySurveyNoveltyGuard` keeps one memory per scanner,
+so a surface survey confirming the count a system scan already gave opens a turn
+and records an occurrence, while a second reading by the same scanner still
+opens neither. The old rule compared both instruments by count alone, and the
+2026-08-06 replay shows what that cost: of three `SAASignalsFound` records, two
+produced no turn at all — including the one on `Schieni GG-A c3-64 3` whose
+`Genuses` named the bacteria, two minutes after an `FSSBodySignals` had counted
+the same single signal. The reading that names the organisms was silenced by the
+instrument that cannot name them.
+
+This is the one place the request carries several values under one name.
+`LlmDecisionRequest.Listing` is a name and plain strings — no count beside each,
+no status, no nesting — kept apart from `Field` because `SemanticValue` is a
+closed set with no list in it, and widening it would put the compound value
+[ADR-0024](decisions/ADR-0024-ONE-SHAPE-FOR-A-SIGNAL-COUNT.md) removed back into
+every field of the document. Graphs written before this
 change contain no `SAA_SCAN_COMPLETE`, `BODY_SCANNED` or
 `FSS_BODY_SIGNALS_FOUND` occurrences: they remain readable, but their
 topology reflects the old admission. `LeaveBody` is structural and
@@ -700,6 +739,20 @@ The registry is journal-only, so a replayed registry is identical to a live one
 — unlike the graph, whose `Status.json`-derived occurrences a journal file
 cannot reconstruct.
 
+How much of the system has been read reaches the model as `context.system`:
+`bodyCount`, the total a discovery scan stated, beside `scannedCount`, how many
+of those bodies have a reading. Both or neither — progress is a fraction, and
+before a total exists the arrival star's own milestone turn would carry
+`scannedCount: 1`, the reading that turn is about handed back to it as
+background. The numerator counts stars and planets, which is what `BodyCount`
+totals: Schieni GG-A c3-64 stated 9 and the Commander took eight planet readings
+plus the arrival star's, so barycentres, rings and belt clusters are recorded
+but not counted here. `bodyCount` is spelled as the completed-survey event
+spells it, so the turn that reports the survey does not also carry it as
+background. Adding this moved `target/model-facing-baseline.json` by 41 leaves,
+every one an addition and every one in the two fixtures that contain a discovery
+scan.
+
 `PackageDependencyRulesTest` gained five directions: `kairon.semantics →
 kairon.system`, `kairon.system → kairon.observer`, `kairon.system →
 kairon.behavior`, `kairon.behavior → kairon.system`, and `kairon.system →
@@ -766,6 +819,21 @@ as `LOGIN_TRANSITION_NOT_ESTABLISHED` and is not sent, because the event
 reports a status and never asserts a transition into it. Like every
 NEW-eligible type, either starts a turn only when captured as `LIVE` or
 `REPLAY`; historical `BOOTSTRAP` remains model-silent.
+
+**A batch is bounded in the source's own time as well as on the wall clock.**
+`ObserverTurnCoordinator.batchableCount` stops the batch at the first queued
+trigger whose journal timestamp is more than `maximumBatchAgeMs` after the
+first's, so a turn covers one moment of the game and not one busy window of the
+observer. The two clocks agree in a live session; they do not in replay, where
+`JournalReplaySource` caps each journal pause at six seconds and a turn holds the
+queue until its speech finishes playing. Measured on the 2026-08-06 replay: a
+`SupercruiseExit` at 16:46:16 and a `LaunchFighter` at 16:48:45 — two and a half
+minutes and a whole orbital approach apart — arrived inside one ten-second window
+(804 ms of provider plus 9.6 s of speech) and left as one request carrying two
+`occurrenceOnBody` counts, a moment that never happened. The bound is the batch
+age and deliberately not the quiet period: journal timestamps are whole seconds,
+and a sub-second rule read off them would split batches a live session keeps
+together. An observation with no source time never splits a batch.
 
 Four admission rules narrow NEW eligibility below the type level.
 `LlmJournalEventSelection.admitsAsTrigger` declines a `ReceiveText` whose
@@ -873,10 +941,52 @@ arrival point, and the coarse type restates the class beside it.
 orbital-cruise zone. A detailed `Scan` is now NEW-eligible and reaches the
 model as `BODY_SCANNED`, carrying only the facts a comment could use: body,
 system, scan depth, body type, planet class or star type, landability,
-terraform state, atmosphere, volcanism, the three previously-* flags and the
-arrival distance. Mass, radius, temperature, gravity, orbital elements,
-rings, bulk composition, atmospheric composition and material percentages are
-not sent.
+terraform state, atmosphere, volcanism and the three previously-* flags. Mass,
+radius, temperature, orbital elements, rings, bulk composition, atmospheric
+composition and material percentages are not sent. Neither is the surface
+gravity as measured — the event carries no gravity at all, and what the model
+reads is the band in `context.body` described below.
+
+**The arrival distance is no longer sent either**, on neither side of the
+document: `DecisionNames.field(DISTANCE_FROM_ARRIVAL_LS)` is null, so
+`context.body` drops it, and `distanceFromArrivalLs` is in the projector's
+`DROPPED_QUALIFIERS`, so an event drops it too. It arrived as eleven significant
+figures of light seconds (`1081.453145`) that speech cannot say, and what a
+comment should rest on it is not settled — so it is withdrawn rather than
+rounded. The field is untouched in canonical state, in the registry and in the
+GUI.
+
+**A launch names nothing it acted on, and no field says "player".** The
+`LaunchFighter` record carries no vessel name, so the adapter falls back to the
+journal's `Loadout` token and the one field that should say what went out read
+`loadout: "base"`. `DecisionEventRule.unnamedObject` (set by `.unnamed()`) drops
+the object for that event; the identity is untouched everywhere else. And
+`playerControlled` is renamed to `commanderControlled` in the projector's
+`RENAMED_QUALIFIERS`, on every event that carries it — a landing, a lift-off, a
+launch: there is no player in the world the model speaks about, and every other
+part of the document already says Commander.
+
+**Surface gravity reaches the model as a band, never as a number.**
+`SemanticField.SURFACE_GRAVITY` is answered by the registry like every other
+body fact, and `context.body.gravity` carries `LOW`, `NORMAL` or `HIGH` from
+`DecisionNames.gravityBand`: below 0.5 g is low, up to 1.5 g is normal, above
+that is high, measured against Earth's 9.80665 m/s². Sent **only for a landable
+`PlanetBody`** — on a gas giant the pull describes a place nothing stands on,
+and a band beside it would read as a warning about an impossible landing. Absent
+when nothing measured it, as absence is unknown everywhere else. The banding is
+Kairon's claim, not the game's: the journal reports the measurement and the three
+thresholds are stated in one place so they can be argued with. The registry, the
+graph and the GUI keep the exact figure.
+
+The `biology` group names each genus by the word in its
+`$Codex_Ent_<word>_Genus_Name;` identity (`DecisionNames.genusField`), not by
+the localised label: the label is in whatever language the game runs in, and
+with a Russian client this group was the one Cyrillic key in an otherwise
+English document — the document's contract moved with `outputLanguage` while
+nothing else did. The word is Frontier's own (`Shrubs` where the catalogue says
+Frutexa) rather than a taxonomy table to keep in step. A genus whose identity is
+not a genus symbol is left out of the group, as an unlabelled one was before,
+and is still recorded and compared everywhere else.
 
 A change carried by a hidden observation is reconciled against the final
 canonical state before it is selected. An observation the model is not shown
@@ -904,7 +1014,16 @@ A change is dropped as already said only when an event of the request states
 projection actually emitted, keyed by the canonical identity it emitted them
 under — the field's own model-facing name from `DecisionNames`, or the slot
 declared for an event field that answers a canonical slot under another word
-(`system`, `body`, `ship`, `vehicleKind`). Value equality alone used to be
+(`system`, `body`, `ship`, `vehicleKind`) — and against the canonical values the
+event's own **sentence** states while emitting no field for them
+(`DecisionEventRule.statedValues`, set by `.stating(...)`). Four events declare
+one: `SUPERCRUISE_ENTERED` and `BODY_APPROACHED` say the ship is in supercruise,
+`SUPERCRUISE_EXITED` says it is in normal space, `TOUCHDOWN` says it is landed,
+and `DOCKED` says it is docked, so `context.navigation.flightMode` no longer
+repeats the sentence beside it. It is a claim about wording, read against the
+value and declared per event: `LIFTOFF`, `UNDOCKED` and `BODY_LEFT` imply a mode
+without naming one, and a completed `FSDJump` leaves the ship in supercruise
+while its sentence says only that it jumped — all four still carry the context. Value equality alone used to be
 enough: a landing reporting `occurrenceOnBody: 1` counted as having stated every
 field whose value happened to be one, so a biological count of one was suppressed
 into the context while a count of two stayed in `changes`, and which section a
@@ -948,39 +1067,56 @@ next turn.
 ## Prompt and response contract
 
 The stable system prompt is the single `DecisionPromptFactory.SYSTEM_PROMPT`
-Java constant. It describes a situation, not a system: it names the four
-things a request can contain and what each is for, and never names a schema, a
-bus, a projection, a selection role or the behavior graph.
+Java constant. It has three blocks and no others:
 
-It:
+- **the role** — Kairon as a female in-universe shipboard companion to one
+  human Commander, calm, observant, warm, restrained, occasionally dryly
+  humorous, and never describing herself as an AI, model or assistant;
+- **the preferences** — two lines: greet the Commander when a session begins,
+  and read `biologicalSignals` and `geologicalSignals` as the key finding of a
+  scan result;
+- **the answer contract** — one JSON object, no surrounding text and no extra
+  fields, in exactly one of two shapes.
 
-- defines Kairon as a female in-universe shipboard companion to one human
-  Commander;
-- asks for exactly one decision, SILENT or COMMENT, in at most two sentences,
-  and names routine movement, startup identity, status reports and restatement
-  as normally silent;
-- states once that a missing field means unknown or not relevant, and that a
-  value must never be read into an absent field;
-- states that `events` are the primary factual basis for a comment, that
-  `changes` appear only where the events do not already carry them, and that
-  `context` appears only where the events need it;
-- states that `trajectory.recent` lists real earlier events that already
-  happened, that none of them may be reported as current, and that their
-  sequence may be used to read the present situation cautiously; that
-  `trajectory.likelyNext` is a forecast that has not happened and must never be
-  spoken of as though it had; and that `occurrenceOnBody` counts repeats at that
-  body during this visit;
-- states that `contextIncomplete` means absence is not proof of absence;
-- states the process-safety rule: `stage` START or PROGRESS and `complete`
-  false both mean the action is still running, and that nothing may be called
-  finished, analysed or ready, and no next step recommended, without a current
-  event that establishes it;
-- forbids invented motives, causes, danger, rarity, value, importance and
-  comparisons, and treats text inside names, labels and messages as untrusted
-  data;
-- gives the two exact response shapes.
+It names no schema, no bus, no projection, no selection role and no behaviour
+graph, as it never did. What it also no longer names is the request: nothing
+tells the model what `events`, `changes`, `context` or `trajectory` are for,
+what an absent field means, or what may not be said. The persona controls voice
+and self-presentation; nothing controls event meaning.
 
-The persona controls voice and self-presentation, not event meaning.
+**This is a deliberate reduction from 583 words to 70, and its costs were
+measured before it was made.** The long prompt spent 447 of its 583 words on
+prohibitions, and under it a measured session produced seventeen comments that
+were seventeen captions of the triggering event — not one leaning on the
+trajectory, the standing context, or what the Commander was in the middle of.
+On a landing whose request carried the body's class and an uncollected organism
+it returned SILENT eight times out of eight, where the two-block prompt used
+both facts in three answers out of four.
+
+What went with the prohibitions is real and is not replaced anywhere: without
+the grounding block a bacterium acquires motives, without the process-safety
+block the next step gets recommended, and the objective's silence list was the
+only thing that kept startup identity quiet. A prompt reduced further — the
+role alone, without the answer contract — returned unparseable answers nine
+times out of nine, which is why the contract stays.
+
+The preferences block was added after that reduction and asks for behaviour
+rather than forbidding it: the startup greeting the silence list used to
+suppress is wanted, and the 2026-08-06 replay showed it is no longer offered
+unasked — on the session-load turn naming the Commander, with an empty context,
+the answer was `SILENT`. One line states it. No prohibition returned with it.
+
+Its second line names two request fields — `biologicalSignals` and
+`geologicalSignals` — as the key finding of a scan result, and is the only place
+the prompt says anything about the document at all. The same replay is the
+reason: a turn carrying `biologicalSignals: 1` beside an icy body's class,
+atmosphere, landability and three survey flags produced a remark about the
+methane atmosphere, and the one fact only that request had went unsaid. What is
+stated is which fields carry the finding, not what to say about them and not
+whether to speak; comment-worthiness stays the model's.
+
+The reduction is recorded here rather than argued: it is a decision about what
+Kairon sounds like, and the numbers above are what it is known to cost.
 
 Turn data is a separate user message containing one compact deterministic
 `kairon-llm-decision-v1` JSON object with at most five top-level members:
@@ -995,11 +1131,9 @@ Turn data is a separate user message containing one compact deterministic
   serialized;
 - `context` — the slice of canonical state the turn's mechanisms asked for,
   with subjects still separated;
-- `trajectory` — `recent`, up to three domain-named immediate predecessors from
-  the active episode, oldest first, and `likelyNext`, up to three domain-named
-  predictions carrying the graph's own probability. Absent when every event in
-  the batch is a trajectory-independent kind (`MESSAGE_RECEIVED`,
-  `FRIEND_STATUS`);
+- there is no `trajectory` member: the visit's recent events and the transition
+  model's forecast are removed
+  ([ADR-0026](decisions/ADR-0026-THE-REQUEST-CARRIES-NO-TRAJECTORY.md));
 - `contextIncomplete` — present only when something possibly relevant was lost.
 
 Absent throughout: schema version, turn identity, trigger counts, event ids, bus
@@ -1022,7 +1156,13 @@ There is no separate prompt resource or response JSON Schema.
 `ObserverResponseValidator` is the executable response contract. It accepts
 either `{"decision":"SILENT"}` with exactly that one property, or
 `{"decision":"COMMENT","comment":"…"}` with exactly those two. Comments are
-limited to one or two sentences. Any further property — including the removed
+limited to at most four sentences (`MAXIMUM_COMMENT_SENTENCES`), raised from two
+on the evidence of the 2026-08-06 replay: fifteen of that run's seventy-five
+turns were refused for their sentence count alone — eleven answers of three
+sentences and four of four, the longest 265 characters — and a refusal costs the
+whole turn, because the batch is consumed once and no second decision is made.
+The prompt asks for no length; brevity is the role's, and the ceiling only
+refuses what is no longer a remark. Any further property — including the removed
 `evidence` and the earlier `evidenceTriggerBusSequences` — is
 `INVALID_PROPERTIES`; there is no id validation left, because the request offers
 no id to validate against. `validate` takes the raw output and the previous
@@ -1449,8 +1589,8 @@ reach the model.
 ## kairon-llm-decision-v1 — the production model input
 
 `kairon.observer.decision` holds the production contract: the request record,
-the event catalogue and mechanisms, four projections (events, changes, context,
-trajectory), a deterministic Jackson serializer with an explicit property order,
+the event catalogue and mechanisms, three projections (events, changes,
+context), a deterministic Jackson serializer with an explicit property order,
 and a one-rung compaction ladder. There is no evidence mapping: the response
 cites nothing, so nothing needs translating back.
 `ObserverTurnCoordinator` builds exactly one request per turn — one
@@ -1504,31 +1644,18 @@ therefore cannot reach the generic fallback.
 - Context selection sends only the subjects the turn's mechanisms asked for,
   minus anything the events or changes already state. Subject separation
   survives; the commander group carries presence and nothing else.
-- The behavior graph reaches provider input only as domain content:
-  `trajectory.recent`, `trajectory.likelyNext` and `occurrenceOnBody` on the
-  event. `DecisionTrajectoryDescriptions` maps every declared
-  `NormalizedEventType` to what that event says, and a test parses a record of
-  each class the type can come from and requires the sentence to be the class's
-  own `modelFacingDescription()`; an unmapped type (`UNKNOWN_*`, built from a
-  journal wire name) is dropped rather than passed through. Only six entries are
-  authored in the table rather than taken from a class, and all six are
-  Status-derived — the two scanner modes and the landing gear — for which no
-  journal record exists. `StartJump` and `FSSDiscoveryScan` describe themselves
-  without being model-eligible as events, because the graph records them and a
-  vertex the model can be shown has to be able to say what it is. A prediction reads
-  the same past-tense sentence as a memory of the same event — `likelyNext` and
-  its probability are what say it has not happened, and the prompt says so
-  outright, so there is no second vocabulary in a forward tense to keep in
-  step. `DecisionTrajectoryProjector` reads the situation captured with the
-  final trigger and recomputes nothing — order and probabilities are the
-  calculation's own. It sends no trajectory at all when every projected event in
-  the batch is one of the closed `TRAJECTORY_INDEPENDENT_KINDS` —
-  `MESSAGE_RECEIVED` and `FRIEND_STATUS` — whose meaning owes nothing to where
-  the ship has been. That rule reads projected `kind` values only, never the
-  message text, sender, channel or friend name, and a batch containing any other
-  kind keeps its trajectory in full; a test pins the set against the catalogue.
-  It is not deduplication: repeated identical events remain separate events with
-  separate local ids. `DecisionOccurrenceScope` decides cursor ownership by
+- The behavior graph reaches provider input as one field: `occurrenceOnBody` on
+  the event. `trajectory.recent` and `trajectory.likelyNext` are **removed**
+  ([ADR-0026](decisions/ADR-0026-THE-REQUEST-CARRIES-NO-TRAJECTORY.md)), and with
+  them `DecisionTrajectoryProjector`, `DecisionTrajectoryDescriptions`, the
+  `TRAJECTORY_INDEPENDENT_KINDS` rule, `LlmDecisionRequest.Trajectory`,
+  `LlmDecisionRequest.Prediction` and `DecisionSections.TRAJECTORY`. No comment in
+  any measured run rested on either half, and the forecast misled twice over: it
+  predicted the opening scan of a sampling sequence already running, and it
+  reported a probability of one from a single observation because a share is
+  normalised over the outgoing edges. The graph keeps its episodes, occurrences,
+  transitions, cursor and predictions; none of that is sent.
+- `DecisionOccurrenceScope` decides cursor ownership by
   re-minting the occurrence id the graph would give this observation, because
   `APPLIED` alone is also satisfied by an owner switch, an episode switch or a
   bare revision bump. Graph calculation, normalization, weights, probabilities,
@@ -1558,8 +1685,15 @@ therefore cannot reach the generic fallback.
   from canonical state, and it has to be: only `SAASignalsFound` names the
   genera, and a survey restating counts the system scanner already gave opens no
   turn at all, so the names would otherwise live for one observation the model
-  never sees. Gated by `BODY_DETAIL` and by the same `DecisionBodyScope` the
-  body group uses. One field per organism rather than one field carrying a list,
+  never sees. Gated by `ContextNeed.BIOLOGY` — asked for by exactly one rule,
+  `ScanOrganic.Analysed` through `DecisionContextProfile.SAMPLING_ANALYSED` — and
+  by the same `DecisionBodyScope` the body group uses. The inventory answers one
+  question, *what is left to collect on this body*, and that question is asked
+  when a sample has just been analysed. Under `BODY_DETAIL` it travelled with
+  every landing, approach and scan instead: in the 2026-08-06 replay the first
+  four turns about one icy moon each carried `"Бактерии": "NOT_COLLECTED"`, three
+  of them before the Commander had touched down. A standing fact that is true in
+  every turn is not thereby needed in every turn. One field per organism rather than one field carrying a list,
   because `SemanticValue` is closed and a list variant would put back the
   compound value [ADR-0024](decisions/ADR-0024-ONE-SHAPE-FOR-A-SIGNAL-COUNT.md)
   removed. A genus the game supplies no word for is recorded, counted and
@@ -1579,7 +1713,18 @@ therefore cannot reach the generic fallback.
   arrived as `changes` under the subject `body`. Decided on mechanisms only —
   never on a kind — so a landing, a scan, an approach or a sample is untouched
   and is still settled by the identity comparison.
-- A **codex entry** is the one kind that asks for no body at all. It is read by
+- A **codex entry** carries its name and whether it is new, and nothing else
+  (`.retaining("isNewEntry")`). Its `category` and `region` were the journal's
+  own rubric in the client's language — `Био- и геонаходки` for
+  `$Codex_Category_Biology;` — and a rubric is not a fact about the discovery.
+  The region was worse than unusable beside `newEntry`: the game means new *for
+  that region*, the document never said so, and the 2026-08-06 replay produced
+  "already found in other regions, and here it is the first" out of the two
+  standing together — the run's one invented claim. The `system` field goes with
+  them; the system is the situation, and `context.system.name` says it under the
+  name the rest of the document uses, which is what the event's own field used to
+  suppress.
+- A codex entry is also the one kind that asks for no body at all. It is read by
   `DecisionMechanism.CODEX`, whose only context need is `SYSTEM`, so neither
   `context.body` nor a body-subject change reaches a turn a codex entry is alone
   in. The entry's `BodyID` is not usable as an identity and is not used as one:
@@ -1626,9 +1771,8 @@ therefore cannot reach the generic fallback.
   transitions, probabilities and predictions, and the trajectory names
   `BIOLOGICAL_SAMPLE_STARTED`/`_CONTINUED`/`_COMPLETED` are all unchanged.
 - The compaction ladder has one rung: the selected context, which sets
-  `contextIncomplete` when dropped. Events, changes and the trajectory are
-  mandatory; the trajectory is six items at most, so it cannot be why a turn
-  overflows.
+  `contextIncomplete` when dropped. Events and changes are mandatory, and there
+  is no third mandatory section left to weigh.
 - The character budget is 16 000 Java String characters (`String.length()`),
   hardcoded in `DecisionTurnPolicy.production()`. It is not code points, not
   UTF-8 bytes and not tokens. The number is carried over unchanged from the
@@ -1701,11 +1845,21 @@ model.
    nothing in the repository reads a provider context window.
 11. Decide what else the current-system registry is for
    ([ADR-0025](decisions/ADR-0025-THE-CURRENT-SYSTEM-IS-A-REGISTRY.md) step
-   six). Steps one to five are done. What is deferred is the system-wide view,
-   stations and signal sources as further `SystemObject` kinds, the external
-   source behind `KnowledgeSource.EXTERNAL`, the reference catalogues under a
-   separate `kairon.reference` root, and any use of the registry **by** the
-   graph beyond the body context the coordinator already hands it.
+   seven). Steps one to six are done. What is deferred is stations and signal
+   sources as further `SystemObject` kinds, the external source behind
+   `KnowledgeSource.EXTERNAL`, the reference catalogues under a separate
+   `kairon.reference` root, and any use of the registry **by** the graph beyond
+   the body context the coordinator already hands it.
+12. Give the observer a reason to sound like a companion. A measured run
+   produced seventeen comments and every one of them was a caption of the event
+   that had just happened: not one leaned on `trajectory.recent`, on
+   `trajectory.likelyNext`, or on what the Commander was in the middle of. The
+   prompt is where to look first — 104 words say who she is and 447 say what she
+   must not do, `trajectory.recent` gets one hedged permission against one
+   prohibition, and `likelyNext` gets three prohibitions and no statement of
+   what it is for. Beyond the prompt, she is never shown her own previous
+   comments: they are internal to the repetition guard, so no continuity of
+   voice is possible by construction, and changing that is an ADR.
 
 ## Explicitly deferred
 

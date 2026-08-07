@@ -318,6 +318,9 @@ class CurrentGameStateSemanticDeltaTest {
         assertTrue(SemanticField.FLIGHT_MODE.answeredByCanonicalState());
         assertTrue(SemanticField.COMMANDER_MODE.answeredByCanonicalState());
 
+        // Everything canonical state does not answer is the current-system
+        // registry's: what a body is, what grows on it, and how much of the
+        // system has been read.
         for (SemanticField field : SemanticField.values()) {
             if (field.answeredByCanonicalState()) {
                 continue;
@@ -325,8 +328,11 @@ class CurrentGameStateSemanticDeltaTest {
             assertTrue(
                     field.subject() == SemanticSubject.CURRENT_BODY
                             || field.subject()
-                            == SemanticSubject.BIOLOGICAL_SAMPLING_PROCESS,
-                    field + " is not canonical state's but is not a body fact"
+                            == SemanticSubject.BIOLOGICAL_SAMPLING_PROCESS
+                            || field.subject()
+                            == SemanticSubject.CURRENT_SYSTEM,
+                    field + " is not canonical state's and is not the "
+                            + "registry's either"
             );
         }
     }

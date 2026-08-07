@@ -56,7 +56,7 @@ final class DecisionSurfaceVehicleContextTest {
 
             JsonNode request = lastRequest(pipeline);
             assertEquals(
-                    List.of("events", "context", "trajectory"),
+                    List.of("events", "context"),
                     propertyNames(request)
             );
             JsonNode event = request.path("events").get(0);
@@ -67,7 +67,7 @@ final class DecisionSurfaceVehicleContextTest {
                     List.of(
                             "event",
                             "body",
-                            "playerControlled",
+                            "commanderControlled",
                             "occurrenceOnBody"
                     ),
                     propertyNames(event),
@@ -76,8 +76,10 @@ final class DecisionSurfaceVehicleContextTest {
 
             JsonNode context = request.path("context");
             assertEquals(
-                    List.of("system", "body", "navigation", "vehicle"),
-                    propertyNames(context)
+                    List.of("system", "body", "vehicle"),
+                    propertyNames(context),
+                    "the landing says the ship is down in its own words, so "
+                            + "no navigation group repeats it"
             );
             assertEquals(
                     "SLV",
@@ -89,17 +91,9 @@ final class DecisionSurfaceVehicleContextTest {
                     context.has("commander"),
                     "a cargo tag does not establish where the Commander is"
             );
-            assertEquals(
-                    "LANDED",
-                    context.path("navigation").path("flightMode").textValue()
-            );
-            assertEquals(
-                    List.of(
-                            "A ship in supercruise came within a body's orbital-cruise zone.",
-                            "A ship dropped out of supercruise into normal space.",
-                            "A vehicle was launched from the ship."
-                    ),
-                    recent(request)
+            assertFalse(
+                    context.has("navigation"),
+                    "the landing already said the ship is down"
             );
 
             String serialized = request.toString();
@@ -211,8 +205,9 @@ final class DecisionSurfaceVehicleContextTest {
             assertFalse(request.path("context").has("vehicle"));
             assertFalse(request.toString().contains("UNKNOWN"));
             assertEquals(
-                    List.of("system", "body", "navigation"),
-                    propertyNames(request.path("context"))
+                    List.of("system", "body"),
+                    propertyNames(request.path("context")),
+                    "the landing says the ship is down in its own words"
             );
         }
     }
@@ -309,13 +304,6 @@ final class DecisionSurfaceVehicleContextTest {
         return read(serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(triggers.getLast()))
         )));
-    }
-
-    private static List<String> recent(JsonNode request) {
-        List<String> recent = new ArrayList<>();
-        request.path("trajectory").path("recent")
-                .forEach(kind -> recent.add(kind.textValue()));
-        return List.copyOf(recent);
     }
 
     private static List<String> propertyNames(JsonNode node) {

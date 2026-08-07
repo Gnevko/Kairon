@@ -287,20 +287,6 @@ final class SamplingOccurrenceCountTest {
                             + "\"stage\":\"FINAL\",\"complete\":true}",
                     request.path("events").get(0).toString()
             );
-            assertEquals(
-                    List.of(
-                            "A ship landed on the surface of a planet or moon.",
-                            "The Commander stepped out of a ship or SRV.",
-                            "The organic sampling tool recorded a subsequent scan of an unfinished sampling sequence."
-                    ),
-                    texts(request.path("trajectory").path("recent"))
-            );
-            assertFalse(
-                    texts(request.path("trajectory").path("recent"))
-                            .contains("The organic sampling tool recorded the final scan and completed a sampling "
-                                    + "sequence."),
-                    "the current event is not one of its own predecessors"
-            );
         }
     }
 

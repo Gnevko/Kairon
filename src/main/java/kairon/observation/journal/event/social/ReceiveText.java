@@ -25,9 +25,16 @@ public record ReceiveText(RawJournalData raw)
         raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
     }
 
+    /**
+     * The only event whose content is written by a person. Everything else the
+     * model is shown was built here; this one carries a stranger's words, so
+     * the sentence says whose they are and where they were said, and the
+     * channel and sender fields beside it name which player and which channel.
+     */
     @Override
     public String modelFacingDescription() {
-        return "A text message was received.";
+        return "Another player sent a text message to a channel the Commander "
+                + "is in.";
     }
 
     @Override

@@ -2,16 +2,18 @@
 
 ## Status
 
-Accepted. Steps one to five of the staging in *Consequences* are implemented,
-together with the part of step six the fifth step turned out to require: the
-behaviour graph's body context is supplied from the registry, translated by the
-projection coordinator, so that removing those fields from canonical state did
-not silently coarsen the graph's transition context keys.
+Accepted. Steps one to six of the staging in *Consequences* are implemented. Step
+five also required a piece of what had been deferred: the behaviour graph's body
+context is supplied from the registry, translated by the projection coordinator,
+so that removing those fields from canonical state did not silently coarsen the
+graph's transition context keys.
+
 `target/model-facing-baseline.json` grew when the `Scan` fixture was added, did
-not move by a byte while the registry and its view were built, moved once at
-step four — 85 159 to 86 499 bytes, every added line a `biology` group — and did
-not move by a byte at step five. Per-step status is tracked in
-[`CURRENT_STATE.md`](../CURRENT_STATE.md).
+not move by a byte while the registry and its view were built, moved at step
+four — 85 159 to 86 499 bytes, every added line a `biology` group — did not move
+by a byte at step five, and moved at step six by 41 leaves, every one an
+addition and every one in the two fixtures that contain a discovery scan.
+Per-step status is tracked in [`CURRENT_STATE.md`](../CURRENT_STATE.md).
 
 ## Context
 
@@ -226,6 +228,26 @@ Nothing, at first. The registry is state; what reaches the model stays governed
 by `DecisionContextSelector` and by the 16 000-character budget, and the whole
 registry could never fit inside it.
 
+The second use, added after a measured run showed the cost of its absence, is
+how much of the system has been read: `context.system` carries `bodyCount` — the
+total a discovery scan stated — beside `scannedCount`, how many of those bodies
+the Commander actually has a reading for. A run without them had Kairon call the
+eleventh body of a system "the first planet discovered here", and nothing in the
+request could contradict it.
+
+Both or neither. Progress is a fraction, and a bare numerator is worse than
+silence: before the discovery scan states a total, the arrival star's own
+milestone turn carried `scannedCount: 1` — the reading that turn is about, handed
+back to it as background. A count of zero is absent too, for the reason every
+other absent field is.
+
+The numerator counts stars and planets, because that is what a discovery scan
+totals. Read off a measured journal rather than assumed: Schieni GG-A c3-64
+reported `BodyCount: 9`, and the Commander took eight planet readings plus the
+arrival star's. Barycentres, rings and belt clusters are recorded all the same;
+they are not what the total is a total of, and two numbers that are not
+comparable must not be put side by side.
+
 The first and only model-facing use is exobiology on the body the Commander is
 on: which genera the surface survey reported, and which of them have a completed
 sampling sequence. The denominator is `SAASignalsFound.Genuses`, available only
@@ -291,9 +313,12 @@ The work is staged so that each step is provable on its own.
    everything at once and prove nothing. This step is also where the open
    per-field-origin defect ends — "what changed now" and "what is known about
    this body" stop being one value with a flag on it.
-6. Later, outside this ADR's staging: the system-wide view, stations and
-   signals, the external source, the reference catalogues, and any further use
-   by the graph.
+6. **How much of the system has been read reaches `context.system`.** The
+   baseline moves here, by addition only: 41 leaves in the two fixtures that
+   contain a discovery scan, and not one existing value.
+7. Later, outside this ADR's staging: stations and signal sources as further
+   `SystemObject` kinds, the external source, the reference catalogues, and any
+   further use by the graph.
 
 ### What step five turned out to require of step six
 

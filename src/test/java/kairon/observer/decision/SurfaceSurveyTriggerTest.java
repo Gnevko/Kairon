@@ -57,16 +57,22 @@ final class SurfaceSurveyTriggerTest {
                     {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "biologicalSignals":1}],\
-                    "trajectory":{"recent":["A ship jumped from one star system to another."]}}""",
+                    "biologicalSignals":1}]}""",
                     lastUserMessage(pipeline)
             );
         }
     }
 
-    /** B2: and the system scan confirming it says nothing further. */
+    /**
+     * B2: the probes are heard even when they confirm the count.
+     *
+     * <p>What the surface scanner adds is the names, and the system scanner has
+     * none to give — so the two readings are not the same result and the second
+     * is a finding of its own. The same instrument repeating itself still is
+     * not: the second system scan below opens nothing.</p>
+     */
     @Test
-    void aConfirmingSystemScanInALaterBatchOpensNoTurn(@TempDir Path directory)
+    void aSurveyAfterASystemScanIsItsOwnFinding(@TempDir Path directory)
             throws Exception {
         try (DecisionProductionPipeline pipeline = perTrigger(directory)) {
             arrived(pipeline);
@@ -74,20 +80,30 @@ final class SurfaceSurveyTriggerTest {
             pipeline.settle();
             int afterFirstReading = pipeline.modelInputs().size();
 
-            pipeline.journal(saa("2026-07-30T10:02:00Z", BIO_1));
+            pipeline.journal(fss("2026-07-30T10:02:00Z", BIO_1));
+            pipeline.settle();
+
+            assertEquals(
+                    afterFirstReading,
+                    pipeline.modelInputs().size(),
+                    "the system scanner said the same thing twice"
+            );
+
+            pipeline.journal(saa("2026-07-30T10:03:00Z", BIO_1));
             pipeline.settle();
 
             assertEquals(
                     List.of(
                             NormalizedEventType.SYSTEM_ENTRY,
-                            NormalizedEventType.FSS_BODY_SIGNALS_FOUND
+                            NormalizedEventType.FSS_BODY_SIGNALS_FOUND,
+                            NormalizedEventType.SAA_SIGNALS_FOUND
                     ),
                     pipeline.episodeTypes()
             );
             assertEquals(
-                    afterFirstReading,
+                    afterFirstReading + 1,
                     pipeline.modelInputs().size(),
-                    "one finding, one turn"
+                    "and the probes reported for themselves"
             );
         }
     }
@@ -164,9 +180,7 @@ final class SurfaceSurveyTriggerTest {
                     """
                     {"events":[{"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "biologicalSignals":2}],\
-                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
-                    "A surface area analysis scan reported signal data for a planet or rings."]}}""",
+                    "biologicalSignals":2}]}""",
                     lastUserMessage(pipeline)
             );
         }

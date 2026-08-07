@@ -19,8 +19,18 @@ import java.util.TreeMap;
  * Subscriber-owned memory of which scanner results have already opened a turn.
  *
  * <p>The rule it applies is {@link BodySurveyFacts}: a result is the same
- * result when it says the same thing about the same body. The memory of what
- * has been seen is this subscriber's own, and it lasts exactly one visit.</p>
+ * result when the same instrument says the same thing about the same body. The
+ * memory of what has been seen is this subscriber's own, and it lasts exactly
+ * one visit.</p>
+ *
+ * <h2>Why per instrument</h2>
+ * <p>The two scanners answer different questions. The system scanner counts the
+ * signals a body carries; the surface scanner fires probes at it and names the
+ * organisms. Compared by count alone, a survey confirming what the system scan
+ * already said looked like the same result — so the one reading that says which
+ * organisms are down there never opened a turn, and the names reached the model
+ * only later, if at all. A second reading by the <em>same</em> instrument is
+ * still the same result and is still declined.</p>
  *
  * <h2>Why a visit and not a system</h2>
  * <p>Coming back to a system is looking at its bodies again, and the first
@@ -44,7 +54,10 @@ import java.util.TreeMap;
 final class BodySurveyNoveltyGuard {
 
     private final Map<BodyIdentity, String> scanResults = new TreeMap<>();
-    private final Map<BodyIdentity, String> signalResults = new TreeMap<>();
+    private final Map<BodyIdentity, String> systemSignalResults =
+            new TreeMap<>();
+    private final Map<BodyIdentity, String> surfaceSignalResults =
+            new TreeMap<>();
 
     /**
      * Which visit the memory belongs to.
@@ -170,7 +183,17 @@ final class BodySurveyNoveltyGuard {
             return scan && admitsArrivalDiscovery(raw);
         }
         BodyIdentity body = BodySurveyFacts.bodyIdentity(raw);
-        Map<BodyIdentity, String> seen = scan ? scanResults : signalResults;
+        // A reading is compared against readings from the same instrument. The
+        // two scanners answer different questions — the system scanner counts
+        // the signals a body carries, the surface scanner fires probes and
+        // names the organisms — so a survey repeating the count the system scan
+        // gave is not the same result told twice. Compared by count alone, the
+        // one reading that names them never opened a turn.
+        Map<BodyIdentity, String> seen = scan
+                ? scanResults
+                : (event instanceof SAASignalsFound
+                        ? surfaceSignalResults
+                        : systemSignalResults);
         if (signature.equals(seen.get(body))) {
             return false;
         }
@@ -218,7 +241,8 @@ final class BodySurveyNoveltyGuard {
         visitArrivalBody = arrivalBody;
         arrivalDiscoveryReported = false;
         scanResults.clear();
-        signalResults.clear();
+        systemSignalResults.clear();
+        surfaceSignalResults.clear();
     }
 
     private void endVisit() {
@@ -227,6 +251,7 @@ final class BodySurveyNoveltyGuard {
         visitArrivalBody = null;
         arrivalDiscoveryReported = false;
         scanResults.clear();
-        signalResults.clear();
+        systemSignalResults.clear();
+        surfaceSignalResults.clear();
     }
 }

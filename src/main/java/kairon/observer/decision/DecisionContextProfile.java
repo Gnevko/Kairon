@@ -113,6 +113,23 @@ public enum DecisionContextProfile {
             ContextNeed.PRESENCE
     )),
 
+    /**
+     * The same, plus what grows here and what is already collected.
+     *
+     * <p>Only the analysis that finishes a sample reads this. The inventory is
+     * an answer to one question — what is left to collect on this body — and
+     * that question is asked once, when a sample has just been analysed. Every
+     * other turn was carrying it as a standing fact, so a landing, an approach
+     * and a scan each said "not collected" about an organism nobody was
+     * collecting yet.</p>
+     */
+    SAMPLING_ANALYSED(Set.of(
+            ContextNeed.BODY_DETAIL,
+            ContextNeed.SAMPLING,
+            ContextNeed.PRESENCE,
+            ContextNeed.BIOLOGY
+    )),
+
     /** The system, the body by name, and the ship. */
     SYSTEM_BODY_AND_SHIP(Set.of(
             ContextNeed.SYSTEM,
@@ -156,6 +173,8 @@ public enum DecisionContextProfile {
                 case SHIP -> "ship";
                 case VEHICLE -> "vehicle";
                 case SAMPLING -> "sampling";
+                // What grows on it is a fact about the body, like its class.
+                case BIOLOGY -> "body";
             });
         }
         return Set.copyOf(subjects);
@@ -192,6 +211,18 @@ public enum DecisionContextProfile {
         VEHICLE,
 
         /** A running organic sampling sequence. */
-        SAMPLING
+        SAMPLING,
+
+        /**
+         * What grows on this body and what has been collected of it.
+         *
+         * <p>Asked for by one event only: the analysis that finishes a sample.
+         * That is the moment the inventory answers a question — what is left to
+         * collect here — and it was travelling with every landing, approach and
+         * scan of the body instead, saying "not collected" beside events that
+         * had nothing to do with collecting. A standing fact that is true in
+         * every turn is not thereby needed in every turn.</p>
+         */
+        BIOLOGY
     }
 }

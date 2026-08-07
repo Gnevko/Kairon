@@ -73,8 +73,7 @@ final class ArrivalStarDiscoveryTest {
                     "arrivalStar":"Schieni SI-B e756",\
                     "system":"Schieni SI-B e756",\
                     "starType":"B",\
-                    "previouslyDiscovered":false}],\
-                    "trajectory":{"recent":["A ship jumped from one star system to another."]}}""",
+                    "previouslyDiscovered":false}]}""",
                     document(pipeline),
                     "the milestone and the trajectory, and nothing else"
             );
@@ -132,8 +131,7 @@ final class ArrivalStarDiscoveryTest {
                         {"events":[{"event":"A scan reported a \
                         star as not previously discovered.",\
                         "arrivalStar":"%s","system":"%s","starType":"%s",\
-                        "previouslyDiscovered":false}],\
-                        "trajectory":{"recent":["A ship jumped from one star system to another."]}}""")
+                        "previouslyDiscovered":false}]}""")
                                 .formatted(
                                         arrival.system(),
                                         arrival.system(),
@@ -191,10 +189,7 @@ final class ArrivalStarDiscoveryTest {
             );
             assertEquals("Icy body", body.path("planetClass").textValue());
             assertEquals(false, body.path("landable").booleanValue());
-            assertEquals(
-                    1081.453145,
-                    body.path("distanceFromArrivalLs").doubleValue()
-            );
+            assertFalse(body.has("distanceFromArrivalLs"));
         }
     }
 

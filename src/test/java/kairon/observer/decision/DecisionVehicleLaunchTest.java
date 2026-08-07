@@ -47,14 +47,17 @@ final class DecisionVehicleLaunchTest {
         JsonNode event = request.path("events").get(0);
 
         assertEquals(
-                List.of("event", "loadout", "playerControlled"),
+                List.of("event", "commanderControlled"),
                 propertyNames(event)
         );
         assertEquals(
                     "A vehicle was launched from the ship.",
                     event.path("event").textValue());
-        assertEquals("base", event.path("loadout").textValue());
-        assertTrue(event.path("playerControlled").booleanValue());
+        assertFalse(
+                event.has("loadout"),
+                "the launch record carries no vessel name, only a loadout token"
+        );
+        assertTrue(event.path("commanderControlled").booleanValue());
 
         String serialized = request.toString();
         for (String claim : List.of(
@@ -110,14 +113,6 @@ final class DecisionVehicleLaunchTest {
      */
     @Test
     void theRememberedLaunchUsesTheSameNameTheEventDoes() {
-        assertEquals(
-                "A vehicle was launched from the ship.",
-                DecisionTrajectoryDescriptions.descriptionOf(
-                        NormalizedEventType.AUXILIARY_VEHICLE_LAUNCHED
-                ),
-                "the remembered launch says what the launch turn said"
-        );
-
         DecisionTurnFixture fixture = new DecisionTurnFixture();
         JsonNode request = read(serializer.serialize(factory.create(
                 fixture.inputs(List.of(fixture.graphed(
@@ -139,15 +134,6 @@ final class DecisionVehicleLaunchTest {
                 )))
         )));
 
-        assertEquals(
-                List.of(
-                        "A ship jumped from one star system to another.",
-                        "A ship dropped out of supercruise into normal space.",
-                        "A vehicle was launched from the ship."
-                ),
-                recent(request),
-                "the launch sits between the drop and the landing"
-        );
     }
 
     /**
@@ -282,13 +268,6 @@ final class DecisionVehicleLaunchTest {
         return read(serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(triggers.get(index)))
         )));
-    }
-
-    private static List<String> recent(JsonNode request) {
-        List<String> recent = new ArrayList<>();
-        request.path("trajectory").path("recent")
-                .forEach(kind -> recent.add(kind.textValue()));
-        return List.copyOf(recent);
     }
 
     private static List<String> propertyNames(JsonNode node) {

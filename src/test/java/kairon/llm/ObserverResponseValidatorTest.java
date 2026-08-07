@@ -252,10 +252,34 @@ final class ObserverResponseValidatorTest {
         );
     }
 
+    /**
+     * The ceiling refuses a paragraph, not a third sentence.
+     *
+     * <p>Under a ceiling of two, fifteen of the seventy-five turns of the
+     * 2026-08-06 replay were refused for their sentence count alone — answers of
+     * three and four sentences that would otherwise have been spoken. Both ends
+     * are asserted here: a refusal is the loss of a whole turn, so the bound is
+     * worth as much as the accepts below it.</p>
+     */
     @Test
-    void rejectsACommentThatIsNotOneOrTwoSentences() {
+    void acceptsUpToFourSentencesAndRefusesAFifth() {
+        for (String text : List.of(
+                "Supercruise is engaged.",
+                "Supercruise is engaged. The star is close.",
+                "Supercruise is engaged. The star is close. Heat is rising.",
+                "Supercruise is engaged. The star is close. Heat is rising. "
+                        + "Nothing alarming yet."
+        )) {
+            ValidatedObserverResponse response = validator.validate(
+                    comment(text),
+                    PREVIOUS_COMMENTS
+            );
+
+            assertEquals(Status.VALID, response.status(), text);
+            assertEquals(List.of(), response.violations(), text);
+        }
         assertViolation(
-                comment("One. Two. Three."),
+                comment("One. Two. Three. Four. Five."),
                 "COMMENT_SENTENCE_COUNT"
         );
     }
@@ -266,7 +290,7 @@ final class ObserverResponseValidatorTest {
         for (String raw : List.of(
                 "{\"decision\":\"SILENT\",\"extra\":1}",
                 "{\"decision\":\"COMMENT\"}",
-                comment("One. Two. Three."),
+                comment("One. Two. Three. Four. Five."),
                 "{\"decision\":\"COMMENT\",\"comment\":\"x\",\""
                         + REMOVED_CITATION_PROPERTY
                         + "\":[1]}"

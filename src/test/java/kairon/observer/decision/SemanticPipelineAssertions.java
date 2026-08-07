@@ -133,11 +133,6 @@ final class SemanticPipelineAssertions {
                     return null;
                 });
         int position = turn.triggerBusSequences().indexOf(busSequence);
-        assertTrue(
-                position >= 0 && position < turn.eventIds().size(),
-                () -> "trigger #" + busSequence
-                        + " has no event in its own turn\n" + trace.describe()
-        );
         assertEquals(
                 expectedKind,
                 turn.eventKinds().get(position),
@@ -150,24 +145,6 @@ final class SemanticPipelineAssertions {
                 () -> "local event ids must be 1..n in source order\n"
                         + trace.describe()
         );
-        if (trace.graphEnabled() && turn.hasTrajectory()) {
-            long earlierOfType = trace.occurrences().stream()
-                    .filter(occurrence ->
-                            occurrence.eventType().equals(expectedType))
-                    .filter(occurrence -> occurrence.sourceBusSequence()
-                            .map(sequence -> sequence < busSequence)
-                            .orElse(true))
-                    .count();
-            long namedInRecent = countOf(turn.recent(), expectedKind);
-            assertTrue(
-                    namedInRecent <= earlierOfType,
-                    () -> "trajectory.recent names " + expectedKind + " "
-                            + namedInRecent + " times but only "
-                            + earlierOfType
-                            + " earlier occurrence(s) exist, so the current "
-                            + "one is in its own history\n" + trace.describe()
-            );
-        }
     }
 
     /**
@@ -272,15 +249,16 @@ final class SemanticPipelineAssertions {
                     return null;
                 });
         int position = turn.triggerBusSequences().indexOf(busSequence);
-        // Both sides say the same sentence, because the trajectory says the
-        // same sentences the events do. It used to be two internal names —
-        // the trajectory's identifier against the catalogue kind — which
-        // agreed with each other and with nothing the model could read.
-        assertEquals(
-                DecisionTrajectoryDescriptions.descriptionOf(expectedType),
-                turn.eventDescriptions().get(position),
-                () -> "the occurrence and the model-facing event are described "
-                        + "differently\n" + trace.describe()
+        // The occurrence and the model-facing event are the same observation,
+        // so the turn carries an event exactly where that trigger sits. They
+        // used to be compared by sentence too, through the trajectory's
+        // vocabulary; with the trajectory gone there is no second rendering of
+        // an event type left to disagree with the first.
+        assertTrue(
+                position >= 0
+                        && position < turn.eventDescriptions().size(),
+                () -> "the occurrence reached a turn carrying no event for it"
+                        + " " + trace.describe()
         );
     }
 
@@ -578,14 +556,13 @@ final class SemanticPipelineAssertions {
     /**
      * The request with everything the graph contributes removed.
      *
-     * <p>Exactly three things: the trajectory, its predictions, and the
-     * per-body occurrence count. Nothing else is normalised away — the point of
-     * the comparison is what survives it.</p>
+     * <p>Exactly one thing now: the per-body occurrence count. The trajectory
+     * and its predictions were the other two, and they no longer exist in the
+     * document at all. Nothing else is normalised away — the point of the
+     * comparison is what survives it.</p>
      */
     private static JsonNode withoutGraphShape(JsonNode document) {
         JsonNode copy = document.deepCopy();
-        ((com.fasterxml.jackson.databind.node.ObjectNode) copy)
-                .remove("trajectory");
         copy.path("events").forEach(event -> {
             if (event.isObject()) {
                 ((com.fasterxml.jackson.databind.node.ObjectNode) event)
@@ -603,9 +580,6 @@ final class SemanticPipelineAssertions {
                 .sum();
     }
 
-    private static long countOf(List<String> values, String value) {
-        return values.stream().filter(value::equals).count();
-    }
 
     /**
      * The canonical field a model-facing {@code subject.name} stands for.

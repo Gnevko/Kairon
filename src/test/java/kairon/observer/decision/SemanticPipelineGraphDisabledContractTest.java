@@ -54,10 +54,6 @@ final class SemanticPipelineGraphDisabledContractTest {
                     "the observer decides what the model sees, not the graph"
             );
             for (PipelineTrace.TurnView turn : trace.turns()) {
-                assertFalse(
-                        turn.hasTrajectory(),
-                        "there is no history without a graph"
-                );
             }
         }
     }

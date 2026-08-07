@@ -108,7 +108,15 @@ final class FieldAwareStatementTest {
         );
     }
 
-    /** A field the event never mentions is never stated. */
+    /**
+     * A field the event never mentions is never stated.
+     *
+     * <p>The flight mode is the exception that proves it: a landing carries no
+     * flight-mode field either, and states it anyway — because its sentence
+     * says the ship is down, and the rule declares that
+     * ({@code DecisionEventRule.statedValues}). It holds at that one value: the
+     * same landing says nothing about being in supercruise.</p>
+     */
     @Test
     void aFieldTheEventDoesNotCarryIsNotStated(@TempDir Path directory) {
         ProjectedEvent event = touchdown(directory);
@@ -117,10 +125,14 @@ final class FieldAwareStatementTest {
                 SemanticField.PLANET_CLASS,
                 SemanticValue.ofSymbol("Icy body")
         ));
-        assertFalse(event.states(
+        assertTrue(event.states(
                 SemanticField.FLIGHT_MODE,
                 SemanticValue.ofSymbol("LANDED")
-        ));
+        ), "the landing says the ship is down in its own words");
+        assertFalse(event.states(
+                SemanticField.FLIGHT_MODE,
+                SemanticValue.ofSymbol("SUPERCRUISE")
+        ), "and says nothing about a mode it is not in");
     }
 
     /**
@@ -217,7 +229,7 @@ final class FieldAwareStatementTest {
             PipelineTrace.TurnView turn = trace.turns().getLast();
 
             assertTrue(
-                    turn.events().get(0).path("playerControlled")
+                    turn.events().get(0).path("commanderControlled")
                             .booleanValue(),
                     "the landing states who was flying"
             );

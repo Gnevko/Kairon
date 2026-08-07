@@ -116,8 +116,7 @@ final class BodyScanEventTest {
                     "atmosphere":"thin sulphur dioxide atmosphere",\
                     "volcanism":"major water geysers volcanism",\
                     "previouslyDiscovered":false,"previouslyMapped":false,\
-                    "previouslyFootfalled":false,\
-                    "distanceFromArrivalLs":1081.453145}""",
+                    "previouslyFootfalled":false}""",
                     eventJson(pipeline, BODY_READING)
             );
 

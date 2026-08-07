@@ -10,12 +10,11 @@ import java.util.Objects;
  * Fits a decision request to the character budget, or refuses.
  *
  * <p>One rung: the selected context can go, because it is by construction the
- * part the events could be understood without. Events, changes and the
- * trajectory are mandatory — an event is the evidence a comment must rest on,
- * an exact state change is never compactable, and the trajectory is six items
- * at most — so a request that cannot hold them is not compacted into a smaller
- * lie. It fails closed, the provider is never called, and the turn ends as
- * {@code CONTEXT_TOO_LARGE}.</p>
+ * part the events could be understood without. Events and changes are mandatory
+ * — an event is the evidence a comment must rest on, and an exact state change
+ * is never compactable — so a request that cannot hold them is not compacted
+ * into a smaller lie. It fails closed, the provider is never called, and the
+ * turn ends as {@code CONTEXT_TOO_LARGE}.</p>
  *
  * <p>Dropping the context sets {@code contextIncomplete}, which is the only
  * thing the model is told about it: something relevant was left out, so do not
@@ -104,11 +103,10 @@ public final class LlmDecisionRequestCompactor {
     private List<Result.SectionWeight> sectionWeights(
             LlmDecisionRequest mandatory
     ) {
-        List<Result.SectionWeight> weights = new ArrayList<>(3);
+        List<Result.SectionWeight> weights = new ArrayList<>(2);
         for (String section : List.of(
                 DecisionSections.EVENTS,
-                DecisionSections.CHANGES,
-                DecisionSections.TRAJECTORY
+                DecisionSections.CHANGES
         )) {
             weights.add(new Result.SectionWeight(
                     section,
@@ -132,10 +130,6 @@ public final class LlmDecisionRequestCompactor {
                 source.events(),
                 source.changes(),
                 List.of(),
-                // Bounded at three predecessors and three predictions, so it
-                // cannot be the reason a turn overflows and dropping it would
-                // buy nothing worth the loss of a repeat being recognisable.
-                source.trajectory(),
                 true
         );
     }

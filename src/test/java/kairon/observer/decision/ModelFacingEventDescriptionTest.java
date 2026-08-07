@@ -80,7 +80,7 @@ final class ModelFacingEventDescriptionTest {
         JSON.readTree(serialized).path("events").get(0)
                 .fieldNames().forEachRemaining(names::add);
         assertEquals(
-                List.of("event", "body", "playerControlled"),
+                List.of("event", "body", "commanderControlled"),
                 names,
                 serialized
         );

@@ -261,9 +261,17 @@ final class BodySignalsEventTest {
         }
     }
 
-    /** D7: and so is the surface survey confirming it. */
+    /**
+     * D7: the probes are heard even when they confirm the count.
+     *
+     * <p>The system scanner counts the signals a body carries; the surface
+     * scanner fires probes and names the organisms. The two readings are not
+     * the same result, so the survey records its own occurrence and opens its
+     * own turn — compared by count alone, the reading that names them never
+     * reached the Commander.</p>
+     */
     @Test
-    void aSurfaceSurveyConfirmingTheSameSetIsNotASecondFinding(
+    void aSurfaceSurveyConfirmingTheSameSetIsItsOwnFinding(
             @TempDir Path directory
     ) throws Exception {
         try (DecisionProductionPipeline pipeline =
@@ -295,13 +303,14 @@ final class BodySignalsEventTest {
                     List.of(
                             NormalizedEventType.SYSTEM_ENTRY,
                             NormalizedEventType.FSS_BODY_SIGNALS_FOUND,
-                            NormalizedEventType.SAA_SCAN_COMPLETE
+                            NormalizedEventType.SAA_SCAN_COMPLETE,
+                            NormalizedEventType.SAA_SIGNALS_FOUND
                     ),
                     run,
-                    "the completed survey stays; only its restated result goes"
+                    "the survey records what it found under its own type"
             );
             assertEquals(
-                    0L,
+                    1L,
                     pipeline.graphOccurrenceCount(
                             NormalizedEventType.SAA_SIGNALS_FOUND
                     )
@@ -310,9 +319,11 @@ final class BodySignalsEventTest {
                     List.of(
                             "SYSTEM_JUMP",
                             "BODY_SIGNALS_FOUND",
-                            "BODY_MAPPING_COMPLETED"
+                            "BODY_MAPPING_COMPLETED",
+                            "BODY_SIGNALS_FOUND"
                     ),
-                    pipeline.modelFacingKinds()
+                    pipeline.modelFacingKinds(),
+                    "one finding per instrument, under one model-facing kind"
             );
         }
     }
@@ -376,44 +387,24 @@ final class BodySignalsEventTest {
                     {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "biologicalSignals":1,"geologicalSignals":2}],\
-                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
-                    "A full spectrum system scan reported signal data for a body."]}}""",
+                    "biologicalSignals":1,"geologicalSignals":2}]}""",
                     lastUserMessage(pipeline),
                     "the second finding is factual and complete"
             );
             // Both instruments report the same kind of fact, and both are
-            // still one kind — BODY_SIGNALS_FOUND, above. Remembered, each
-            // says which instrument said it, because that is what its own
-            // event says when it happens: a trajectory that spoke for both at
-            // once would be the one place in the request where a finding loses
-            // its source.
-            assertEquals(
-                    "A surface area analysis scan reported signal data for a "
-                            + "planet or rings.",
-                    DecisionTrajectoryDescriptions.descriptionOf(
-                            NormalizedEventType.SAA_SIGNALS_FOUND
-                    )
-            );
-            assertEquals(
-                    "A full spectrum system scan reported signal data for a "
-                            + "body.",
-                    DecisionTrajectoryDescriptions.descriptionOf(
-                            NormalizedEventType.FSS_BODY_SIGNALS_FOUND
-                    )
-            );
         }
     }
 
     /**
-     * D9: the survey reports its own finding; the confirmation does not.
+     * D9: each instrument reports its own reading, in either order.
      *
-     * <p>Whichever instrument speaks first tells the model what is on the
-     * body. The surface survey used to open no turn at all, so a body
-     * first read by the surface scanner reached the model as nothing.</p>
+     * <p>Whichever speaks first tells the model what is on the body, and the
+     * other is not a restatement of it: they answer different questions. The
+     * surface survey used to open no turn at all, so a body first read by the
+     * surface scanner reached the model as nothing.</p>
      */
     @Test
-    void theSystemScanConfirmingASurveyIsNotASecondFinding(
+    void theSystemScanAfterASurveyIsItsOwnFinding(
             @TempDir Path directory
     ) throws Exception {
         try (DecisionProductionPipeline pipeline =
@@ -440,16 +431,19 @@ final class BodySignalsEventTest {
                     )
             );
             assertEquals(
-                    0L,
+                    1L,
                     pipeline.graphOccurrenceCount(
                             NormalizedEventType.FSS_BODY_SIGNALS_FOUND
                     )
             );
             assertEquals(
-                    List.of("SYSTEM_JUMP", "BODY_SIGNALS_FOUND"),
+                    List.of(
+                            "SYSTEM_JUMP",
+                            "BODY_SIGNALS_FOUND",
+                            "BODY_SIGNALS_FOUND"
+                    ),
                     pipeline.modelFacingKinds(),
-                    "the survey reports the finding; the system scan "
-                            + "restating it opens no second turn"
+                    "each instrument reports once, under one kind"
             );
         }
     }

@@ -91,8 +91,20 @@ public final class BodySurveySelectionPolicy {
                     );
         }
         if (SIGNAL_TYPES.contains(eventType)) {
+            // Compared against readings from the same instrument only. The two
+            // scanners answer different questions: the system scanner counts
+            // signals from across the system, and the surface scanner fires
+            // probes and names the organisms. A survey confirming the count the
+            // system scan already gave is therefore not a restatement — it is
+            // the reading that says which organisms they are, and comparing the
+            // two by count alone silenced exactly that.
             return !historical(captureMode)
-                    && admits(episodeTimeline, candidate, SIGNAL_TYPES, false);
+                    && admits(
+                            episodeTimeline,
+                            candidate,
+                            Set.of(eventType),
+                            false
+                    );
         }
         if (NormalizedEventType.SYSTEM_UNDISCOVERED_CONFIRMED
                 .equals(eventType)) {

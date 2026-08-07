@@ -33,7 +33,6 @@ public final class JacksonDecisionRequestSerializer {
             writeEvents(json, request.events());
             writeChanges(json, request.changes());
             writeContext(json, request.context());
-            writeTrajectory(json, request.trajectory());
             if (request.contextIncomplete()) {
                 json.writeBooleanField("contextIncomplete", true);
             }
@@ -58,8 +57,6 @@ public final class JacksonDecisionRequestSerializer {
                         writeChanges(json, request.changes());
                 case DecisionSections.CONTEXT ->
                         writeContext(json, request.context());
-                case DecisionSections.TRAJECTORY ->
-                        writeTrajectory(json, request.trajectory());
                 default -> throw new IllegalArgumentException(
                         "unknown section: " + section
                 );
@@ -89,6 +86,13 @@ public final class JacksonDecisionRequestSerializer {
             json.writeStringField("event", event.description());
             for (LlmDecisionRequest.Field field : event.fields()) {
                 value(json, field.name(), field.value());
+            }
+            for (LlmDecisionRequest.Listing listing : event.listings()) {
+                json.writeArrayFieldStart(listing.name());
+                for (String value : listing.values()) {
+                    json.writeString(value);
+                }
+                json.writeEndArray();
             }
             json.writeEndObject();
         }
@@ -142,47 +146,6 @@ public final class JacksonDecisionRequestSerializer {
                 value(json, fact.name(), fact.value());
             }
             json.writeEndObject();
-        }
-        json.writeEndObject();
-    }
-
-    // ------------------------------------------------------------ trajectory
-
-    /**
-     * What led here and what usually follows, each written only if it exists.
-     *
-     * <p>An empty half is omitted rather than written as {@code []}, the same
-     * rule the rest of the contract follows: absence means nothing to say, and
-     * an empty list would read as an assertion that nothing preceded this.</p>
-     */
-    private static void writeTrajectory(
-            JsonGenerator json,
-            LlmDecisionRequest.Trajectory trajectory
-    ) throws IOException {
-        if (trajectory == null) {
-            return;
-        }
-        json.writeObjectFieldStart(DecisionSections.TRAJECTORY);
-        if (!trajectory.recent().isEmpty()) {
-            json.writeArrayFieldStart("recent");
-            for (String kind : trajectory.recent()) {
-                json.writeString(kind);
-            }
-            json.writeEndArray();
-        }
-        if (!trajectory.likelyNext().isEmpty()) {
-            json.writeArrayFieldStart("likelyNext");
-            for (LlmDecisionRequest.Prediction prediction
-                    : trajectory.likelyNext()) {
-                json.writeStartObject();
-                json.writeStringField("event", prediction.event());
-                json.writeNumberField(
-                        "probability",
-                        prediction.probability()
-                );
-                json.writeEndObject();
-            }
-            json.writeEndArray();
         }
         json.writeEndObject();
     }

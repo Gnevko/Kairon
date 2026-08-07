@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -315,7 +316,10 @@ public final class ObserverTurnCoordinator implements AutoCloseable {
         long now = System.nanoTime();
         long dueAt;
         if (replayExhausted
-                || newQueue.size() >= turnPolicy.maxTriggers()) {
+                || newQueue.size() >= turnPolicy.maxTriggers()
+                || batchableCount() < newQueue.size()) {
+            // Something from a later moment is already waiting, so no further
+            // arrival can join the batch in front of it; see batchableCount.
             dueAt = now;
         } else {
             long firstArrival = newQueue.getFirst().queuedAtNanos();
@@ -342,15 +346,60 @@ public final class ObserverTurnCoordinator implements AutoCloseable {
         );
     }
 
+    /**
+     * How many queued triggers belong to the same moment as the first.
+     *
+     * <p>A batch is what happened together, and until now "together" was decided
+     * by the wall clock alone: the quiet period and the maximum batch age both
+     * measure when an observation reached the queue. Live those two clocks are
+     * the same clock. In replay they are not — the source paces itself by the
+     * journal's own gaps but caps each pause at six seconds, and a turn holds
+     * the queue until its speech has finished playing, so triggers minutes apart
+     * in the game arrive inside one busy window and leave as one batch. In the
+     * 2026-08-06 replay a supercruise exit at 16:46:16 and a vehicle launch at
+     * 16:48:45 — two and a half minutes and a whole orbital approach apart —
+     * became one request, and every reading of it was a reading of a moment that
+     * never happened.</p>
+     *
+     * <p>So the span is bounded in the source's own time as well, by the same
+     * {@code maximumBatchAge} that bounds it on the wall clock: a live batch
+     * cannot span more than that, and neither may a replayed one. The bound is
+     * deliberately not the quiet period — journal timestamps are whole seconds,
+     * and a sub-second rule read off them would split batches the live game
+     * would have kept together.</p>
+     *
+     * <p>An observation with no source time never splits a batch. Status
+     * snapshots and anything else the source cannot date are not evidence that a
+     * moment ended, and a missing timestamp must not become one.</p>
+     */
+    private int batchableCount() {
+        Instant first = null;
+        int count = 0;
+        for (QueuedProjection queued : newQueue) {
+            Instant sourceTime =
+                    queued.observation().trigger().sourceTime().orElse(null);
+            if (sourceTime != null) {
+                if (first == null) {
+                    first = sourceTime;
+                } else if (Duration.between(first, sourceTime)
+                        .compareTo(maximumBatchAge) > 0) {
+                    break;
+                }
+            }
+            count++;
+            if (count >= turnPolicy.maxTriggers()) {
+                break;
+            }
+        }
+        return Math.max(count, 1);
+    }
+
     private void startTurn() {
         eligibilityTask = null;
         if (newQueue.isEmpty() || activeTurn != null || shuttingDown) {
             return;
         }
-        int triggerCount = Math.min(
-                newQueue.size(),
-                turnPolicy.maxTriggers()
-        );
+        int triggerCount = batchableCount();
         List<ProjectedObservation> triggers =
                 new ArrayList<>(triggerCount);
         for (int index = 0; index < triggerCount; index++) {

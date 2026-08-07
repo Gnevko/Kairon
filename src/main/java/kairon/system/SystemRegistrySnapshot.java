@@ -102,6 +102,29 @@ public record SystemRegistrySnapshot(
                 .count();
     }
 
+    /**
+     * How many scanned objects are of the kinds {@link #bodyCount} counts.
+     *
+     * <p>Stars and planets, because that is what a discovery scan totals. Read
+     * off a measured journal rather than assumed: Schieni GG-A c3-64 reported
+     * {@code BodyCount: 9} and the Commander took eight planet readings plus
+     * the arrival star's. Barycentres, rings and belt clusters are recorded all
+     * the same; they are simply not what the total is a total of.</p>
+     *
+     * <p>Separate from {@link #scannedCount} on purpose. That one answers "how
+     * much of what I hold has been read", which is the question the desktop
+     * view asks; this one is the only one comparable with a stated total, and
+     * two numbers that are not comparable must not share a name.</p>
+     */
+    public long scannedBodyCount() {
+        return objects.values().stream()
+                .filter(object -> object.knowledge()
+                        != BodyKnowledgeLevel.LISTED)
+                .filter(object -> object.kind() == SystemObjectKind.STAR
+                        || object.kind() == SystemObjectKind.PLANET)
+                .count();
+    }
+
     /** Whether the registry holds nothing at all. */
     public boolean isEmpty() {
         return objects.isEmpty();

@@ -108,12 +108,9 @@ final class ObserverPipelineTest {
                     eventDescriptions(request)
             );
             assertEquals(2, eventCount(request));
-            assertEquals(
-                    "SUPERCRUISE",
-                    request.path("context")
-                            .path("navigation")
-                            .path("flightMode")
-                            .textValue()
+            assertFalse(
+                    request.path("context").has("navigation"),
+                    "the entry says it is in supercruise in its own words"
             );
             assertFalse(
                     request.path("context").has("system"),
@@ -129,6 +126,79 @@ final class ObserverPipelineTest {
             assertFalse(llm.inputs.getFirst().userMessage()
                     .contains("rawJson"));
         }
+    }
+
+    /**
+     * A batch is one moment in the game, not one moment on the wall clock.
+     *
+     * <p>Both halves are asserted, because only the pair is a claim: the same
+     * two events split when the journal puts minutes between them and stay
+     * together when it puts a second between them. Nothing about their arrival
+     * differs — in a replay both pairs arrive back to back, which is exactly how
+     * a supercruise exit and a vehicle launch two and a half minutes apart came
+     * to be read as one moment in the measured run.</p>
+     */
+    @Test
+    void triggersFromDifferentMomentsAreNotOneBatch(
+            @TempDir Path directory
+    ) throws Exception {
+        RecordingLlmClient apart = RecordingLlmClient.silent();
+        try (Harness harness = new Harness(
+                directory.resolve("apart.jsonl"),
+                apart,
+                policy(8)
+        )) {
+            harness.publish(supercruiseExit("2026-07-30T10:00:00Z"));
+            harness.publish(launchFighter("2026-07-30T10:04:00Z"));
+            harness.finishReplay();
+        }
+
+        assertEquals(
+                2,
+                apart.inputs.size(),
+                "four minutes of game time is two moments"
+        );
+        assertEquals(
+                List.of("A ship dropped out of supercruise into normal space."),
+                eventDescriptions(turn(apart.inputs.getFirst()))
+        );
+        assertEquals(
+                List.of("A vehicle was launched from the ship."),
+                eventDescriptions(turn(apart.inputs.getLast()))
+        );
+
+        RecordingLlmClient together = RecordingLlmClient.silent();
+        try (Harness harness = new Harness(
+                directory.resolve("together.jsonl"),
+                together,
+                policy(8)
+        )) {
+            harness.publish(supercruiseExit("2026-07-30T10:00:00Z"));
+            harness.publish(launchFighter("2026-07-30T10:00:01Z"));
+            harness.finishReplay();
+        }
+
+        assertEquals(
+                1,
+                together.inputs.size(),
+                "a second of game time is one moment"
+        );
+        assertEquals(2, eventCount(turn(together.inputs.getFirst())));
+    }
+
+    private static String supercruiseExit(String timestamp) {
+        return """
+                {"timestamp":"%s","event":"SupercruiseExit",
+                 "StarSystem":"Context System","SystemAddress":8001,
+                 "Body":"Context System 4 a","BodyID":20}
+                """.formatted(timestamp);
+    }
+
+    private static String launchFighter(String timestamp) {
+        return """
+                {"timestamp":"%s","event":"LaunchFighter",
+                 "Loadout":"base","ID":10,"PlayerControlled":true}
+                """.formatted(timestamp);
     }
 
     @Test
@@ -470,13 +540,10 @@ final class ObserverPipelineTest {
                     "the comment response is a decision and a sentence"
             );
             assertTrue(
-                    prompt.contains(
-                            "A missing field means unknown or not relevant"
-                    ),
-                    "the missing-field rule is stated once, here"
+                    prompt.contains("You are Kairon"),
+                    "the prompt says who she is, which is half of what is "
+                            + "left of it"
             );
-            assertTrue(prompt.contains("START or PROGRESS"));
-            assertTrue(prompt.contains("complete false"));
             for (String internal : List.of(
                     "busSequence",
                     "schema",
@@ -567,7 +634,7 @@ final class ObserverPipelineTest {
             assertEquals(1, llm.inputs.size());
             JsonNode request = turn(llm.inputs.getFirst());
             assertEquals(
-                    List.of("A text message was received."),
+                    List.of("Another player sent a text message to a channel the Commander is in."),
                     eventDescriptions(request),
                     "only the squadron message is a trigger"
             );

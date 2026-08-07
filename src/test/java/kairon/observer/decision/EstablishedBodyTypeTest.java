@@ -44,11 +44,9 @@ final class EstablishedBodyTypeTest {
                     event.path("event").textValue());
         assertEquals("Icy One", event.path("body").textValue());
         assertEquals("Icy System", event.path("system").textValue());
-        assertEquals(
-                "NORMAL_SPACE",
-                request.path("context").path("navigation")
-                        .path("flightMode").textValue(),
-                "navigation context is untouched"
+        assertFalse(
+                request.path("context").has("navigation"),
+                "the exit says it dropped into normal space in its own words"
         );
     }
 
@@ -99,11 +97,7 @@ final class EstablishedBodyTypeTest {
                 "the reading counted biology and said nothing about geology"
         );
         assertEquals(1, body.path("biologicalSignals").intValue());
-        assertEquals(
-                1081.453145,
-                body.path("distanceFromArrivalLs").doubleValue(),
-                0.000001
-        );
+        assertFalse(body.has("distanceFromArrivalLs"));
     }
 
     // ------------------------------------------------------------- fixtures

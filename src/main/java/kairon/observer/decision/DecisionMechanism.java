@@ -18,7 +18,11 @@ import java.util.Set;
  * flight mode, and saying so again as a change is the same sentence twice; a
  * disembark changes where the Commander is, and the event kind is that fact.
  * The change is dropped and the current value is still worth stating, because
- * the event says what it did rather than what is now true.</p>
+ * the event says what it <em>did</em> rather than what is now true — a completed
+ * jump leaves the ship in supercruise and its sentence never mentions the mode.
+ * Where a sentence does name the result, that is a fact about the wording of one
+ * class and is declared there: {@link DecisionEventRule#statedValues()}, read
+ * against the value, so the context stops repeating it.</p>
  *
  * <p>{@code alsoAnswered} pairs one of the event's own fields with a second
  * canonical field it answers. A completed jump names the system it arrived in,

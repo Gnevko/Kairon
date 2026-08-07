@@ -354,25 +354,6 @@ record PipelineTrace(
             return document.path("context");
         }
 
-        List<String> recent() {
-            List<String> recent = new ArrayList<>();
-            document.path("trajectory").path("recent")
-                    .forEach(name -> recent.add(name.textValue()));
-            return List.copyOf(recent);
-        }
-
-        List<String> likelyNext() {
-            List<String> predictions = new ArrayList<>();
-            document.path("trajectory").path("likelyNext")
-                    .forEach(prediction ->
-                            predictions.add(prediction.path("event")
-                                    .textValue()));
-            return List.copyOf(predictions);
-        }
-
-        boolean hasTrajectory() {
-            return document.has("trajectory");
-        }
 
         boolean contextIncomplete() {
             return document.path("contextIncomplete").asBoolean(false);

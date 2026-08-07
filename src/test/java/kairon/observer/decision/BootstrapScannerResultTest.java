@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * records are the ones whose recording decides whether a <em>later</em> reading
  * is a finding at all — the graph does not record it either. Otherwise the live
  * reading repeating it would be given to the model with no occurrence of its
- * own, standing in the trajectory after the same finding under another name.</p>
+ * own, recorded after the same finding under another name.</p>
  *
  * <p>What a historical reading established about the body is kept: canonical
  * state is projected before the graph is consulted, so nothing here costs the
@@ -99,11 +99,8 @@ final class BootstrapScannerResultTest {
                     """
                     {"events":[{"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "biologicalSignals":1}],\
-                    "trajectory":{"recent":["A ship jumped from one star system to another.",\
-                    "A ship in supercruise came within a body's orbital-cruise zone."]}}""",
-                    lastUserMessage(pipeline),
-                    "the trajectory carries no finding from the bootstrap"
+                    "biologicalSignals":1}]}""",
+                    lastUserMessage(pipeline)
             );
         }
     }
@@ -146,11 +143,6 @@ final class BootstrapScannerResultTest {
             assertEquals(
                     "BODY_SIGNALS_FOUND",
                     pipeline.modelFacingKinds().getLast()
-            );
-            assertTrue(
-                    trajectory(pipeline).stream()
-                            .noneMatch("BODY_SIGNALS_FOUND"::equals),
-                    "no bootstrap finding stands behind the live one"
             );
         }
     }
@@ -220,7 +212,10 @@ final class BootstrapScannerResultTest {
         try (DecisionProductionPipeline pipeline =
                      new DecisionProductionPipeline(directory)) {
             // One batch for the whole run, so both live results are shown
-            // together and their local ids can be read in order.
+            // together and their local ids can be read in order. The journal
+            // times are seconds apart on purpose: a batch is bounded in the
+            // source's own time too, so a fixture spanning minutes would be
+            // several turns however fast the harness pushes it.
             arriving(pipeline);
             pipeline.journal(
                     ObservationCaptureMode.BOOTSTRAP,
@@ -253,9 +248,9 @@ final class BootstrapScannerResultTest {
 
             pipeline.journal(
                     ObservationCaptureMode.LIVE,
-                    signals("10:02:00Z", "FSSBodySignals", BIO_1)
+                    signals("10:00:03Z", "FSSBodySignals", BIO_1)
             );
-            pipeline.journal(ObservationCaptureMode.LIVE, scan("10:02:30Z"));
+            pipeline.journal(ObservationCaptureMode.LIVE, scan("10:00:04Z"));
             pipeline.settleProjection();
             List<NormalizedEventType> recorded = pipeline.episodeTypes();
             pipeline.replayExhausted("2026-07-30T10:03:00Z");
@@ -370,7 +365,7 @@ final class BootstrapScannerResultTest {
                  "FuelUsed":0.4,"FuelLevel":30.2}
                 """);
         pipeline.journal("""
-                {"timestamp":"2026-07-30T10:00:30Z","event":"ApproachBody",
+                {"timestamp":"2026-07-30T10:00:02Z","event":"ApproachBody",
                  "StarSystem":"Schieni","SystemAddress":23155,
                  "Body":"Schieni 4 a","BodyID":20}
                 """);
@@ -419,16 +414,6 @@ final class BootstrapScannerResultTest {
         return message.substring(message.indexOf('{'));
     }
 
-    private static List<String> trajectory(
-            DecisionProductionPipeline pipeline
-    ) throws Exception {
-        List<String> recent = new ArrayList<>();
-        JSON.readTree(lastUserMessage(pipeline))
-                .path("trajectory")
-                .path("recent")
-                .forEach(name -> recent.add(name.textValue()));
-        return List.copyOf(recent);
-    }
 
     /** Each turn's events by position; the document carries no id. */
     private static List<Integer> localEventIds(

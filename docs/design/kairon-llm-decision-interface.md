@@ -34,7 +34,6 @@ identity of any kind.
   "events": [ ... ],
   "changes": [ ... ],
   "context": { ... },
-  "trajectory": { "recent": [ ... ], "likelyNext": [ ... ] },
   "contextIncomplete": true
 }
 ```
@@ -44,8 +43,12 @@ identity of any kind.
 | `events` | always, never empty | what just happened, each stating in its own words what it is; the primary factual basis for a comment |
 | `changes` | when a change adds decision-relevant novelty | what those events altered |
 | `context` | when the events need it to be understood | what else is true right now |
-| `trajectory` | when this system visit has a remembered run of events, and the batch is not entirely trajectory-independent kinds | what led here, and what usually follows |
 | `contextIncomplete` | only when something relevant was lost | absence is not proof of absence |
+
+There was a fifth part, `trajectory` — the visit's remembered run of events and
+the transition model's forecast. It is removed
+([ADR-0026](../decisions/ADR-0026-THE-REQUEST-CARRIES-NO-TRAJECTORY.md)); the
+sections below that describe it record what it was.
 
 Nothing is serialized as `null`, as `[]`, as `{}` or as an `UNKNOWN` marker.
 Absence is the contract, and the prompt states that rule once.

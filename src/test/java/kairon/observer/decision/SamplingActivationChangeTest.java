@@ -117,11 +117,9 @@ final class SamplingActivationChangeTest {
                 "Schieni GG-A c3-84",
                 request.path("events").get(0).path("system").textValue()
         );
-        assertEquals(
-                "SUPERCRUISE",
-                request.path("context").path("navigation")
-                        .path("flightMode").textValue(),
-                "navigation context is untouched by this rule"
+        assertFalse(
+                request.path("context").has("navigation"),
+                "the entry says it is in supercruise in its own words"
         );
     }
 

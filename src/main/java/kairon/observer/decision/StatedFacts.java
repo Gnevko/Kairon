@@ -95,6 +95,19 @@ final class StatedFacts {
                     ));
                 }
             }
+            // And what the event's own sentence says without emitting a field
+            // for it: "a ship entered supercruise" is the flight mode in words.
+            // A statement and not a slot, for the same reason as above — it
+            // holds at the value the sentence names and says nothing about a
+            // mode that has since become something else.
+            for (Map.Entry<String, SemanticValue> declared
+                    : event.kindStatements().entrySet()) {
+                stated.add(new Statement(
+                        declared.getKey(),
+                        declared.getValue(),
+                        event.event().id()
+                ));
+            }
         }
         return new StatedFacts(slots, stated);
     }

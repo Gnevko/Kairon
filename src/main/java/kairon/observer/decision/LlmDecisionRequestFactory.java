@@ -20,9 +20,9 @@ import java.util.Objects;
  * against what the events already say, and context is selected last because it
  * is judged against both — through one {@link StatedFacts} built from the
  * events and extended with the changes, so all three sections answer to one
- * definition of what has already been said. The trajectory reads the events too, but only their
- * kinds: it describes the run this turn sits in, and whether that run is worth
- * describing at all depends on what kind of turn it is.</p>
+ * definition of what has already been said. There is no fourth section: the
+ * visit's recent events and the transition model's forecast used to be built
+ * here too, and are gone — no comment in any measured run rested on either.</p>
  */
 public final class LlmDecisionRequestFactory {
 
@@ -32,8 +32,6 @@ public final class LlmDecisionRequestFactory {
             new DecisionChangeSelector();
     private final DecisionContextSelector contextSelector =
             new DecisionContextSelector();
-    private final DecisionTrajectoryProjector trajectoryProjector =
-            new DecisionTrajectoryProjector();
 
     public LlmDecisionRequest create(DecisionTurnInputs inputs) {
         Objects.requireNonNull(inputs, "inputs");
@@ -62,7 +60,6 @@ public final class LlmDecisionRequestFactory {
                 projected.stream().map(ProjectedEvent::event).toList(),
                 changes,
                 context,
-                trajectoryProjector.project(inputs, projected),
                 // The only real loss the pipeline can report before the budget
                 // is consulted: observations folded away because the
                 // accumulator hit its memory bound.

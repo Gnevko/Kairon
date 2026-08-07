@@ -212,7 +212,7 @@ final class DecisionOccurrenceCountTest {
                     List.of(
                             "event",
                             "body",
-                            "playerControlled",
+                            "commanderControlled",
                             "occurrenceOnBody"
                     ),
                     propertyNames(event)
@@ -224,7 +224,7 @@ final class DecisionOccurrenceCountTest {
                     "Schieni GG-A c3-84 4 a",
                     event.path("body").textValue()
             );
-            assertTrue(event.path("playerControlled").booleanValue());
+            assertTrue(event.path("commanderControlled").booleanValue());
             assertEquals(2, event.path("occurrenceOnBody").intValue());
 
             JsonNode body = request.path("context").path("body");
@@ -236,7 +236,6 @@ final class DecisionOccurrenceCountTest {
                             "previouslyDiscovered",
                             "previouslyMapped",
                             "previouslyFootfalled",
-                            "distanceFromArrivalLs",
                             "biologicalSignals"
                     ),
                     propertyNames(body),
@@ -249,31 +248,17 @@ final class DecisionOccurrenceCountTest {
                     "the survey counted biology and said nothing about geology"
             );
             assertEquals(1, body.path("biologicalSignals").intValue());
-            assertEquals(
-                    1081.453145,
-                    body.path("distanceFromArrivalLs").doubleValue(),
-                    0.000001
-            );
+            assertFalse(body.has("distanceFromArrivalLs"));
             assertEquals(
                     "Schieni GG-A c3-84",
                     request.path("context").path("system").path("name")
                             .textValue()
             );
-            assertEquals(
-                    "LANDED",
-                    request.path("context").path("navigation")
-                            .path("flightMode").textValue()
+            assertFalse(
+                    request.path("context").has("navigation"),
+                    "the landing says the ship is down in its own words"
             );
 
-            assertEquals(
-                    List.of(
-                            "The organic sampling tool logged the first scan of an unfinished sampling sequence.",
-                            "The Commander, on foot, got into a ship or SRV.",
-                            "A ship took off from the surface of a planet or moon."
-                    ),
-                    recent(request),
-                    "the three events before this landing, oldest first"
-            );
         }
     }
 
@@ -345,13 +330,6 @@ final class DecisionOccurrenceCountTest {
 
     private JsonNode lastEvent(DecisionProductionPipeline pipeline) {
         return lastRequest(pipeline).path("events").get(0);
-    }
-
-    private static List<String> recent(JsonNode request) {
-        List<String> recent = new ArrayList<>();
-        request.path("trajectory").path("recent")
-                .forEach(kind -> recent.add(kind.textValue()));
-        return List.copyOf(recent);
     }
 
     private static List<String> propertyNames(JsonNode node) {

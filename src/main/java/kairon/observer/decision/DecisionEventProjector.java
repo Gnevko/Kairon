@@ -7,6 +7,7 @@ import kairon.semantics.SemanticFact;
 import kairon.semantics.SemanticField;
 import kairon.semantics.SemanticObservationEnvelope;
 import kairon.semantics.SemanticValue;
+import kairon.system.SystemObject;
 import kairon.semantics.UnresolvedFact;
 
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Turns one current trigger into one domain-facing event.
@@ -41,19 +43,31 @@ public final class DecisionEventProjector {
      * internal market key. {@code subCategory} is a narrower restatement of the
      * codex category beside it. {@code bodyType} is the coarse classification
      * that every mechanism carrying it also sends a planet class or star type
-     * for, in the context.</p>
+     * for, in the context. {@code distanceFromArrivalLs} is eleven significant
+     * figures of light seconds; it is withdrawn from both halves of the document
+     * at once, because a field the context stops sending and an event keeps
+     * sending is the same fact under two rules.</p>
      */
     private static final Set<String> DROPPED_QUALIFIERS = Set.of(
             "position",
             "marketId",
             "subCategory",
-            "bodyType"
+            "bodyType",
+            "distanceFromArrivalLs"
     );
 
-    /** Attributes whose adapter name reads as a predicate rather than a fact. */
+    /**
+     * Attributes whose adapter name reads as a predicate rather than a fact.
+     *
+     * <p>{@code playerControlled} is renamed for a second reason: there is no
+     * player in the world the model speaks about. The journal's word is the
+     * game's, and the one the document uses everywhere else — actor, context
+     * group, the role itself — is the Commander.</p>
+     */
     private static final Map<String, String> RENAMED_QUALIFIERS = Map.of(
             "isNewEntry", "newEntry",
-            "isPlayer", "player"
+            "isPlayer", "player",
+            "playerControlled", "commanderControlled"
     );
 
     /**
@@ -119,15 +133,15 @@ public final class DecisionEventProjector {
             );
         }
         appendOccurrenceCount(fields, claimed, projected, rule);
-        return new ProjectedEvent(
+        return ProjectedEvent.of(
                 new LlmDecisionRequest.Event(
                         localId,
                         rule.kind(),
                         description,
-                        List.copyOf(fields)
+                        List.copyOf(fields),
+                        organismsFound(rule, projected, envelope)
                 ),
-                rule.mechanism(),
-                rule.contextProfile(),
+                rule,
                 projected.busSequence()
         );
     }
@@ -209,6 +223,71 @@ public final class DecisionEventProjector {
         }
     }
 
+    /**
+     * The organisms this reading named, or nothing.
+     *
+     * <p>Only the instrument that names them lists them — see
+     * {@link DecisionEventRule#namesOrganisms()}. The names come from the body
+     * in the registry snapshot captured with this observation, which is the
+     * snapshot this reading has just been folded into: no late read, and no
+     * second parse of the record downstream of the adapter that already read
+     * it.</p>
+     *
+     * <p>The body is the one the reading itself identified, not the one the ship
+     * happens to be at. A surface scanner fires probes at a body the canonical
+     * state need not have selected, and attaching another body's organisms to it
+     * would be the same defect the codex entry's contradicted {@code BodyID}
+     * caused.</p>
+     *
+     * <p>Named by the word in the genus identity, exactly as
+     * {@code context.biology} names it, so one organism has one spelling
+     * wherever the document mentions it. A genus the game has no word for is
+     * left out of both.</p>
+     */
+    private static List<LlmDecisionRequest.Listing> organismsFound(
+            DecisionEventRule rule,
+            ProjectedObservation projected,
+            SemanticObservationEnvelope envelope
+    ) {
+        if (!rule.namesOrganisms()) {
+            return List.of();
+        }
+        SystemObject body = null;
+        for (SemanticFact fact : envelope.structuredFacts()) {
+            if (!(fact.identity()
+                    instanceof SemanticValue.IdentityValue identity)) {
+                continue;
+            }
+            try {
+                body = projected.systemRegistry()
+                        .object(Long.parseLong(identity.value()));
+            } catch (NumberFormatException notABodyId) {
+                body = null;
+            }
+            if (body != null) {
+                break;
+            }
+        }
+        if (body == null) {
+            return List.of();
+        }
+        Set<String> named = new TreeSet<>();
+        body.biology().genera().forEach((identity, label) -> {
+            String name = label == null
+                    ? null
+                    : DecisionNames.genusField(identity);
+            if (name != null) {
+                named.add(name);
+            }
+        });
+        return named.isEmpty()
+                ? List.of()
+                : List.of(new LlmDecisionRequest.Listing(
+                        "organisms",
+                        List.copyOf(named)
+                ));
+    }
+
     private static void appendFact(
             List<LlmDecisionRequest.Field> fields,
             Set<String> claimed,
@@ -250,7 +329,9 @@ public final class DecisionEventProjector {
             DecisionEventRule rule
     ) {
         SemanticFact.EntityRef object = fact.object();
-        if (object == null || object.name() == null) {
+        if (object == null || object.name() == null || rule.unnamedObject()) {
+            // The adapter's name for it is not a name; see
+            // DecisionEventRule.unnamedObject.
             return;
         }
         String name = rule.objectName() != null
@@ -475,7 +556,8 @@ public final class DecisionEventProjector {
             DecisionMechanism mechanism,
             DecisionContextProfile contextProfile,
             long busSequence,
-            Map<String, SemanticValue> statedFacts
+            Map<String, SemanticValue> statedFacts,
+            Map<String, SemanticValue> kindStatements
     ) {
 
         public ProjectedEvent(
@@ -489,7 +571,8 @@ public final class DecisionEventProjector {
                     mechanism,
                     contextProfile,
                     busSequence,
-                    statedFactsOf(event)
+                    statedFactsOf(event),
+                    Map.of()
             );
         }
 
@@ -499,6 +582,41 @@ public final class DecisionEventProjector {
             Objects.requireNonNull(contextProfile, "contextProfile");
             statedFacts = Map.copyOf(
                     Objects.requireNonNull(statedFacts, "statedFacts")
+            );
+            kindStatements = Map.copyOf(
+                    Objects.requireNonNull(kindStatements, "kindStatements")
+            );
+        }
+
+        /**
+         * The projected event a rule produces, with everything the rule claims.
+         *
+         * <p>Two kinds of claim end up here and they are kept apart. What the
+         * event's own fields say is read off the fields; what the event's
+         * <em>sentence</em> says is declared on the rule, because no field
+         * carries it — "a ship entered supercruise" states the flight mode in
+         * words and emits no flight-mode field at all.</p>
+         */
+        static ProjectedEvent of(
+                LlmDecisionRequest.Event event,
+                DecisionEventRule rule,
+                long busSequence
+        ) {
+            Objects.requireNonNull(rule, "rule");
+            Map<String, SemanticValue> declared = new LinkedHashMap<>();
+            rule.statedValues().forEach((field, value) -> {
+                String slot = DecisionNames.slotOf(field);
+                if (slot != null) {
+                    declared.put(slot, value);
+                }
+            });
+            return new ProjectedEvent(
+                    event,
+                    rule.mechanism(),
+                    rule.contextProfile(),
+                    busSequence,
+                    statedFactsOf(event),
+                    declared
             );
         }
 
@@ -536,7 +654,8 @@ public final class DecisionEventProjector {
             }
             String slot = DecisionNames.slotOf(field);
             return value.equals(statedFacts.get(slot))
-                    || value.equals(statedFacts.get(name));
+                    || value.equals(statedFacts.get(name))
+                    || value.equals(kindStatements.get(slot));
         }
 
         /**

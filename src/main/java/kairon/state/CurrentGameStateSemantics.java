@@ -47,7 +47,9 @@ public final class CurrentGameStateSemantics {
             // contract is keyed by them — what a scan states and what the
             // context reports are one fact under one identity — and the
             // registry is what answers them.
-            case BROAD_BODY_TYPE,
+            case SYSTEM_BODY_COUNT,
+                 SYSTEM_SCANNED_COUNT,
+                 BROAD_BODY_TYPE,
                  PLANET_CLASS,
                  STAR_TYPE,
                  LANDABLE,
@@ -55,6 +57,7 @@ public final class CurrentGameStateSemantics {
                  WAS_MAPPED,
                  WAS_FOOTFALLED,
                  DISTANCE_FROM_ARRIVAL_LS,
+                 SURFACE_GRAVITY,
                  BIOLOGICAL_SIGNAL_COUNT,
                  GEOLOGICAL_SIGNAL_COUNT,
                  BODY_HAS_BIOLOGY -> SemanticValue.unknown();

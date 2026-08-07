@@ -143,24 +143,15 @@ final class SessionRestoreEpisodeTest {
             pipeline.settleProjection();
 
             JsonNode request = requestFor(pipeline, "SupercruiseEntry");
-            assertEquals(
-                    List.of("A frame shift drive began charging for supercruise."),
-                    recent(request)
-            );
-            assertFalse(
-                    recent(request).contains("A ship jumped from one star system to another."),
-                    "the Commander did not enter this system"
-            );
             // The restore established NORMAL_SPACE, the supercruise jump
             // replaced it, and the turn closed on a state that already said
             // SUPERCRUISE. The stale establishment used to arrive as a change
-            // and displace the correct value from the context.
+            // and displace the correct value from the context; now the entry
+            // states the mode itself, so nothing repeats it either way.
             assertEquals(
                     """
                     {"events":[{"event":"A ship entered supercruise from normal space.",\
-                    "system":"Restore A"}],\
-                    "context":{"navigation":{"flightMode":"SUPERCRUISE"}},\
-                    "trajectory":{"recent":["A frame shift drive began charging for supercruise."]}}""",
+                    "system":"Restore A"}]}""",
                     request.toString()
             );
         }
@@ -314,12 +305,6 @@ final class SessionRestoreEpisodeTest {
                     NormalizedEventType.HYPERSPACE_JUMP_STARTED,
                     NormalizedEventType.SYSTEM_ENTRY
             ), "no edge crosses from the previous visit into this one");
-            assertEquals(
-                    "A ship jumped from one star system to another.",
-                    DecisionTrajectoryDescriptions.descriptionOf(
-                            NormalizedEventType.SYSTEM_ENTRY
-                    )
-            );
         }
     }
 
@@ -460,13 +445,6 @@ final class SessionRestoreEpisodeTest {
                 .orElseThrow(() -> new AssertionError(
                         payloadSimpleName + " never became a trigger"
                 ));
-    }
-
-    private static List<String> recent(JsonNode request) {
-        List<String> recent = new ArrayList<>();
-        request.path("trajectory").path("recent")
-                .forEach(kind -> recent.add(kind.textValue()));
-        return List.copyOf(recent);
     }
 
     private static JsonNode read(String serialized) {

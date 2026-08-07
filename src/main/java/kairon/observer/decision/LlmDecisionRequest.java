@@ -26,16 +26,18 @@ import java.util.Objects;
  * record, in the same order the events are in, so nothing is lost by keeping
  * the numbering internal.</p>
  *
- * <p>{@link Trajectory} is the one part derived from Kairon's memory of this
- * system visit rather than from the current observations. It is projected the
- * same way everything else is: domain names, no identities, no counters, no
- * cursor — what happened, not what recorded it.</p>
+ * <p>Nothing here is derived from Kairon's memory of the visit. There was one
+ * such part — {@code trajectory}: the visit's recent events and the transition
+ * model's forecast of the next one. It is gone. Across the measured runs not a
+ * single comment rested on either half, while the forecast could and did
+ * mislead — a first sampling scan predicted in the middle of a sequence, a
+ * probability of one standing on one observation. What the graph knows now
+ * reaches the model as {@code occurrenceOnBody} and nothing else.</p>
  */
 public record LlmDecisionRequest(
         List<Event> events,
         List<Change> changes,
         List<ContextGroup> context,
-        Trajectory trajectory,
         boolean contextIncomplete
 ) {
 
@@ -77,10 +79,9 @@ public record LlmDecisionRequest(
      *
      * <p>{@code kind} and {@code id} both stay here and are <strong>not
      * serialized</strong>. {@code kind} is Kairon's own name for the event and
-     * the projection reads it — the trajectory asks which kinds a batch
-     * consists of, the tests name events by it — but a model told both a name
-     * and a description would be told the same thing twice, once in a
-     * vocabulary that means nothing outside this process. {@code id} is this
+     * the projection reads it and the tests name events by it — but a model
+     * told both a name and a description would be told the same thing twice,
+     * once in a vocabulary that means nothing outside this process. {@code id} is this
      * event's position in the turn, which the pipeline, the trace and the
      * change attribution all key on and the model has no use for.</p>
      */
@@ -88,8 +89,18 @@ public record LlmDecisionRequest(
             int id,
             String kind,
             String description,
-            List<Field> fields
+            List<Field> fields,
+            List<Listing> listings
     ) {
+
+        public Event(
+                int id,
+                String kind,
+                String description,
+                List<Field> fields
+        ) {
+            this(id, kind, description, fields, List.of());
+        }
 
         public Event {
             if (id < 1) {
@@ -98,6 +109,39 @@ public record LlmDecisionRequest(
             kind = requireNonBlank(kind, "kind");
             description = requireNonBlank(description, "description");
             fields = List.copyOf(Objects.requireNonNull(fields, "fields"));
+            listings = List.copyOf(
+                    Objects.requireNonNull(listings, "listings")
+            );
+        }
+    }
+
+    /**
+     * Several things of one sort that an event reported at once.
+     *
+     * <p>A surface scanner names the organisms it found, and there can be three
+     * of them. That is one attribute with several values, which a
+     * {@link Field} cannot be: {@link SemanticValue} is a closed set with no
+     * list in it, and widening it would put the compound value ADR-0024 removed
+     * back into every field in the document.</p>
+     *
+     * <p>So the shape is narrow on purpose. A listing carries plain names and
+     * nothing else — no count beside each, no status, no nesting. What is known
+     * about each of them is said elsewhere, under its own name, exactly as
+     * before.</p>
+     */
+    public record Listing(String name, List<String> values) {
+
+        public Listing {
+            name = requireNonBlank(name, "name");
+            values = List.copyOf(Objects.requireNonNull(values, "values"));
+            if (values.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "an empty listing is expressed by omitting it"
+                );
+            }
+            for (String value : values) {
+                requireNonBlank(value, "value");
+            }
         }
     }
 
@@ -176,58 +220,6 @@ public record LlmDecisionRequest(
             if (!after.known()) {
                 throw new IllegalArgumentException(
                         "a model-facing change always has a known after value"
-                );
-            }
-        }
-    }
-
-    /**
-     * Where this turn sits in the run of events, both ways.
-     *
-     * <p>{@code recent} is fact: up to three events that actually happened
-     * before these ones, oldest first, in the same vocabulary the events use.
-     * {@code likelyNext} is not fact — it is what has tended to follow, and the
-     * prompt says so in as many words. Keeping them in one object is deliberate:
-     * they are the same subject seen backwards and forwards, and separating them
-     * would invite reading the forecast as another list of events.</p>
-     *
-     * <p>Both may be empty; the whole object is absent when both are.</p>
-     */
-    public record Trajectory(List<String> recent, List<Prediction> likelyNext) {
-
-        public Trajectory {
-            recent = List.copyOf(Objects.requireNonNull(recent, "recent"));
-            likelyNext = List.copyOf(
-                    Objects.requireNonNull(likelyNext, "likelyNext")
-            );
-            if (recent.isEmpty() && likelyNext.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "an empty trajectory is expressed by omitting it"
-                );
-            }
-            for (String event : recent) {
-                requireNonBlank(event, "recent event");
-            }
-        }
-    }
-
-    /**
-     * One expected next event and how often it has followed.
-     *
-     * <p>The probability is the transition model's own number, carried
-     * unchanged. Nothing that supports it travels with it: an evidence count or
-     * a context bucket beside a probability is an invitation to re-derive a
-     * figure the model was already handed.</p>
-     */
-    public record Prediction(String event, double probability) {
-
-        public Prediction {
-            event = requireNonBlank(event, "event");
-            if (!Double.isFinite(probability)
-                    || probability < 0.0
-                    || probability > 1.0) {
-                throw new IllegalArgumentException(
-                        "probability must be between zero and one"
                 );
             }
         }

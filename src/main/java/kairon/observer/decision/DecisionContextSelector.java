@@ -15,12 +15,12 @@ import kairon.system.SystemObjectKind;
 import kairon.system.SystemRegistrySnapshot;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * The slice of the current situation these events need, and no more.
@@ -68,7 +68,7 @@ public final class DecisionContextSelector {
         }
         StatedFacts stated = eventFacts.withChanges(changes);
         List<LlmDecisionRequest.ContextGroup> groups = new ArrayList<>();
-        addSystem(groups, state, needs, stated);
+        addSystem(groups, state, registry, needs, stated);
         if (DecisionBodyScope.canonicalBodyIsInScope(events, state)) {
             addBody(groups, state, registry, needs, stated);
             addBiology(groups, state, registry, needs);
@@ -81,9 +81,30 @@ public final class DecisionContextSelector {
         return List.copyOf(groups);
     }
 
+    /**
+     * The system, and how much of it has been read.
+     *
+     * <p>The two counts come from the current-system registry, because that is
+     * what holds them. Without them a survey turn says only what this one
+     * reading found, and nothing in the request can contradict a comment that
+     * calls the eleventh body of a system the first — which is what a measured
+     * run did say.</p>
+     *
+     * <p>Both or neither. How much has been read is progress only against how
+     * much there is, and a bare numerator is worse than silence: before the
+     * discovery scan states a total, the arrival star's own milestone turn
+     * carried {@code scannedCount: 1} — the reading that turn is about, counted
+     * back to it as though it were background.</p>
+     *
+     * <p>A count of zero is absent too. Right after the honk "nothing read yet"
+     * is what the field's absence already says, and a zero repeated through
+     * every turn is the shape this contract removed from the sampling
+     * group.</p>
+     */
     private static void addSystem(
             List<LlmDecisionRequest.ContextGroup> groups,
             CurrentGameStateSnapshot state,
+            SystemRegistrySnapshot registry,
             Set<ContextNeed> needs,
             StatedFacts stated
     ) {
@@ -97,7 +118,40 @@ public final class DecisionContextSelector {
                 SemanticField.SYSTEM_NAME,
                 SemanticValue.ofText(state.systemName())
         );
+        Integer total = describesCurrentSystem(registry, state)
+                ? registry.bodyCount()
+                : null;
+        if (total != null) {
+            add(
+                    facts,
+                    stated,
+                    SemanticField.SYSTEM_BODY_COUNT,
+                    SemanticValue.ofIntegral(total)
+            );
+            long scanned = registry.scannedBodyCount();
+            add(
+                    facts,
+                    stated,
+                    SemanticField.SYSTEM_SCANNED_COUNT,
+                    scanned > 0
+                            ? SemanticValue.ofIntegral(scanned)
+                            : SemanticValue.unknown()
+            );
+        }
         group(groups, "system", facts);
+    }
+
+    /** Whether the registry is describing the system the ship is in. */
+    private static boolean describesCurrentSystem(
+            SystemRegistrySnapshot registry,
+            CurrentGameStateSnapshot state
+    ) {
+        return registry.available()
+                && state.systemAddress() != null
+                && Objects.equals(
+                        registry.systemAddress(),
+                        state.systemAddress()
+                );
     }
 
     /**
@@ -165,6 +219,19 @@ public final class DecisionContextSelector {
                             ? SemanticValue.ofBoolean(planet.landable())
                             : SemanticValue.unknown()
             );
+            // Only where the ship can put down. On a gas giant the pull is a
+            // number about a place nothing stands on, and "high gravity" beside
+            // a body no one can land on reads as a warning about a landing that
+            // was never possible.
+            add(
+                    facts,
+                    stated,
+                    SemanticField.SURFACE_GRAVITY,
+                    body instanceof PlanetBody planet
+                            && Boolean.TRUE.equals(planet.landable())
+                            ? DecisionNames.gravityBand(planet.surfaceGravity())
+                            : SemanticValue.unknown()
+            );
             add(
                     facts,
                     stated,
@@ -182,14 +249,6 @@ public final class DecisionContextSelector {
                     stated,
                     SemanticField.WAS_FOOTFALLED,
                     SemanticValue.ofBoolean(body.profile().wasFootfalled())
-            );
-            add(
-                    facts,
-                    stated,
-                    SemanticField.DISTANCE_FROM_ARRIVAL_LS,
-                    SemanticValue.ofDecimal(
-                            body.profile().distanceFromArrivalLs()
-                    )
             );
             add(
                     facts,
@@ -220,11 +279,7 @@ public final class DecisionContextSelector {
             CurrentGameStateSnapshot state
     ) {
         if (state.bodyId() == null
-                || !registry.available()
-                || !Objects.equals(
-                        registry.systemAddress(),
-                        state.systemAddress()
-                )) {
+                || !describesCurrentSystem(registry, state)) {
             return null;
         }
         return registry.object(state.bodyId());
@@ -252,8 +307,12 @@ public final class DecisionContextSelector {
      * {@code COLLECTED} or {@code NOT_COLLECTED}. Not one field carrying a list:
      * {@link SemanticValue} is a closed set with no list in it, and adding one
      * would put back the compound value ADR-0024 removed. A genus the game has
-     * no word for is left out rather than spelled as its {@code $Codex_Ent_…}
-     * symbol — the same rule every other model-facing label obeys.</p>
+     * no word for at all is still left out — that rule is unchanged — but the
+     * name of the ones that stay is read off the identity by
+     * {@link DecisionNames#genusField} rather than off the localised label. The
+     * label is in whatever language the game runs in, and with a Russian client
+     * this group was the one Cyrillic key in an English document: the document's
+     * own names moved with the output language while nothing else did.</p>
      *
      * <p>The whole inventory is sent, including a genus the turn's own event has
      * just finished. That is not the event said twice: the event reports an
@@ -272,16 +331,10 @@ public final class DecisionContextSelector {
             SystemRegistrySnapshot registry,
             Set<ContextNeed> needs
     ) {
-        if (!needs.contains(ContextNeed.BODY_DETAIL)
-                || state.bodyId() == null
-                || !registry.available()
-                || !Objects.equals(
-                        registry.systemAddress(),
-                        state.systemAddress()
-                )) {
+        if (!needs.contains(ContextNeed.BIOLOGY)) {
             return;
         }
-        SystemObject body = registry.object(state.bodyId());
+        SystemObject body = bodyInRegistry(registry, state);
         if (body == null) {
             return;
         }
@@ -289,14 +342,22 @@ public final class DecisionContextSelector {
         if (survey.genera().isEmpty()) {
             return;
         }
-        List<LlmDecisionRequest.Field> facts = survey.genera().entrySet()
-                .stream()
-                .filter(genus -> genus.getValue() != null)
-                .sorted(Comparator.comparing(Map.Entry::getValue))
+        Map<String, String> named = new TreeMap<>();
+        for (Map.Entry<String, String> genus : survey.genera().entrySet()) {
+            if (genus.getValue() == null) {
+                // The game has no word for this organism at all; see below.
+                continue;
+            }
+            String name = DecisionNames.genusField(genus.getKey());
+            if (name != null) {
+                named.put(name, genus.getKey());
+            }
+        }
+        List<LlmDecisionRequest.Field> facts = named.entrySet().stream()
                 .map(genus -> new LlmDecisionRequest.Field(
-                        genus.getValue(),
+                        genus.getKey(),
                         SemanticValue.ofSymbol(
-                                survey.completed().contains(genus.getKey())
+                                survey.completed().contains(genus.getValue())
                                         ? "COLLECTED"
                                         : "NOT_COLLECTED"
                         )

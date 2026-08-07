@@ -142,8 +142,8 @@ final class DecisionEventCatalogCoverageTest {
     /**
      * A kind may claim to be the whole action only where that is defensible.
      *
-     * <p>One event does today. A vehicle launch names its loadout, has no
-     * process position anyone can act on, and asserts nothing about where the
+     * <p>One event does today. A vehicle launch names nothing it acted on, has
+     * no process position anyone can act on, and asserts nothing about where the
      * Commander is — so there is nothing further for a stage or an uncertainty
      * to describe.</p>
      */

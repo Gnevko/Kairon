@@ -215,7 +215,7 @@ class ObserverTurnCoordinatorSemanticEffectsTest {
                 "BodyName":"Alpha 1","PlanetClass":"Rocky body"}
                 """);
         pipeline.journal("""
-                {"timestamp":"2026-07-30T14:00:01Z",\
+                {"timestamp":"2026-07-30T14:00:00Z",\
                 "event":"ApproachBody","StarSystem":"Alpha",\
                 "SystemAddress":11,"Body":"Alpha 1","BodyID":3}
                 """);

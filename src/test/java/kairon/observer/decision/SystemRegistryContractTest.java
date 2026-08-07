@@ -282,6 +282,68 @@ final class SystemRegistryContractTest {
     }
 
     /**
+     * The instrument that names what it found says what it found.
+     *
+     * <p>Firing probes at a body is how the Commander learns which organisms are
+     * down there, and the reading carries their names. The system scanner counts
+     * signals from across the system and names nothing, so the same kind of event
+     * lists nothing there — which is why this is declared per instrument rather
+     * than per kind. The names are the words in the genus identities, the same
+     * spelling {@code context.biology} uses, so one organism reads as one
+     * organism wherever the document mentions it.</p>
+     */
+    @Test
+    void aSurfaceScanListsTheOrganismsItNamed(@TempDir Path directory) {
+        try (SemanticPipelineHarness harness =
+                     SemanticPipelineHarness.create(directory)) {
+            arrive(harness);
+            harness.journal(MOON_SCAN).closeBatch();
+            harness.journal(SAA_SIGNALS).closeBatch();
+
+            PipelineTrace trace = harness.trace();
+            PipelineTrace.TurnView turn = trace.turns().getLast();
+            JsonNode found = turn.events().get(0);
+
+            assertEquals(List.of("BODY_SIGNALS_FOUND"), turn.eventKinds());
+            assertEquals(
+                    List.of("Bacterial", "Fonticulus", "Tussocks"),
+                    values(found.path("organisms")),
+                    "the probes named three, and all three are listed: "
+                            + turn.userMessage()
+            );
+            assertEquals(
+                    3,
+                    found.path("biologicalSignals").intValue(),
+                    "beside the count, which is a different fact"
+            );
+        }
+
+        try (SemanticPipelineHarness harness =
+                     SemanticPipelineHarness.create(directory.resolve("fss"))) {
+            arrive(harness);
+            harness.journal(MOON_SCAN).closeBatch();
+            harness.journal(FSS_SIGNALS).closeBatch();
+
+            PipelineTrace trace = harness.trace();
+            PipelineTrace.TurnView turn = trace.turns().getLast();
+            JsonNode found = turn.events().get(0);
+
+            assertEquals(List.of("BODY_SIGNALS_FOUND"), turn.eventKinds());
+            assertTrue(
+                    found.path("organisms").isMissingNode(),
+                    "the system scanner named nothing, so it lists nothing: "
+                            + turn.userMessage()
+            );
+        }
+    }
+
+    private static List<String> values(JsonNode array) {
+        List<String> values = new java.util.ArrayList<>();
+        array.forEach(value -> values.add(value.textValue()));
+        return List.copyOf(values);
+    }
+
+    /**
      * What grows here reaches the model, and what has been collected of it.
      *
      * <p>The turn that names the genera is not the turn that reports them: the
@@ -309,15 +371,15 @@ final class SystemRegistryContractTest {
             JsonNode biology = completion.context().path("biology");
             assertEquals(
                     "COLLECTED",
-                    biology.path("Bacterium").textValue()
+                    biology.path("Bacterial").textValue()
             );
             assertEquals(
                     "NOT_COLLECTED",
-                    biology.path("Tussock").textValue()
+                    biology.path("Tussocks").textValue()
             );
             assertEquals(
                     "NOT_COLLECTED",
-                    biology.path("Fonticulua").textValue(),
+                    biology.path("Fonticulus").textValue(),
                     "and what is still out there is named beside it"
             );
             assertEquals(
@@ -387,15 +449,19 @@ final class SystemRegistryContractTest {
                     """).closeBatch();
             harness.journal(APPROACH).closeBatch();
             harness.journal(SUPERCRUISE_EXIT).closeBatch();
+            // The inventory travels with the analysis that finishes a sample
+            // and with nothing else, so that is the turn to read it off.
+            harness.journal(ANALYSED).closeBatch();
 
             PipelineTrace trace = harness.trace();
             JsonNode biology =
                     trace.turns().getLast().context().path("biology");
 
             assertEquals(
-                    List.of("Tussock"),
+                    List.of("Tussocks"),
                     fieldNames(biology),
-                    "only the organism the game has a word for"
+                    "only the organism the game has a word for, named by the "
+                            + "word in its own identity"
             );
             assertEquals(
                     Set.of(
@@ -484,10 +550,9 @@ final class SystemRegistryContractTest {
                             + turn.userMessage()
             );
             assertTrue(body.path("landable").booleanValue());
-            assertEquals(
-                    476.481077,
-                    body.path("distanceFromArrivalLs").doubleValue(),
-                    1.0e-9
+            assertFalse(
+                    body.has("distanceFromArrivalLs"),
+                    "the arrival distance is not model-facing"
             );
 
             BodyDetail graphSees = trace.finalBody(4001L, 5L);
@@ -508,7 +573,92 @@ final class SystemRegistryContractTest {
         }
     }
 
+    /**
+     * How much of the system has been read reaches the model, and only as a
+     * fraction.
+     *
+     * <p>A measured run had Kairon call the eleventh body of a system "the
+     * first planet discovered here", and nothing in the request could
+     * contradict it. The registry counts what it holds; the discovery scan
+     * states the total; the model is now told both.</p>
+     *
+     * <p>Both or neither, which is what the first half asserts. Before the
+     * discovery scan there is no total, and the arrival star's own milestone
+     * turn would otherwise carry {@code scannedCount: 1} — the reading that
+     * turn is about, handed back to it as background.</p>
+     */
+    @Test
+    void howMuchOfTheSystemIsReadReachesTheModelOnlyAgainstATotal(
+            @TempDir Path directory
+    ) {
+        try (SemanticPipelineHarness harness =
+                     SemanticPipelineHarness.create(directory)) {
+            arrive(harness);
+            harness.journal(ARRIVAL_STAR).closeBatch();
+
+            PipelineTrace.TurnView milestone =
+                    harness.trace().turns().getLast();
+            assertEquals(
+                    List.of("SYSTEM_UNDISCOVERED_CONFIRMED"),
+                    milestone.eventKinds()
+            );
+            assertFalse(
+                    milestone.userMessage().contains("scannedCount"),
+                    "no total has been stated, so there is no progress to "
+                            + "report: " + milestone.userMessage()
+            );
+            assertFalse(milestone.userMessage().contains("bodyCount"));
+
+            harness.journal(DISCOVERY_SCAN).closeBatch();
+            harness.journal(MOON_SCAN).closeBatch();
+            harness.journal(APPROACH).closeBatch();
+
+            PipelineTrace trace = harness.trace();
+            SystemRegistrySnapshot registry =
+                    trace.finalRegistry().orElseThrow();
+            assertEquals(6, registry.bodyCount());
+            assertEquals(
+                    2,
+                    registry.scannedBodyCount(),
+                    "the arrival star and the scanned moon; the planet and "
+                            + "the barycentre their chain named are listed, "
+                            + "not read"
+            );
+
+            JsonNode system = trace.turns().getLast().context().path("system");
+            assertEquals(6, system.path("bodyCount").intValue());
+            assertEquals(
+                    2,
+                    system.path("scannedCount").intValue(),
+                    "what the model is told is what the registry counted: "
+                            + trace.turns().getLast().userMessage()
+            );
+        }
+    }
+
     // ------------------------------------------------------------- fixtures
+
+    /**
+     * The arrival star, reported as nobody's discovery.
+     *
+     * <p>A shallower-than-detailed star reading whose {@code WasDiscovered} is
+     * explicitly false, which is the shape the parser reads as the milestone.
+     * </p>
+     */
+    private static final String ARRIVAL_STAR = """
+            {"timestamp":"2026-07-30T10:00:20Z","event":"Scan",
+             "ScanType":"AutoScan","BodyName":"Survey Alpha A","BodyID":1,
+             "StarSystem":"Survey Alpha","SystemAddress":4001,
+             "StarType":"K","Subclass":4,"WasDiscovered":false,
+             "WasMapped":false,"DistanceFromArrivalLS":0.0}
+            """;
+
+    /** The honk: the one record that states how many bodies there are. */
+    private static final String DISCOVERY_SCAN = """
+            {"timestamp":"2026-07-30T10:00:30Z","event":"FSSDiscoveryScan",
+             "Progress":1.0,"BodyCount":6,"NonBodyCount":2,
+             "SystemName":"Survey Alpha","SystemAddress":4001}
+            """;
 
     private static final String LOAD_GAME = """
             {"timestamp":"2026-07-30T10:00:00Z","event":"LoadGame",

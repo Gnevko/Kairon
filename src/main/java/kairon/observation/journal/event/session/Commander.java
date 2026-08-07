@@ -24,9 +24,16 @@ public record Commander(RawJournalData raw)
         raw = JournalEventObservation.requireEvent(raw, EVENT_TYPE);
     }
 
+    /**
+     * The journal writes this when a Commander takes up a session — the one
+     * Commander this ship has, arriving at the controls. The earlier sentence
+     * described the file instead ("the session being loaded identified its
+     * Commander"), and it read as telemetry about a load step rather than as
+     * someone coming aboard.
+     */
     @Override
     public String modelFacingDescription() {
-        return "The game session being loaded identified its Commander.";
+        return "The Commander came aboard, and this session began.";
     }
 
     @Override

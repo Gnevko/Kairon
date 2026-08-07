@@ -178,6 +178,9 @@ final class DecisionTurnFixture {
      * calculation produced reach the model — not that a number was computed
      * here.</p>
      */
+    /** Whether the scripted predictions rest on a single observation. */
+    private boolean singleObservation;
+
     ProjectedObservation graphedPredicting(
             String rawJson,
             List<TrajectoryEntry> trajectory,
@@ -190,6 +193,26 @@ final class DecisionTurnFixture {
                 predicted,
                 ContextKey.EMPTY
         );
+    }
+
+    /** The same, but the graph has seen each of these transitions once. */
+    ProjectedObservation graphedPredictingOnce(
+            String rawJson,
+            List<TrajectoryEntry> trajectory,
+            List<NormalizedEventType> predicted
+    ) {
+        singleObservation = true;
+        try {
+            return graphed(
+                    rawJson,
+                    trajectory,
+                    true,
+                    predicted,
+                    ContextKey.EMPTY
+            );
+        } finally {
+            singleObservation = false;
+        }
     }
 
     /**
@@ -290,7 +313,8 @@ final class DecisionTurnFixture {
                         predictions(
                                 current.eventType(),
                                 predicted,
-                                contextKey
+                                contextKey,
+                                singleObservation ? 1L : 0L
                         )
                 ),
                 semantics.create(observation, projection.applied()),
@@ -652,6 +676,23 @@ final class DecisionTurnFixture {
             List<NormalizedEventType> predicted,
             ContextKey contextKey
     ) {
+        return predictions(source, predicted, contextKey, 0L);
+    }
+
+    /**
+     * The same, with every prediction resting on one observation.
+     *
+     * <p>{@code observations} of zero keeps the ordinary fixture counts, which
+     * are two and up: a transition seen once is not forecast at all, and most
+     * fixtures here are about naming and ordering rather than about how thin
+     * the evidence is.</p>
+     */
+    private static List<SituationNextEventPrediction> predictions(
+            NormalizedEventType source,
+            List<NormalizedEventType> predicted,
+            ContextKey contextKey,
+            long observations
+    ) {
         int count = predicted.size();
         if (count == 0) {
             return List.of();
@@ -668,7 +709,7 @@ final class DecisionTurnFixture {
                             ? PredictionBasis.CONTEXTUAL
                             : PredictionBasis.GLOBAL,
                     probability,
-                    count - index,
+                    observations > 0 ? observations : count - index + 1L,
                     contextual ? 1L : 0L,
                     contextual ? 2.5 : 0.0,
                     contextKey,

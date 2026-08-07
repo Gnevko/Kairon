@@ -172,8 +172,7 @@ final class ShipLaunchedVesselLifecycleTest {
             String launch = turnFor(pipeline, "LaunchFighter");
             assertEquals(
                     "{\"event\":\"A vehicle was launched from the ship.\","
-                            + "\"loadout\":\"base\","
-                            + "\"playerControlled\":true,"
+                            + "\"commanderControlled\":true,"
                             + "\"occurrenceOnBody\":1}",
                     read(launch).path("events").get(0).toString()
             );
@@ -224,19 +223,14 @@ final class ShipLaunchedVesselLifecycleTest {
             assertEquals(
                     """
                     {"events":[{"event":"A ship landed on the surface of a planet or moon.",\
-                    "body":"Schieni GG-A c3-84 4 a","playerControlled":true,\
+                    "body":"Schieni GG-A c3-84 4 a","commanderControlled":true,\
                     "occurrenceOnBody":1}],\
                     "context":{"system":{"name":"Schieni GG-A c3-84"},\
                     "body":{"type":"PLANET","planetClass":"Icy body",\
                     "landable":true,"previouslyDiscovered":false,\
                     "previouslyMapped":false,"previouslyFootfalled":false,\
-                    "distanceFromArrivalLs":1081.453145,\
                     "biologicalSignals":1},\
-                    "navigation":{"flightMode":"LANDED"},\
-                    "vehicle":{"kind":"SLV"}},\
-                    "trajectory":{"recent":["A ship in supercruise came within a body's orbital-cruise zone.",\
-                    "A ship dropped out of supercruise into normal \
-                    space.","A vehicle was launched from the ship."]}}""",
+                    "vehicle":{"kind":"SLV"}}}""",
                     turnFor(pipeline, "Touchdown")
             );
         }
@@ -282,9 +276,7 @@ final class ShipLaunchedVesselLifecycleTest {
                     "onStation":false,"onPlanet":true,\
                     "occurrenceOnBody":1}],\
                     "context":{"commander":{"presence":"ON_FOOT"},\
-                    "vehicle":{"kind":"SLV"}},\
-                    "trajectory":{"recent":["A ship dropped out of supercruise into normal space.",\
-                    "A vehicle was launched from the ship.","A ship landed on the surface of a planet or moon."]}}""",
+                    "vehicle":{"kind":"SLV"}}}""",
                     turnFor(pipeline, "Disembark")
             );
             assertEquals(
@@ -295,10 +287,7 @@ final class ShipLaunchedVesselLifecycleTest {
                     "onStation":false,"onPlanet":true,\
                     "occurrenceOnBody":1}],\
                     "context":{"commander":{"presence":"SLV"},\
-                    "vehicle":{"kind":"SLV"}},\
-                    "trajectory":{"recent":["A vehicle was launched from the ship.",\
-                    "A ship landed on the surface of a planet or \
-                    moon.","The Commander stepped out of a ship or SRV."]}}""",
+                    "vehicle":{"kind":"SLV"}}}""",
                     turnFor(pipeline, "Embark")
             );
         }
@@ -327,11 +316,7 @@ final class ShipLaunchedVesselLifecycleTest {
                     "occurrenceOnBody":1}],\
                     "changes":[{"subject":"commander",\
                     "kind":"UPDATED","fields":{"presence":\
-                    {"before":"SLV","after":"SHIP"}}}],\
-                    "trajectory":{"recent":["The organic sampling tool recorded the final scan and completed a \
-                    sampling sequence.",\
-                    "The Commander, on foot, got into a ship or SRV.","A ship took off from the surface of a planet or \
-                    moon."]}}""",
+                    {"before":"SLV","after":"SHIP"}}}]}""",
                     recovery
             );
             for (String wrong : List.of(

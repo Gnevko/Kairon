@@ -60,7 +60,7 @@ final class DecisionMessageTurnTest {
                 propertyNames(event)
         );
         assertEquals(
-                    "A text message was received.",
+                    "Another player sent a text message to a channel the Commander is in.",
                     event.path("event").textValue());
         assertEquals("OLKI", event.path("sender").textValue());
         assertEquals("SQUADRON", event.path("channel").textValue());
@@ -68,11 +68,6 @@ final class DecisionMessageTurnTest {
                 "Nabend CMDRs o7",
                 event.path("message").textValue(),
                 "the text itself is untouched"
-        );
-        assertFalse(request.has("trajectory"));
-        assertFalse(
-                request.toString().contains("A ship jumped from one star system to another."),
-                "where the ship has been says nothing about a greeting"
         );
     }
 
@@ -184,29 +179,12 @@ final class DecisionMessageTurnTest {
         List<String> channels = new ArrayList<>();
         request.path("events").forEach(event -> {
             assertEquals(
-                    "A text message was received.",
+                    "Another player sent a text message to a channel the Commander is in.",
                     event.path("event").textValue()
             );
             channels.add(event.path("channel").textValue());
         });
         assertEquals(List.of("SQUADRON", "WING"), channels);
-        assertFalse(request.has("trajectory"));
-    }
-
-    /**
-     * The rule is about the batch, not about the graph.
-     *
-     * <p>The identical episode produces a trajectory the moment the turn is
-     * about something other than talking — so nothing was disabled, and the two
-     * cases differ only in what the batch contains.</p>
-     */
-    @Test
-    void aTurnThatIsNotOnlyTalkKeepsItsHistory() {
-        List<NormalizedEventType> trajectory = List.of(
-                NormalizedEventType.SYSTEM_ENTRY,
-                NormalizedEventType.LIFTOFF,
-                NormalizedEventType.TOUCHDOWN
-        );
 
         DecisionTurnFixture alone = new DecisionTurnFixture();
         JsonNode landing = read(serializer.serialize(factory.create(
@@ -217,12 +195,6 @@ final class DecisionMessageTurnTest {
                         0
                 )))
         )));
-        assertEquals(
-                List.of("A ship jumped from one star system to another.", "A ship took off from the surface of a "
-                        + "planet or moon."),
-                recent(landing),
-                "an ordinary turn is unaffected"
-        );
 
         DecisionTurnFixture mixed = new DecisionTurnFixture();
         JsonNode both = read(serializer.serialize(factory.create(
@@ -238,16 +210,10 @@ final class DecisionMessageTurnTest {
         )));
         assertEquals(
                 List.of(
-                        "A text message was received.",
+                        "Another player sent a text message to a channel the Commander is in.",
                         "A ship landed on the surface of a planet or moon."
                 ),
                 descriptions(both)
-        );
-        assertEquals(
-                List.of("A ship jumped from one star system to another.", "A ship took off from the surface of a "
-                        + "planet or moon."),
-                recent(both),
-                "the landing is exactly what a history might explain"
         );
     }
 
@@ -271,13 +237,6 @@ final class DecisionMessageTurnTest {
                  "Body":"Schieni GG-A c3-84 4 a","BodyID":20,
                  "PlayerControlled":true,"OnStation":false,"OnPlanet":true}
                 """;
-    }
-
-    private static List<String> recent(JsonNode request) {
-        List<String> recent = new ArrayList<>();
-        request.path("trajectory").path("recent")
-                .forEach(kind -> recent.add(kind.textValue()));
-        return List.copyOf(recent);
     }
 
     private static List<String> descriptions(JsonNode request) {

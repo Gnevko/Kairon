@@ -85,7 +85,7 @@ final class ProviderFacingEventIdentityTest {
         assertEquals(
                 "{\"events\":[{\"event\":\"A ship landed on the surface "
                         + "of a planet or moon.\",\"body\":\"Test A 1\","
-                        + "\"playerControlled\":true}]}",
+                        + "\"commanderControlled\":true}]}",
                 serializer.serializeSection(request, DecisionSections.EVENTS)
         );
         String whole = serializer.serialize(request);

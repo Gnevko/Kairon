@@ -1,5 +1,10 @@
 package kairon.observer.decision;
 
+import kairon.semantics.SemanticField;
+import kairon.semantics.SemanticValue;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -73,11 +78,52 @@ import java.util.Set;
  *                     the attributes this kind keeps, when the adapter's fact
  *                     carries more than the kind is about. Empty — the ordinary
  *                     case — keeps everything the adapter produced. Non-empty is
- *                     a claim that the rest belong to a different assertion made
- *                     from the same record: one journal record can be read two
- *                     ways, and a milestone carrying the full measurement set of
- *                     the scan it was derived from reads as that scan. Never a
- *                     way to shorten an event for its own sake.
+ *                     a claim that the rest do not belong to this assertion, on
+ *                     one of two grounds. Either they belong to a different
+ *                     assertion made from the same record — one journal record
+ *                     can be read two ways, and a milestone carrying the full
+ *                     measurement set of the scan it was derived from reads as
+ *                     that scan. Or they are not facts about what happened at
+ *                     all: a codex entry's category and region are the game's
+ *                     own rubric, filed in the client's language, and the region
+ *                     standing beside {@code newEntry} was read as a claim about
+ *                     other regions that the document never made. Never a way to
+ *                     shorten an event for its own sake.
+ * @param unnamedObject
+ *                     whether the thing this event acts on is not named to the
+ *                     model at all. The ordinary case is false: an event names
+ *                     what it acted on. True is a claim that the adapter's name
+ *                     for it is not a name — a launched vehicle carries the
+ *                     journal's {@code Loadout} string, {@code "base"}, because
+ *                     the record has no vessel name in it, and a field reading
+ *                     {@code loadout: "base"} is an internal token in the one
+ *                     slot that says what was acted on. The identity is still
+ *                     recorded everywhere else; only the model-facing name goes.
+ * @param namesOrganisms
+ *                     whether this reading names the organisms it found, so the
+ *                     event lists them. True for the surface scanner and false
+ *                     for the system scanner, which reports how many signals a
+ *                     body carries and never which. Declared per event because
+ *                     it is a fact about the instrument: the names are read off
+ *                     the body in the registry snapshot captured with this very
+ *                     observation, so an instrument that named nothing must not
+ *                     list what another one named earlier.
+ * @param statedValues canonical fields this event's own sentence already states,
+ *                     each at the one value it states. A supercruise entry says
+ *                     the flight mode is supercruise in those words, so
+ *                     {@code context.navigation.flightMode: SUPERCRUISE} beside
+ *                     it is the same sentence twice. Different from the
+ *                     mechanism's {@code causedFields}, which say what an event
+ *                     of the family <em>moves</em> without claiming the sentence
+ *                     names the result: a completed jump also leaves the ship in
+ *                     supercruise, and its sentence does not say so, so the
+ *                     current mode is still worth stating there. Read against
+ *                     the value like {@code alsoAnswered} and for the same
+ *                     reason — an event that says supercruise says nothing about
+ *                     a mode that is no longer supercruise. Empty is the
+ *                     ordinary case; a non-empty entry is a claim about the
+ *                     wording of one class's description, and moves when that
+ *                     wording moves.
  */
 public record DecisionEventRule(
         String kind,
@@ -90,12 +136,18 @@ public record DecisionEventRule(
         String settledGap,
         boolean uncountedOnBody,
         boolean stageSpecificOccurrences,
-        Set<String> retainedQualifiers
+        Set<String> retainedQualifiers,
+        boolean unnamedObject,
+        boolean namesOrganisms,
+        Map<SemanticField, SemanticValue> statedValues
 ) {
 
     public DecisionEventRule {
         retainedQualifiers = Set.copyOf(
                 Objects.requireNonNull(retainedQualifiers, "retainedQualifiers")
+        );
+        statedValues = Map.copyOf(
+                Objects.requireNonNull(statedValues, "statedValues")
         );
         Objects.requireNonNull(kind, "kind");
         if (kind.isBlank()) {
@@ -145,6 +197,20 @@ public record DecisionEventRule(
                 );
             }
         }
+        for (Map.Entry<SemanticField, SemanticValue> statement
+                : statedValues.entrySet()) {
+            if (statement.getKey() == null || statement.getValue() == null) {
+                throw new IllegalArgumentException(
+                        "a stated value needs both the field and the value"
+                );
+            }
+            if (DecisionNames.slotOf(statement.getKey()) == null) {
+                throw new IllegalArgumentException(
+                        "a field the model is never sent cannot be stated: "
+                                + statement.getKey()
+                );
+            }
+        }
     }
 
     static DecisionEventRule of(String kind, DecisionMechanism mechanism) {
@@ -167,7 +233,10 @@ public record DecisionEventRule(
                 null,
                 false,
                 false,
-                Set.of()
+                Set.of(),
+                false,
+                false,
+                Map.of()
         );
     }
 
@@ -187,7 +256,81 @@ public record DecisionEventRule(
                 settledGap,
                 uncountedOnBody,
                 stageSpecificOccurrences,
-                retainedQualifiers
+                retainedQualifiers,
+                unnamedObject,
+                namesOrganisms,
+                statedValues
+        );
+    }
+
+    /**
+     * This event's sentence already says this canonical field is now that; see
+     * {@link #statedValues()}.
+     *
+     * <p>The value is given as the canonical enum constant rather than a string,
+     * so a declaration cannot outlive the constant it names.</p>
+     */
+    DecisionEventRule stating(SemanticField field, Enum<?> value) {
+        Objects.requireNonNull(field, "field");
+        Objects.requireNonNull(value, "value");
+        Map<SemanticField, SemanticValue> stated =
+                new LinkedHashMap<>(statedValues);
+        stated.put(field, SemanticValue.ofSymbol(value.name()));
+        return new DecisionEventRule(
+                kind,
+                mechanism,
+                readAs,
+                objectName,
+                quantityName,
+                multiStage,
+                wholeAction,
+                settledGap,
+                uncountedOnBody,
+                stageSpecificOccurrences,
+                retainedQualifiers,
+                unnamedObject,
+                namesOrganisms,
+                stated
+        );
+    }
+
+    /** This reading names what it found; see {@link #namesOrganisms()}. */
+    DecisionEventRule namingOrganisms() {
+        return new DecisionEventRule(
+                kind,
+                mechanism,
+                readAs,
+                objectName,
+                quantityName,
+                multiStage,
+                wholeAction,
+                settledGap,
+                uncountedOnBody,
+                stageSpecificOccurrences,
+                retainedQualifiers,
+                unnamedObject,
+                true,
+                statedValues
+        );
+    }
+
+    /** The object's only name is an internal token; see {@link #unnamedObject()}. */
+    DecisionEventRule unnamed() {
+        return new DecisionEventRule(
+                kind,
+                mechanism,
+                readAs,
+                objectName,
+                quantityName,
+                multiStage,
+                wholeAction,
+                settledGap,
+                uncountedOnBody,
+                stageSpecificOccurrences,
+                retainedQualifiers,
+                true,
+                namesOrganisms,
+                statedValues
         );
     }
 
@@ -269,7 +412,10 @@ public record DecisionEventRule(
                 settledGap,
                 uncountedOnBody,
                 stageSpecificOccurrences,
-                retainedQualifiers
+                retainedQualifiers,
+                unnamedObject,
+                namesOrganisms,
+                statedValues
         );
     }
 }

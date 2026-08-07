@@ -127,11 +127,6 @@ final class SemanticPipelineContractTest {
                     NormalizedEventType.SUPERCRUISE_ENTRY,
                     "SUPERCRUISE_ENTERED"
             );
-            assertEquals(
-                    List.of("A frame shift drive began charging for "
-                            + "supercruise."),
-                    trace.turns().getLast().recent()
-            );
             assertSourceOrder(trace);
         }
     }
@@ -164,15 +159,19 @@ final class SemanticPipelineContractTest {
                     before.providerCalls() + 1,
                     trace.providerCalls()
             );
-            assertFalse(
-                    trace.turns().getLast().recent()
-                            .contains("BODY_SIGNALS_FOUND"),
-                    "the finding is not its own predecessor"
-            );
         }
     }
 
-    /** A4: the same finding twice is one finding, on both sides. */
+    /**
+     * A4: the same instrument saying the same thing twice is one finding.
+     *
+     * <p>Two instruments saying it are two findings, because they are not
+     * saying the same thing. The system scanner counts the signals a body
+     * carries; the surface scanner fires probes and names the organisms.
+     * Compared by count alone, the reading that names them was silenced by the
+     * one that cannot name anything — so both halves are asserted here, and the
+     * pair is the contract.</p>
+     */
     @Test
     void aRepeatedScannerResultCostsNothingAnywhere(@TempDir Path directory) {
         try (SemanticPipelineHarness harness = harness(directory)) {
@@ -181,14 +180,25 @@ final class SemanticPipelineContractTest {
                     .closeBatch();
             PipelineTrace before = harness.trace();
 
-            harness.journal(signals("10:02:00Z", "SAASignalsFound", BIO_1))
+            harness.journal(signals("10:02:00Z", "FSSBodySignals", BIO_1))
                     .closeBatch();
-            PipelineTrace after = harness.trace();
+            PipelineTrace afterRepeat = harness.trace();
 
-            assertDuplicateSuppressed(before, after);
+            assertDuplicateSuppressed(before, afterRepeat);
+
+            harness.journal(signals("10:03:00Z", "SAASignalsFound", BIO_1))
+                    .closeBatch();
+            PipelineTrace afterSurvey = harness.trace();
+
             assertEquals(
-                    1,
-                    after.occurrences().stream()
+                    afterRepeat.providerCalls() + 1,
+                    afterSurvey.providerCalls(),
+                    () -> "the probes reported and nobody was told: "
+                            + afterSurvey.describe()
+            );
+            assertEquals(
+                    2,
+                    afterSurvey.occurrences().stream()
                             .filter(occurrence -> occurrence.eventType()
                                     .equals(NormalizedEventType
                                             .FSS_BODY_SIGNALS_FOUND)
@@ -196,7 +206,7 @@ final class SemanticPipelineContractTest {
                                     .equals(NormalizedEventType
                                             .SAA_SIGNALS_FOUND))
                             .count(),
-                    "one reading, one occurrence, whichever scanner reported it"
+                    "one occurrence per instrument, and no more"
             );
         }
     }
@@ -236,10 +246,6 @@ final class SemanticPipelineContractTest {
             assertEquals(
                     before.occurrences().size(),
                     trace.occurrences().size()
-            );
-            assertFalse(
-                    trace.turns().getLast().hasTrajectory(),
-                    "where the ship has been does not explain a message"
             );
         }
     }
@@ -288,13 +294,11 @@ final class SemanticPipelineContractTest {
                     .closeBatch();
             PipelineTrace trace = harness.trace();
 
-            assertTrue(
-                    trace.turns().getLast().recent()
-                            .contains(DecisionTrajectoryDescriptions
-                                    .descriptionOf(NormalizedEventType
-                                            .SUPERCRUISE_JUMP_STARTED)),
-                    "a model-silent observation still names itself in the "
-                            + "trajectory of a later turn"
+            assertEquals(
+                    before.providerCalls() + 1,
+                    trace.providerCalls(),
+                    () -> "the entry itself is worth a turn: "
+                            + trace.describe()
             );
         }
     }

@@ -106,27 +106,15 @@ final class RepeatedRouteTargetTest {
                     timeline(pipeline)
             );
 
-            // 8-9: the trajectory the model actually reads, and the rest of
-            // the turn unchanged around it.
+            // 8-9: the turn the model actually reads. The entry says the mode
+            // in its own words, so the navigation context says it no second
+            // time and the whole document is the one event.
             String serialized = turnFor(pipeline, "SupercruiseEntry");
             JsonNode request = read(serialized);
             assertEquals(
-                    List.of(
-                            "A surface vehicle was brought back aboard the ship.",
-                            "A star system was selected to jump to.",
-                            "A frame shift drive began charging for supercruise."
-                    ),
-                    texts(request.path("trajectory").path("recent")),
-                    "the recovery is back in the three the model remembers"
-            );
-            assertEquals(
                     """
                     {"events":[{"event":"A ship entered supercruise from normal space.",\
-                    "system":"Schieni GG-A c3-84"}],\
-                    "context":{"navigation":{"flightMode":"SUPERCRUISE"}},\
-                    "trajectory":{"recent":["A surface vehicle was brought back aboard the ship.",\
-                    "A star system was selected to jump to.","A frame shift drive began charging for \
-                    supercruise."]}}""",
+                    "system":"Schieni GG-A c3-84"}]}""",
                     serialized
             );
         }

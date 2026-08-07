@@ -125,7 +125,7 @@ final class DecisionRequestProjectionTest {
         JsonNode request = read(serialized);
         JsonNode event = request.path("events").get(0);
         assertEquals(
-                "The game session being loaded identified its Commander.",
+                "The Commander came aboard, and this session began.",
                 event.path("event").textValue()
         );
         assertEquals("TESTCMDR", event.path("commander").textValue());
@@ -174,7 +174,7 @@ final class DecisionRequestProjectionTest {
 
         JsonNode event = request.path("events").get(0);
         assertEquals(
-                    "A text message was received.",
+                    "Another player sent a text message to a channel the Commander is in.",
                     event.path("event").textValue());
         assertEquals("OLKI", event.path("sender").textValue());
         assertEquals(
@@ -190,6 +190,50 @@ final class DecisionRequestProjectionTest {
         assertFalse(request.has("graphContext"));
         assertFalse(request.toString().contains("explorer_nx"));
         assertFalse(request.toString().contains("Schieni"));
+    }
+
+    /**
+     * The flight mode is stated once — by whichever half actually says it.
+     *
+     * <p>An entry into supercruise says so in its own sentence, and the
+     * navigation context repeating {@code flightMode: SUPERCRUISE} beside it was
+     * the same fact twice in one document. A completed jump also leaves the ship
+     * in supercruise and its sentence does not say so, which is why the claim is
+     * declared per event and not on the mechanism they share: the second half of
+     * this test is what makes the first half a claim about wording rather than
+     * about the field.</p>
+     */
+    @Test
+    void theFlightModeIsContextOnlyWhereTheEventDoesNotSayIt() {
+        DecisionTurnFixture entered = new DecisionTurnFixture();
+        JsonNode afterEntry = request(entered, List.of(
+                entered.graphDisabled("""
+                        {"timestamp":"2026-07-30T10:00:00Z",
+                         "event":"SupercruiseEntry","StarSystem":"Schieni GG-A",
+                         "SystemAddress":23155}
+                        """)
+        ));
+
+        assertFalse(
+                afterEntry.path("context").has("navigation"),
+                "the event already said the ship is in supercruise"
+        );
+
+        DecisionTurnFixture jumped = new DecisionTurnFixture();
+        JsonNode afterJump = request(jumped, List.of(
+                jumped.graphDisabled("""
+                        {"timestamp":"2026-07-30T10:00:00Z","event":"FSDJump",
+                         "StarSystem":"Schieni GG-A c3-84","SystemAddress":23155,
+                         "JumpDist":24.5,"FuelUsed":1.2,"BoostUsed":false}
+                        """)
+        ));
+
+        assertEquals(
+                "SUPERCRUISE",
+                afterJump.path("context").path("navigation")
+                        .path("flightMode").textValue(),
+                "a jump leaves the ship in supercruise without saying so"
+        );
     }
 
     /**
@@ -309,7 +353,9 @@ final class DecisionRequestProjectionTest {
     /**
      * A launched vehicle is the whole of what that event says.
      *
-     * <p>The named thing is the loadout, not a vessel. The adapter's START is a
+     * <p>Nothing is named: the record has no vessel name, so the adapter falls
+     * back to the journal's {@code Loadout} token and the field that would say
+     * what was launched said {@code "base"}. The adapter's START is a
      * deployment beginning rather than a stage anyone can act on. And launching
      * a vehicle establishes nothing about where the Commander is, so there is
      * no positional claim for an occupancy qualifier to attach to — the context
@@ -345,10 +391,13 @@ final class DecisionRequestProjectionTest {
         assertEquals(
                     "A vehicle was launched from the ship.",
                     event.path("event").textValue());
-        assertEquals("base", event.path("loadout").textValue());
-        assertTrue(event.path("playerControlled").booleanValue());
+        assertFalse(
+                event.has("loadout"),
+                "the record has no vessel name, and \"base\" is not one"
+        );
+        assertTrue(event.path("commanderControlled").booleanValue());
         assertEquals(
-                List.of("event", "loadout", "playerControlled"),
+                List.of("event", "commanderControlled"),
                 propertyNames(event)
         );
         assertFalse(event.has("vehicle"));
@@ -577,10 +626,9 @@ final class DecisionRequestProjectionTest {
         assertEquals("Icy body", body.path("planetClass").textValue());
         assertTrue(body.path("landable").booleanValue());
         assertFalse(body.path("previouslyDiscovered").booleanValue());
-        assertEquals(
-                1216.6,
-                body.path("distanceFromArrivalLs").doubleValue(),
-                0.0001
+        assertFalse(
+                body.has("distanceFromArrivalLs"),
+                "the arrival distance is not model-facing"
         );
         assertFalse(
                 body.has("name"),
@@ -671,9 +719,9 @@ final class DecisionRequestProjectionTest {
                 "Schieni GG-A c3-84 4 a",
                 event.path("body").textValue()
         );
-        assertTrue(event.path("playerControlled").booleanValue());
+        assertTrue(event.path("commanderControlled").booleanValue());
         assertEquals(
-                List.of("event", "body", "playerControlled"),
+                List.of("event", "body", "commanderControlled"),
                 propertyNames(event)
         );
 
@@ -686,9 +734,9 @@ final class DecisionRequestProjectionTest {
                 "Schieni GG-A c3-84",
                 context.path("system").path("name").textValue()
         );
-        assertEquals(
-                "LANDED",
-                context.path("navigation").path("flightMode").textValue()
+        assertFalse(
+                context.has("navigation"),
+                "the landing says the ship is down in its own words"
         );
         JsonNode body = context.path("body");
         assertEquals(
@@ -699,7 +747,6 @@ final class DecisionRequestProjectionTest {
                         "previouslyDiscovered",
                         "previouslyMapped",
                         "previouslyFootfalled",
-                        "distanceFromArrivalLs",
                         "biologicalSignals"
                 ),
                 propertyNames(body),
@@ -711,11 +758,7 @@ final class DecisionRequestProjectionTest {
         assertFalse(body.path("previouslyDiscovered").booleanValue());
         assertFalse(body.path("previouslyMapped").booleanValue());
         assertFalse(body.path("previouslyFootfalled").booleanValue());
-        assertEquals(
-                1081.453145,
-                body.path("distanceFromArrivalLs").doubleValue(),
-                0.000001
-        );
+        assertFalse(body.has("distanceFromArrivalLs"));
         assertEquals(1, body.path("biologicalSignals").intValue());
         assertEquals(0, body.path("geologicalSignals").intValue());
         assertFalse(request.toString().contains("distanceLs"));

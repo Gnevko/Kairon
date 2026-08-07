@@ -11,7 +11,6 @@ public final class DecisionSections {
     public static final String EVENTS = "events";
     public static final String CHANGES = "changes";
     public static final String CONTEXT = "context";
-    public static final String TRAJECTORY = "trajectory";
 
     private DecisionSections() {
     }

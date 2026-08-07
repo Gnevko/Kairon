@@ -340,12 +340,10 @@ final class DecisionRequestArchitectureGuardTest {
      * the answer against. Both halves went at once.</p>
      *
      * <p>What is banned is the mechanism, never the vocabulary. "Evidence" and
-     * "cite" are ordinary English words and the prompt is free to use them —
-     * the context rule warns against reading standing background as evidence of
-     * a first time, and the grounding rule says not to recite what you were
-     * given. Both are about how to think, not about a property to return, and a
-     * guard that failed on them would be forcing the prompt to write around a
-     * test.</p>
+     * "cite" are ordinary English words and a prompt is free to use them; a
+     * guard that failed on the bare words would be forcing the prompt to write
+     * around a test. It did once, which is why every entry below is a shape
+     * only the removed contract produces rather than a word.</p>
      *
      * <p>So every entry below is a shape only the removed contract produces:
      * the response property in its JSON spelling, its bracket, its old
@@ -381,23 +379,24 @@ final class DecisionRequestArchitectureGuardTest {
     }
 
     /**
-     * The ordinary words are allowed, and the guard above proves it.
+     * The prompt says who she is, and that is one of its three remaining jobs.
      *
-     * <p>Written down because the previous version of that guard banned the
-     * bare words and the prompt was edited to satisfy it — a test dictating
-     * prose. If a future change makes the guard over-broad again, this fails
-     * first and says why.</p>
+     * <p>It carried six blocks and now carries three: the role, one line of
+     * preference, and the answer contract. This is the half a guard can state
+     * positively — the other half is stated by
+     * {@link #thePromptStatesTheCurrentOutputContract} — so that reducing it to
+     * nothing at all fails here rather than silently.</p>
      */
     @Test
-    void thePromptMayStillUseEvidenceAndReciteAsOrdinaryEnglish() {
+    void thePromptStillSaysWhoSheIs() {
         String prompt = DecisionPromptFactory.SYSTEM_PROMPT;
         assertTrue(
-                prompt.contains("read it as evidence that this is the first"),
-                "the context rule keeps its own wording"
+                prompt.contains("You are Kairon"),
+                "the role is what the prompt is for"
         );
         assertTrue(
-                prompt.contains("do not recite what you were given"),
-                "the grounding rule keeps its own wording"
+                prompt.contains("shipboard companion"),
+                "and what kind of thing she is to the Commander"
         );
     }
 

@@ -211,11 +211,6 @@ final class ScannerVisitScopeTest {
                     ),
                     "the event the model was given has an occurrence of its own"
             );
-            assertEquals(
-                    List.of("A ship jumped from one star system to another."),
-                    trajectory(pipeline),
-                    "and nothing from the bootstrap stands behind it"
-            );
         }
     }
 
@@ -259,10 +254,6 @@ final class ScannerVisitScopeTest {
                             NormalizedEventType.SAA_SIGNALS_FOUND
                     ),
                     "and the live one recorded itself"
-            );
-            assertEquals(
-                    List.of("A ship jumped from one star system to another."),
-                    trajectory(pipeline)
             );
         }
     }
@@ -378,29 +369,30 @@ final class ScannerVisitScopeTest {
             pipeline.journal(saa("10:02:00Z", 23155, "Schieni"));
             pipeline.settle();
             assertEquals(
-                    0L,
+                    1L,
                     pipeline.graphOccurrenceCount(
                             NormalizedEventType.SAA_SIGNALS_FOUND
                     ),
-                    "a repeat is not structural"
+                    "the other instrument's reading is its own finding"
             );
             assertEquals(
-                    afterArrival + 1,
+                    afterArrival + 2,
                     pipeline.modelInputs().size(),
-                    "and it opens no turn, empty or otherwise"
+                    "and it is reported for itself"
             );
 
             pipeline.journal(saaOf("10:02:30Z", 23155, "Schieni", BIO_ZERO));
             pipeline.settle();
             assertEquals(
-                    0L,
+                    1L,
                     pipeline.graphOccurrenceCount(
                             NormalizedEventType.SAA_SIGNALS_FOUND
                     ),
-                    "a reading of nothing is not structural"
+                    "a reading of nothing is not structural, so the count is "
+                            + "still the one real survey"
             );
             assertEquals(
-                    afterArrival + 1,
+                    afterArrival + 2,
                     pipeline.modelInputs().size(),
                     "and it is not reported"
             );
@@ -414,21 +406,26 @@ final class ScannerVisitScopeTest {
             pipeline.journal(saaChanged("10:03:00Z", 23155, "Schieni"));
             pipeline.settle();
             assertEquals(
-                    1L,
+                    2L,
                     pipeline.graphOccurrenceCount(
                             NormalizedEventType.SAA_SIGNALS_FOUND
                     ),
                     "a changed result is structural"
             );
             assertEquals(
-                    afterArrival + 2,
+                    afterArrival + 3,
                     pipeline.modelInputs().size(),
                     "and it is reported too"
             );
             assertEquals(
-                    List.of("BODY_SIGNALS_FOUND", "BODY_SIGNALS_FOUND"),
+                    List.of(
+                            "BODY_SIGNALS_FOUND",
+                            "BODY_SIGNALS_FOUND",
+                            "BODY_SIGNALS_FOUND"
+                    ),
                     pipeline.modelFacingKinds()
-                            .subList(afterArrival, afterArrival + 2)
+                            .subList(afterArrival, afterArrival + 3),
+                    "the system scan, the survey and the changed survey"
             );
         }
     }
@@ -514,19 +511,6 @@ final class ScannerVisitScopeTest {
             "{\"Type\":\"$SAA_SignalType_Biological;\",\"Count\":0}";
     private static final String BIO_1_GEO_2 = BIO_1
             + ",{\"Type\":\"$SAA_SignalType_Geological;\",\"Count\":2}";
-
-    /** What the last document the provider received says came before it. */
-    private static List<String> trajectory(
-            DecisionProductionPipeline pipeline
-    ) throws Exception {
-        String message = pipeline.modelInputs().getLast().userMessage();
-        List<String> recent = new ArrayList<>();
-        JSON.readTree(message.substring(message.indexOf('{')))
-                .path("trajectory")
-                .path("recent")
-                .forEach(name -> recent.add(name.textValue()));
-        return List.copyOf(recent);
-    }
 
     private static String signals(
             String time,

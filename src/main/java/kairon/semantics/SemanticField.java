@@ -31,6 +31,17 @@ public enum SemanticField {
     SYSTEM_ADDRESS(SemanticSubject.CURRENT_SYSTEM, true),
     SYSTEM_NAME(SemanticSubject.CURRENT_SYSTEM, true),
 
+    /**
+     * How many bodies the system holds, and how many have been read.
+     *
+     * <p>The current-system registry's, like the body facts below: canonical
+     * state knows where the ship is, not how much of the system has been
+     * surveyed. The total is what a discovery scan stated; the second is
+     * counted from what has actually been recorded.</p>
+     */
+    SYSTEM_BODY_COUNT(SemanticSubject.CURRENT_SYSTEM, false),
+    SYSTEM_SCANNED_COUNT(SemanticSubject.CURRENT_SYSTEM, false),
+
     BODY_ID(SemanticSubject.CURRENT_BODY, true),
     BODY_NAME(SemanticSubject.CURRENT_BODY, true),
     BROAD_BODY_TYPE(SemanticSubject.CURRENT_BODY, false),
@@ -41,6 +52,16 @@ public enum SemanticField {
     WAS_MAPPED(SemanticSubject.CURRENT_BODY, false),
     WAS_FOOTFALLED(SemanticSubject.CURRENT_BODY, false),
     DISTANCE_FROM_ARRIVAL_LS(SemanticSubject.CURRENT_BODY, false),
+
+    /**
+     * How heavily the body pulls, as one of three bands.
+     *
+     * <p>The registry holds the measurement in metres per second squared; what
+     * this field carries is {@code LOW}, {@code NORMAL} or {@code HIGH} against
+     * Earth. The number is the game's, the banding is Kairon's, and the
+     * thresholds are stated where it is read.</p>
+     */
+    SURFACE_GRAVITY(SemanticSubject.CURRENT_BODY, false),
     BIOLOGICAL_SIGNAL_COUNT(SemanticSubject.CURRENT_BODY, false),
     GEOLOGICAL_SIGNAL_COUNT(SemanticSubject.CURRENT_BODY, false),
 

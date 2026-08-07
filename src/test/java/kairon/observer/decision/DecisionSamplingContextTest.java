@@ -449,25 +449,20 @@ final class DecisionSamplingContextTest {
                     "context":{"commander":{"presence":"ON_FOOT"},\
                     "vehicle":{"kind":"SLV"},\
                     "sampling":{"organism":"Bacterium Bullaris - Red",\
-                    "stage":"STARTED"}},\
-                    "trajectory":{"recent":["The Commander, on foot, got into a ship or SRV.","A ship took off from \
-                    the surface of a planet or moon.","A ship landed on the surface of a planet or moon."],\
-                    "likelyNext":[{"event":"The organic sampling tool logged the \
-                    first scan of an unfinished sampling sequence.",\
-                    "probability":1.0}]}}""",
+                    "stage":"STARTED"}}}""",
                     serialized
             );
 
-            assertEquals(
-                    List.of("The Commander, on foot, got into a ship or SRV.", "A ship took off from the surface of a "
-                            + "planet or moon.", "A ship landed on the surface of a planet or moon."),
-                    texts(request.path("trajectory").path("recent"))
+            // The graph predicts by structural type, and the three sampling
+            // scans are three types — so the transition it had seen once was a
+            // *first* scan, in the middle of a sequence the same request says
+            // is already running. Dropped twice over: once as a forecast with a
+            // single observation behind it, and once as the opening step of a
+            // process in progress.
+            assertFalse(
+                    serialized.contains("likelyNext"),
+                    serialized
             );
-            assertTrue(serialized.contains(
-                    "\"likelyNext\":[{\"event\":\"The organic sampling tool "
-                            + "logged the first scan of an unfinished "
-                            + "sampling sequence.\",\"probability\":1.0}]"
-            ), serialized);
 
             JsonNode sampling = samplingGroup(request);
             assertEquals(List.of("organism", "stage"), propertyNames(sampling));
