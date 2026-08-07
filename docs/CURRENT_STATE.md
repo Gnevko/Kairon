@@ -380,6 +380,34 @@ becomes occurrence zero **without an incoming transition**. Saying where the
 Commander already is is not an arrival, and the graph no longer learns an
 edge out of a session restart. Completing or
 switching an episode does not create an ordinary edge across the boundary.
+
+**A visit already recorded is adopted, not rebuilt — and adopted with its
+cursor.** The restored episode id is minted from the `Location` record's own
+observation id, so re-reading the same journal finds the same episode in the
+store. `BehaviorGraphService.startRestoredEpisode` takes it as it stands and
+sets the graph cursor to its last occurrence, or leaves the cursor absent when
+the visit has recorded nothing.
+
+It has to be adopted rather than rebuilt, because it cannot be rebuilt. Six
+occurrence types are derived from `Status.json` and appear in no journal at
+all: the live episode this was found on held **48 journal occurrences and 6
+status ones, and ended on `LANDING_GEAR_DEPLOYED`**. A journal-only
+reconstruction would produce a different visit — and a different transition
+model, since an edge that ran through a status occurrence would be relearned as
+a direct one that never happened.
+
+**What adopting without the cursor cost, 2026-08-07.** An episode of
+fifty-four occurrences beside a graph whose cursor was null. `captureSituation`
+rejects that pair outright — for anything but a visit awaiting its first
+occurrence it is a broken graph — so every observation after the restoring
+`Location` failed: four hundred `active episode has no graph cursor` errors in
+one minute, `occurrenceOnBody` absent from every event, and nothing said about
+it anywhere but the log. The `REPLAY` capture path was never affected: it
+re-projects a persisted episode progressively through `ReplayEpisodeProjection`
+and carries a cursor with it. Reproducing the defect needs all three of a real
+`JsonBehaviorGraphStore`, a **completed** episode in the archive, and
+`BOOTSTRAP` capture — `BehaviorGraphServiceTest`
+`aSessionAlreadyRecordedIsRestoredWithoutLosingItsCursor` holds all three.
 Stable journal observation identity makes occurrence, episode, and transition
 identities deterministic and suppresses duplicate replay input. Each
 occurrence additionally has a persisted subscriber-owned `episodeSequence`.
@@ -835,17 +863,53 @@ age and deliberately not the quiet period: journal timestamps are whole seconds,
 and a sub-second rule read off them would split batches a live session keeps
 together. An observation with no source time never splits a batch.
 
+**Live restore reads the whole journal file.** `PollingJournalTailReader`
+captures one startup boundary and publishes every complete record below it as
+`BOOTSTRAP`. There is no window: the constant `BOOTSTRAP_RECORD_LIMIT` and the
+suffix it kept are removed. A journal file is one session — the game opens a new
+one each time it starts — so the file already is the boundary, and a count on
+top of it can only cut the session short.
+
+**What the count cost, measured on 2026-08-07.** A restart in the middle of a
+live session restored the last thirty records, and those thirty were
+consecutive squadron chat messages. `LoadGame` and `Commander` — the only
+records carrying the commander id, and `LoadGame` the ship id with it — were
+some two hundred records above the window. The run therefore had no `GraphId`,
+opened no episode, and sent every structural event to `NOT_APPLICABLE`: fifteen
+events carried `occurrenceOnBody` before the restart and none after it. Body
+facts were gone with it, so `context.body` was a bare name for the rest of the
+session. Nothing reported any of this. The same failure applied to the ordinary
+case of starting Kairon after the game rather than before it.
+
+Restored records are `BOOTSTRAP` capture throughout, so a long session costs
+reading and projection at startup and nothing else — no provider call, no
+speech, no turn, no cost. A session continued into a second journal file
+restores that part, which is all the part contains.
+
 Four admission rules narrow NEW eligibility below the type level.
 `LlmJournalEventSelection.admitsAsTrigger` declines a `ReceiveText` whose
-`Channel` is `npc`: ambient station and traffic chatter addressed to nobody in
-particular. The decision reads the `Channel` field only — never the message
-text and never a localised rendering, either of which would make admission
-depend on the game's display language. `ReceiveText` remains in
-`BALANCED`, every other channel is unaffected, and a declined
-observation is still parsed, projected into canonical state and the graph,
-recorded as a semantic effect for the next turn, traced and shown in the GUI.
-When a batch would have consisted only of declined observations, no batch
-exists and the provider is not called.
+`Channel` is `npc` or `squadron`. They are declined for different reasons and
+by the same test. `npc` is ambient station and traffic chatter addressed to
+nobody in particular. `squadron` is a conversation between other Commanders:
+Kairon cannot answer it, and the Commander is reading it himself on the same
+screen.
+
+**The squadron rule was measured before it was made.** In the live session of
+2026-08-07, of roughly ninety turns more than sixty were squadron messages, and
+they produced four comments. One translated the place name Colonia as a common
+noun; two offered actions Kairon cannot perform — "shall I translate?" and
+"better say it now" into a chat she has no channel to write to; the fourth
+remarked on another player's typo. None was useful to the Commander, and two of
+the session's three unsupported suggestions came from this source.
+
+The decision reads the `Channel` field only — never the message text and never a
+localised rendering, either of which would make admission depend on the game's
+display language. A message addressed to the Commander personally arrives on
+`player` or `friend` and is untouched. `ReceiveText` remains in `BALANCED`,
+every other channel is unaffected, and a declined observation is still parsed,
+projected into canonical state and the graph, recorded as a semantic effect for
+the next turn, traced and shown in the GUI. When a batch would have consisted
+only of declined observations, no batch exists and the provider is not called.
 
 The same method declines a `Scan.BodyReading` whose depth is not `Detailed` or
 which names no body, and a signal record from either scanner reporting no
@@ -978,6 +1042,53 @@ Kairon's claim, not the game's: the journal reports the measurement and the thre
 thresholds are stated in one place so they can be argued with. The registry, the
 graph and the GUI keep the exact figure.
 
+**An event about where the ship is names no place, and the body group carries
+only what a body is.** Two halves of one rule, and they were made together.
+
+`DecisionMechanism.locatedByCanonicalState()` is true for `BODY_TRANSIT`,
+`SURFACE` and `PRESENCE` — approaching or leaving a body, dropping out of
+supercruise, landing, lifting off, stepping out of a vessel and getting back in.
+An event of those families drops its own `body` and `system` fields
+(`DecisionEventProjector.answeredByContext`, applied to the object and to the
+qualifiers alike), because the body it names *is* the selected body by what the
+event did. It is false for a scanner, which reports about a body the ship is not
+at and need not visit, and false for a jump, whose `system` field is also the
+arrival star's name through `alsoAnsweredBy` and only works while it is sent.
+
+**A fact moves; it is never dropped.** The qualifier goes only where that
+event's own context profile asks for the subject that then answers it — so a
+disembark, which is read against the Commander, the vehicle and the body but not
+the system, goes on naming its system itself. And because the event no longer
+*states* the body, the three mechanisms declare `BODY_NAME` and `BODY_ID` among
+their `causedFields`: an arrival selecting the body is what arriving means, and a
+disembark restates a body the Commander was already standing on. Without that,
+the name reappeared as `{"subject":"body","kind":"ESTABLISHED"}` — the same
+string in heavier vocabulary.
+
+`context.body` is now **`name`, `type`, `planetClass` and `gravity`**, and
+nothing else. Gone: `starType`, `landable`, the three `previously*` flags and the
+signal counts. They were all true, and all true again in the next turn and the
+one after — `previouslyDiscovered` rode in 37 of the 90 turns of the 2026-08-07
+replay, was `false` in every one of them, and carried no comment in any. What
+stays is what a body *is*; what a survey *found* is reported by the survey, in
+the turn where it is news. `gravity` is now also what says the body is landable,
+since it is sent only for a landable planet.
+
+**What that costs, stated plainly:** a body surveyed before Kairon was listening
+now reaches the model nowhere at all. A `BOOTSTRAP` reading establishes the
+counts in the registry — the GUI and the graph still have them — but it opens no
+turn, and the counts no longer ride on `context.body`, so the model is never told.
+`SemanticPipelineKnownInvalidContractTest` records this as the contract it now
+is, having previously recorded the same scenario as a change and then as context.
+
+**One edge, measured.** A movement event that shares a batch with a scanner
+reading of a *different* body is left with no body named anywhere: the scanner's
+name claims the `body.name` slot or `DecisionBodyScope` drops the group, and the
+movement event no longer carries its own. Three of the 69 turns of the fixed
+baseline replay are in that shape — all of them batches where a whole scenario
+collapses into one turn — and **none** of the 90 turns of the 2026-08-07 replay,
+where no batch mixed the two at all.
+
 The `biology` group names each genus by the word in its
 `$Codex_Ent_<word>_Genus_Name;` identity (`DecisionNames.genusField`), not by
 the localised label: the label is in whatever language the game runs in, and
@@ -1047,9 +1158,9 @@ for the categories the set actually contains. Human, Thargoid and uncatalogued
 categories state nothing, because no canonical field exists for them. So a
 `BODY_SIGNALS_FOUND` reporting one biological signal no longer also carries
 `biologicalSignals: {"after": 1}` as a change or `biologicalSignals: 1` as
-context — the set said it once. A category the same reading says nothing about
-stays where it belongs: an earlier biological count is still `context.body` on a
-turn whose event reports only geology. The declaration is the point: nothing is
+context — the set said it once. A category the same reading says nothing about is
+simply not in that turn: signal counts no longer ride on `context.body` either,
+so a reading that reports only geology reports only geology. The declaration is the point: nothing is
 read out of the set by matching a nested number against a field it might belong
 to, which is the value-only mistake in another spelling. `DecisionContextSelector`
 consults the same stated facts, so `changes` and `context` suppress on one
@@ -1072,17 +1183,20 @@ Java constant. It has three blocks and no others:
 - **the role** — Kairon as a female in-universe shipboard companion to one
   human Commander, calm, observant, warm, restrained, occasionally dryly
   humorous, and never describing herself as an AI, model or assistant;
-- **the preferences** — two lines: greet the Commander when a session begins,
-  and read `biologicalSignals` and `geologicalSignals` as the key finding of a
-  scan result;
+- **the preferences** — four lines: greet the Commander when a session begins,
+  read `biologicalSignals` and `geologicalSignals` as the key finding of a scan
+  result, treat a body's `gravity` as mattering to the Commander when a planet
+  is approached — naming it as `context.body.gravity` — and read
+  `biology.remaining` as what is still uncollected and
+  the point of the turn it appears in, appearing in one turn only;
 - **the answer contract** — one JSON object, no surrounding text and no extra
   fields, in exactly one of two shapes.
 
 It names no schema, no bus, no projection, no selection role and no behaviour
 graph, as it never did. What it also no longer names is the request: nothing
-tells the model what `events`, `changes`, `context` or `trajectory` are for,
-what an absent field means, or what may not be said. The persona controls voice
-and self-presentation; nothing controls event meaning.
+tells the model what `events`, `changes` or `context` are for, what an absent
+field means, or what may not be said. The persona controls voice and
+self-presentation; nothing controls event meaning.
 
 **This is a deliberate reduction from 583 words to 70, and its costs were
 measured before it was made.** The long prompt spent 447 of its 583 words on
@@ -1114,6 +1228,61 @@ atmosphere, landability and three survey flags produced a remark about the
 methane atmosphere, and the one fact only that request had went unsaid. What is
 stated is which fields carry the finding, not what to say about them and not
 whether to speak; comment-worthiness stays the model's.
+
+**A fabricated quantity is a defect; a speculation about the world is not.**
+The distinction was decided on 2026-08-07 and is recorded here so it is not
+argued again. A number reads as an instrument reading whatever its source —
+`0.12g` and then `0.06g` an hour later for the same body, "18 specimens", "the
+collection will finish in 2 minutes" — and the Commander has no way to tell one
+from a measurement. That is measured and corrected. A remark that a breeze might
+knock you over, or that a bacterium's colour suggests a pigment, is audibly a
+thought rather than a readout, and it is what makes her a companion rather than
+a journal read aloud; it is left alone. The prohibition block that would suppress
+the second is the one whose removal is documented above at eight `SILENT`s out
+of eight and seventeen captions in a row — it buys accuracy with the thing the
+model is there for.
+
+**The last two lines name their field, and that is the correction of
+2026-08-07.** The gravity line briefly added that an absent field meant nothing
+had measured it. That was meant to buy silence and bought an announcement: on a
+disembark, whose body group is a name and nothing else, the answer was "gravity
+has not been measured on this planet" — a report about Kairon's own bookkeeping,
+and false as the Commander hears it, since the scan that measured it was his.
+Absence is how this contract says "unknown or not relevant" everywhere, and it
+is never declared. The clause is gone; the field name stays.
+
+Gravity is an approach's question and only an approach's: weight decides whether
+the descent can be made without wrecking the ship, and by the time the gear is
+down it is decided. It travels under its own `ContextNeed.BODY_GRAVITY`, asked
+for by `SYSTEM_AND_BODY_DETAIL` — the arrival profile — and by no other. A
+touchdown, a lift-off, a sample and a walk are none of them decided by it: in
+the live session of 2026-08-07 the same "gravity is low" arrived on three
+landings of one body after arriving on the approach to it, and
+`DecisionContextProfile.PRESENCE` asks only which body it is because on foot the
+pull changes nothing that matters. Separating the need from `BODY_DETAIL` makes
+that a decision rather than a side effect of asking what the body is: what a
+body is and how heavily it pulls are wanted at different moments. Stated as bare importance
+they produced nine invented quantities in one evening — 0.12g and 0.06g for the
+same body an hour apart, "12% of the biology unexplored", "18 specimens", "the
+collection will finish in 2 minutes" — and every one appeared in a turn where
+the named field was not in the document at all. A line that says a fact matters
+without saying where it lives, or that it can be missing, asks the model to
+supply it.
+
+Its fourth line is the only place the prompt says what a turn is *for*, and it
+is the one section whose whole reason for being sent is a question. The
+inventory reaches exactly one turn — the analysis that finishes a sample — and
+answers *what is left to collect here*. In the live session of 2026-08-07 it
+arrived on that turn with one genus collected and four not, and the answer was
+"a pleasant find for the collection": the question went unanswered with its
+answer in the request.
+
+Its third line names one more, and for the same measured reason. `context.body`
+carries `gravity` on an approach — banded `LOW`, `NORMAL` or `HIGH`, sent only
+where the ship can put down — and on the live approach of 2026-08-07 the model
+returned `SILENT` with the band in the request. How heavily a body pulls is what
+separates a routine landing from a dangerous one, and an approach is when the
+Commander is deciding. The line names the fact and not what to say about it.
 
 The reduction is recorded here rather than argued: it is a decision about what
 Kairon sounds like, and the numbers above are what it is known to cost.
@@ -1517,44 +1686,36 @@ DTO or speech.
   `TOUCHDOWN` and `LIFTOFF` carry `context.vehicle.kind` when the kind is known
   and omit the group when it is not. `SURFACE` deliberately does not request
   `ContextNeed.PRESENCE`.
-- A running organic-sampling sequence reaches presence turns.
-  `DecisionMechanism.PRESENCE` requests `ContextNeed.SAMPLING` alongside
-  `PRESENCE`, `VEHICLE` and `BODY_IDENTITY`, so `EMBARKED`, `DISEMBARKED` and
-  `DROPSHIP_DEPLOYED` carry `context.sampling` while a sequence is running.
-  `trajectory.recent` holds three predecessors, and two rides between samples
-  are enough to lose the scan that started the sequence; the presence events
-  themselves say nothing about sampling. This is the case the group exists for,
-  and it is unchanged by the suppression below.
-- **`BIOLOGICAL_SAMPLE` event stages and `context.sampling.stage` are two
-  vocabularies for two tenses.** The event states the transition it just made —
-  `START`, `PROGRESS`, `FINAL` with `complete` beside it — and is unchanged.
-  The context states the persistent state already reached: canonical `START`
-  becomes `STARTED`, canonical `PROGRESS` becomes `IN_PROGRESS`. The mapping is
-  the explicit `DecisionNames.samplingContextStage` table, never the enum name,
-  and an unmapped value drops the field rather than falling back to the event's
-  tense. Canonical `BiologicalSamplingStage`, journal parsing, semantic change
-  values, graph node names and trajectory names are untouched.
-- **The two vocabularies never appear in one turn.** `context.sampling` is
-  omitted from a turn whose batch contains a `BIOLOGICAL_SAMPLE`, decided on the
-  event's mechanism (`DecisionMechanism.SAMPLING`) rather than on its kind
-  string. The scan already reports the organism, the position it reached and
-  whether that finished it, so the group added nothing but a second spelling of
-  the position — `stage: PROGRESS` in the event beside `stage: IN_PROGRESS` in
-  the context — which is the reading the two tenses were separated to prevent.
-  `context.body` and `context.commander` are unaffected and still reach the
-  sampling turn: neither is something the scan states. The `SAMPLING` mechanism
-  keeps `ContextNeed.SAMPLING`, which also puts the sampling subject in scope for
-  a hidden change; only the group is dropped. Canonical sampling state, the
-  graph, the prompt, the response contract and `trajectory` are untouched.
-- Completed or inactive sampling is omitted from context. `Analyse` clears the
-  canonical process, so there is no `FINAL` or `COMPLETED` standing state and no
-  `active: false`; the whole group is absent. `context.sampling` carries
-  `organism` and `stage` only, and an active sequence with no known variant
-  label sends `stage` alone rather than a blank string or a Codex token.
-- `likelyNext` is unchanged by any of this. It remains the raw historical graph
-  prediction — `DISEMBARKED → BIOLOGICAL_SAMPLE_STARTED` at probability `1.0`
-  still reaches the model exactly as calculated. The sampling context
-  supplements it and does not filter, rerank, annotate or renormalize it.
+- **There is no `context.sampling`.** The sequence is described by the scans
+  that step it — `organism`, `stage`, `complete` on the `BIOLOGICAL_SAMPLE`
+  event — and by nothing else. `DecisionContextSelector.addSampling` and
+  `DecisionNames.samplingContextStage` with its `STARTED`/`IN_PROGRESS`
+  vocabulary are **removed**, and with them the second tense that existed only
+  to describe the group.
+- **Why it went, measured on the live session of 2026-08-07.** The group was
+  asked for by `DecisionContextProfile.PRESENCE`, on the argument that getting
+  out and getting back in are exactly the moves a Commander makes in the middle
+  of a sequence. The argument holds; the result did not. Across nine presence
+  turns the model produced eight comments and every one was about collecting
+  samples rather than about the event that happened. Three announced a find that
+  had happened turns earlier; one placed a sample aboard that had not been
+  collected. On the one turn that really was a step of the sequence the answer
+  was `SILENT` — the standing fact had already been spent as news. A fact more
+  interesting than the event it travels with displaces that event every time.
+- `ContextNeed.SAMPLING` survives and builds nothing. It puts the sampling
+  subject in scope, so a change to the sequence made by an observation the model
+  is not being shown can still be reported on a turn whose events are about
+  sampling. `DecisionContextProfile.PRESENCE` no longer requests it: a disembark
+  asks for `PRESENCE`, `VEHICLE` and `BODY_IDENTITY`.
+- Canonical sampling state, journal parsing, semantic change values, the graph
+  node names and `BiologicalSamplingStage` are untouched. What ended is one
+  model-facing group.
+- What is still missing, and was the loudest defect of the same session: **a
+  scan does not say which of the three it is.** `stage: PROGRESS` reads as "not
+  finished", which drew "perhaps check the equipment" from the model, and on the
+  third scan it drew advice to finish a sequence that had just finished. The
+  journal supplies no index; counting the steps is Kairon's to do and is not
+  done yet.
 
 ## Behavior-graph occurrence provenance
 
@@ -1693,13 +1854,24 @@ therefore cannot reach the generic fallback.
   every landing, approach and scan instead: in the 2026-08-06 replay the first
   four turns about one icy moon each carried `"Бактерии": "NOT_COLLECTED"`, three
   of them before the Commander had touched down. A standing fact that is true in
-  every turn is not thereby needed in every turn. One field per organism rather than one field carrying a list,
-  because `SemanticValue` is closed and a list variant would put back the
-  compound value [ADR-0024](decisions/ADR-0024-ONE-SHAPE-FOR-A-SIGNAL-COUNT.md)
-  removed. A genus the game supplies no word for is recorded, counted and
-  compared, and is **not** named to the model as its `$Codex_Ent_…` symbol. The
-  whole inventory is sent including an organism the turn's own event has just
-  finished: the event reports an action and this reports what stands on the
+  every turn is not thereby needed in every turn. **Two lists rather than a
+  status per organism**: `collected` and `remaining`, each a
+  `LlmDecisionRequest.Listing` of genus names, and either omitted when empty.
+  The status-per-organism shape carried the answer without naming the question
+  — in the live session of 2026-08-07 the model read one `COLLECTED` beside
+  four `NOT_COLLECTED` and said "a pleasant find for the collection", which is
+  the question unanswered with its answer in the request. The word
+  `remaining` is the question. Field names stay fixed and language-independent
+  while the organism names are values, which is the distinction the
+  identity-keyed shape was protecting: [ADR-0024](decisions/ADR-0024-ONE-SHAPE-FOR-A-SIGNAL-COUNT.md)
+  bars a compound *value*, not a list of plain strings. The names are still the
+  English words from the `$Codex_Ent_…` identity — the localised label the
+  journal also supplies is deliberately not used yet, and belongs to a
+  bio-sample repository that does not exist. A genus the game supplies no word
+  for is recorded, counted and compared, and is **not** named to the model as
+  its symbol. The whole inventory is sent including an organism the turn's own
+  event has just finished: the event reports an action and this reports what
+  stands on the
   body, and a list missing the one just collected reads as a list of what is
   left, one short. Absent when no survey has named anything — a biological
   signal count says how many there are and never which.

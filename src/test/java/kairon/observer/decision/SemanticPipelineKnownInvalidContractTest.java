@@ -109,12 +109,12 @@ final class SemanticPipelineKnownInvalidContractTest {
                     changedSlots(turn).contains("body.biologicalSignals"),
                     "the reading was taken before Kairon was listening"
             );
-            assertEquals(
-                    1,
-                    turn.context().path("body").path("biologicalSignals")
-                            .intValue(),
-                    "what a historical reading established is standing "
-                            + "background, which is what context is for"
+            assertFalse(
+                    turn.userMessage().contains("biologicalSignals"),
+                    "and it is not context either: what a survey found stays "
+                            + "on the survey, so a reading taken before Kairon "
+                            + "was listening reaches the model nowhere at all: "
+                            + turn.userMessage()
             );
         }
     }
@@ -175,19 +175,19 @@ final class SemanticPipelineKnownInvalidContractTest {
      * number in the same request happens to match.</p>
      *
      * <h2>Which section this scenario now answers</h2>
-     * <p>The reading here is historical, and as of the effect-retention phase a
-     * historical reading is standing background rather than something that just
-     * happened — so {@code context} is the right section for it, and the
-     * landing's turn reports no change at all. When this contract was written
-     * the same scenario produced a change, which is why it named one.</p>
+     * <p>Neither, and that is the third answer this scenario has given. When
+     * the contract was written the reading produced a change; the
+     * effect-retention phase made a historical reading standing background, so
+     * it became context; and since the body group was cut to what a body
+     * <em>is</em>, a signal count is not context either. What a survey found is
+     * reported by the survey, and a survey taken before Kairon was listening
+     * had no turn to report it in.</p>
      *
-     * <p>That makes this the weaker end of the pair: with the count in context,
-     * an integral value cannot collide with anything, because the context
-     * selector matches only rendered text and symbols. The collision itself is
-     * held end to end by {@code FieldAwareStatementTest}, on a live automatic
-     * scan whose {@code landable} really is a change beside a landing's
-     * {@code playerControlled}. What survives here is the invariant this test
-     * is named for: the section does not move with the count.</p>
+     * <p>That makes this the weaker end of the pair either way: a fact the
+     * request never carries cannot collide with anything. The collision itself
+     * is held by {@code FieldAwareStatementTest}, on the predicate. What
+     * survives here is the invariant this test is named for: the section does
+     * not move with the count.</p>
      */
     @Test
     void aFieldsSectionMustNotDependOnAnUnrelatedEqualValue(
@@ -209,11 +209,12 @@ final class SemanticPipelineKnownInvalidContractTest {
                         + "occurrenceOnBody or not"
         );
         assertEquals(
-                "context",
+                "neither",
                 withCollision,
-                "a reading taken before Kairon was listening is standing "
-                        + "background, and the landing's occurrenceOnBody says "
-                        + "nothing about it either way"
+                "a reading taken before Kairon was listening is neither a "
+                        + "change nor context — signal counts stopped riding "
+                        + "on the body — and the landing's occurrenceOnBody "
+                        + "says nothing about it either way"
         );
     }
 

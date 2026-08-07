@@ -53,25 +53,29 @@ final class DecisionSamplingContextTest {
 
     // ------------------------------------------------ A: disembark at START
 
+    /** A1: stepping out says nothing about the sequence it stepped out of. */
     @Test
-    void aDisembarkDuringAStartedSequenceCarriesIt() {
+    void aDisembarkDuringAStartedSequenceCarriesNoneOfIt() {
         DecisionTurnFixture fixture = sampling("Log");
-        JsonNode sampling = samplingGroup(request(fixture, disembark()));
+        JsonNode request = request(fixture, disembark());
 
-        assertEquals(List.of("organism", "stage"), propertyNames(sampling));
-        assertEquals(ORGANISM, sampling.path("organism").textValue());
-        assertEquals("STARTED", sampling.path("stage").textValue());
+        assertFalse(
+                request.path("context").has("sampling"),
+                "the turn is the disembark's: " + request
+        );
+        assertFalse(request.toString().contains(ORGANISM));
     }
 
-    /** The whole request, so the new group is placed rather than just present. */
+    /** The whole request, so the absence is placed rather than asserted. */
     @Test
     void theDisembarkKeepsEverythingElseItAlreadyCarried() {
         DecisionTurnFixture fixture = sampling("Log");
         JsonNode request = request(fixture, disembark());
 
         assertEquals(
-                List.of("commander", "vehicle", "sampling"),
-                propertyNames(request.path("context"))
+                List.of("body", "commander", "vehicle"),
+                propertyNames(request.path("context")),
+                "where the Commander is, what he was in, and which body"
         );
         assertEquals(
                 "ON_FOOT",
@@ -90,73 +94,62 @@ final class DecisionSamplingContextTest {
 
     // --------------------------------------------- B: disembark at PROGRESS
 
+    // ------------------------------------------- B: disembark at PROGRESS
+
+    /** B1: the same at the second scan, and the same whole document. */
     @Test
-    void aDisembarkDuringARunningSequenceSaysItIsUnderway() {
+    void aDisembarkDuringARunningSequenceSaysNothingOfItEither() {
         DecisionTurnFixture fixture = sampling("Log", "Sample");
         String serialized = serialize(fixture, disembark());
-        JsonNode sampling = samplingGroup(read(serialized));
 
-        assertEquals(List.of("organism", "stage"), propertyNames(sampling));
-        assertEquals(ORGANISM, sampling.path("organism").textValue());
-        assertEquals("IN_PROGRESS", sampling.path("stage").textValue());
         assertEquals(
                 """
                 {"events":[{"event":"The Commander stepped out of a ship or SRV.",\
                 "system":"Schieni GG-A c3-84",\
-                "body":"Schieni GG-A c3-84 4 a",\
                 "onStation":false,"onPlanet":true}],\
-                "context":{"commander":{"presence":"ON_FOOT"},\
-                "vehicle":{"kind":"SRV"},\
-                "sampling":{"organism":"Bacterium Bullaris - Red",\
-                "stage":"IN_PROGRESS"}}}""",
+                "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
+                "commander":{"presence":"ON_FOOT"},\
+                "vehicle":{"kind":"SRV"}}}""",
                 serialized
         );
     }
 
     // ------------------------------------------------------- C: embark back
 
-    /** Getting back into the SRV does not hide the sequence. */
+    /** B2: getting back in is the same event read the other way. */
     @Test
-    void anEmbarkDuringARunningSequenceCarriesItToo() {
+    void anEmbarkDuringARunningSequenceCarriesNoneOfItToo() {
         DecisionTurnFixture fixture = sampling("Log", "Sample");
         JsonNode request = request(fixture, """
-                {"timestamp":"2026-07-30T10:02:00Z","event":"Embark",
+                {"timestamp":"2026-07-30T10:01:00Z","event":"Embark",
                  "SRV":true,"ID":10,"StarSystem":"Schieni GG-A c3-84",
                  "SystemAddress":23155,"Body":"Schieni GG-A c3-84 4 a",
                  "BodyID":20,"OnStation":false,"OnPlanet":true}
                 """);
 
-        assertEquals(
-                "The Commander, on foot, got into a ship or SRV.",
-                request.path("events").get(0).path("event").textValue()
+        assertFalse(
+                request.path("context").has("sampling"),
+                request.toString()
         );
-        JsonNode sampling = samplingGroup(request);
-        assertEquals(ORGANISM, sampling.path("organism").textValue());
-        assertEquals("IN_PROGRESS", sampling.path("stage").textValue());
+        assertEquals(
+                "SRV",
+                request.path("context").path("commander")
+                        .path("presence").textValue()
+        );
     }
 
     // --------------------------------------------------- D: dropship deploy
 
-    /**
-     * The mechanism-wide consequence, stated rather than tidied away.
-     *
-     * <p>Deploying from a shuttle shares the mechanism, so it inherits the
-     * question. Suppressing it here would be a special case whose only argument
-     * is that the combination looks unusual — and when the process is not
-     * running the group is absent anyway, by the same rule as everywhere else.
-     * </p>
-     */
+    /** B3: and so is the third presence event, which shares the profile. */
     @Test
-    void aDropshipDeploymentInheritsTheSameQuestion() {
-        JsonNode running = request(sampling("Log"), DROPSHIP);
-        assertEquals(
-                "The Commander left a shuttle dropship at a conflict zone.",
-                running.path("events").get(0).path("event").textValue()
-        );
-        assertEquals("STARTED", samplingGroup(running).path("stage").textValue());
+    void aDropshipDeploymentInheritsTheSameSilence() {
+        DecisionTurnFixture fixture = sampling("Log", "Sample");
+        JsonNode request = request(fixture, DROPSHIP);
 
-        JsonNode idle = request(new DecisionTurnFixture(), DROPSHIP);
-        assertFalse(idle.path("context").has("sampling"));
+        assertFalse(
+                request.path("context").has("sampling"),
+                request.toString()
+        );
     }
 
     // ------------------------------------------------- E: nothing to report
@@ -278,107 +271,33 @@ final class DecisionSamplingContextTest {
     }
 
     /**
-     * Between the stages it is still carried, which is why the group exists.
+     * A presence event between two scans still says nothing of the sequence.
      *
-     * <p>Getting out and getting back in are exactly the moves a Commander
-     * makes in the middle of a sequence, and neither event says a sequence is
-     * running. Suppressing the group on the scans must not cost the case it was
-     * built for.</p>
+     * <p>This is the case the group was built for: the scan that started it is
+     * far behind, and nothing in this request says a sequence is running. It is
+     * also the case that produced the failure — the standing fact was more
+     * interesting than the step, so the model announced the find again instead
+     * of reporting what happened. The sequence is the scans' to describe.</p>
      */
     @Test
-    void aPresenceEventBetweenTwoScansStillCarriesTheSequence() {
+    void aPresenceEventBetweenTwoScansSaysNothingOfTheSequence() {
         DecisionTurnFixture fixture = sampling("Log");
+        JsonNode between = request(fixture, disembark());
+        assertFalse(between.path("context").has("sampling"), between.toString());
 
-        JsonNode betweenStages = request(fixture, disembark());
+        JsonNode second = request(fixture, scanOrganic("Sample", 1));
         assertEquals(
-                "The Commander stepped out of a ship or SRV.",
-                betweenStages.path("events").get(0).path("event").textValue()
-        );
-        assertEquals(
-                "STARTED",
-                samplingGroup(betweenStages).path("stage").textValue(),
-                "the sequence outlives the events that are not about it"
-        );
-
-        // The sequence advances, and the ride back still carries it.
-        fixture.inputs(List.of(
-                fixture.graphDisabled(scanOrganic("Sample", 1))
-        ));
-        JsonNode embarked = request(fixture, """
-                {"timestamp":"2026-07-30T10:03:00Z","event":"Embark",
-                 "SRV":true,"ID":10,"StarSystem":"Schieni GG-A c3-84",
-                 "SystemAddress":23155,"Body":"Schieni GG-A c3-84 4 a",
-                 "BodyID":20,"OnStation":false,"OnPlanet":true}
-                """);
-        assertEquals(
-                "The Commander, on foot, got into a ship or SRV.",
-                embarked.path("events").get(0).path("event").textValue()
-        );
-        assertEquals(
-                "IN_PROGRESS",
-                samplingGroup(embarked).path("stage").textValue()
+                "PROGRESS",
+                second.path("events").get(0).path("stage").textValue(),
+                "and the scan that follows still reports its own position"
         );
         assertEquals(
                 ORGANISM,
-                samplingGroup(embarked).path("organism").textValue()
+                second.path("events").get(0).path("organism").textValue()
         );
     }
 
-    /** No canonical stage name ever reaches the model as standing state. */
-    @Test
-    void theContextNeverSpeaksInTheEventsTense() {
-        for (JsonNode request : List.of(
-                request(sampling("Log"), disembark()),
-                request(sampling("Log", "Sample"), disembark())
-        )) {
-            String stage = samplingGroup(request).path("stage").textValue();
-            assertTrue(
-                    List.of("STARTED", "IN_PROGRESS").contains(stage),
-                    stage
-            );
-        }
-        assertEquals(
-                SemanticValue.unknown(),
-                DecisionNames.samplingContextStage(
-                        SemanticValue.ofSymbol("FINAL")
-                ),
-                "there is no standing state for a sequence that ended"
-        );
-        assertEquals(
-                SemanticValue.unknown(),
-                DecisionNames.samplingContextStage(SemanticValue.unknown())
-        );
-        assertEquals(
-                SemanticValue.ofSymbol("STARTED"),
-                DecisionNames.samplingContextStage(
-                        SemanticValue.ofSymbol("START")
-                )
-        );
-        assertEquals(
-                SemanticValue.ofSymbol("IN_PROGRESS"),
-                DecisionNames.samplingContextStage(
-                        SemanticValue.ofSymbol("PROGRESS")
-                )
-        );
-    }
 
-    /** An identified sequence with no speakable label sends no organism. */
-    @Test
-    void anUnnamedOrganismIsOmittedRatherThanGuessed() {
-        DecisionTurnFixture fixture = new DecisionTurnFixture();
-        fixture.inputs(List.of(fixture.graphDisabled("""
-                {"timestamp":"2026-07-30T10:00:00Z","event":"ScanOrganic",
-                 "ScanType":"Log","SystemAddress":23155,"Body":20}
-                """)));
-        String request = serialize(fixture, disembark());
-
-        assertEquals(
-                List.of("stage"),
-                propertyNames(samplingGroup(read(request)))
-        );
-        assertFalse(request.contains("Codex"));
-        assertFalse(request.contains("\"organism\":\"\""));
-    }
 
     // ------------------------------------------------------- the whole path
 
@@ -443,13 +362,11 @@ final class DecisionSamplingContextTest {
                     """
                     {"events":[{"event":"The Commander stepped out of a ship or SRV.",\
                     "system":"Schieni GG-A c3-84",\
-                    "body":"Schieni GG-A c3-84 4 a",\
                     "onStation":false,"onPlanet":true,\
                     "occurrenceOnBody":2}],\
-                    "context":{"commander":{"presence":"ON_FOOT"},\
-                    "vehicle":{"kind":"SLV"},\
-                    "sampling":{"organism":"Bacterium Bullaris - Red",\
-                    "stage":"STARTED"}}}""",
+                    "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
+                    "commander":{"presence":"ON_FOOT"},\
+                    "vehicle":{"kind":"SLV"}}}""",
                     serialized
             );
 
@@ -464,13 +381,12 @@ final class DecisionSamplingContextTest {
                     serialized
             );
 
-            JsonNode sampling = samplingGroup(request);
-            assertEquals(List.of("organism", "stage"), propertyNames(sampling));
-            assertFalse(sampling.has("active"));
-            assertFalse(sampling.has("complete"));
-            assertFalse(sampling.has("step"));
-            assertFalse(serialized.contains("\"stage\":\"START\""));
-            assertFalse(serialized.contains("\"stage\":\"PROGRESS\""));
+            assertFalse(
+                    request.path("context").has("sampling"),
+                    "the sequence is the scans' to describe: " + serialized
+            );
+            assertFalse(serialized.contains(ORGANISM));
+            assertFalse(serialized.contains("STARTED"));
         }
     }
 
@@ -658,12 +574,6 @@ final class DecisionSamplingContextTest {
         return serializer.serialize(factory.create(fixture.inputs(
                 List.of(fixture.graphDisabled(rawJson))
         )));
-    }
-
-    private static JsonNode samplingGroup(JsonNode request) {
-        JsonNode sampling = request.path("context").path("sampling");
-        assertTrue(sampling.isObject(), request.toString());
-        return sampling;
     }
 
     private static List<String> texts(JsonNode array) {

@@ -159,11 +159,10 @@ final class NonPositiveSignalCountTest {
                     {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "geologicalSignals":2}],\
-                    "context":{"body":{"biologicalSignals":1}}}""",
+                    "geologicalSignals":2}]}""",
                     lastUserMessage(pipeline),
-                    "the event states what this reading found; what the "
-                            + "earlier one found is context"
+                    "the event states what this reading found; what an "
+                            + "earlier reading found is not resent"
             );
         }
     }
@@ -204,8 +203,7 @@ final class NonPositiveSignalCountTest {
                     {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "geologicalSignals":2}],\
-                    "context":{"body":{"biologicalSignals":1}}}""",
+                    "geologicalSignals":2}]}""",
                     lastUserMessage(pipeline),
                     "the model is never told a signal is at zero"
             );

@@ -418,48 +418,42 @@ account identifier has no representation at all — while `ship`, `vehicle`,
 `body`, `system`, `navigation` and `sampling` remain separate groups. An
 associated vehicle is never merged into where the Commander is standing.
 
-Body survey flags are named for the tense they are in:
-`previouslyDiscovered`, `previouslyMapped`, `previouslyFootfalled`, and the
-distance is `distanceFromArrivalLs`. A bare `discovered` beside an arrival reads
-as something that just happened; what the field records is what was true before
-it. Context names come from the same `DecisionNames` table a change uses, so the
-two ways the model can hear about one canonical field cannot drift into two
+The `body` group carries `name`, `type`, `planetClass` and `gravity` — what the
+body **is** — and nothing a survey established about it. The survey flags, the
+landability and the signal counts used to travel with every turn about the body;
+they are reported by the reading that established them, in the turn where that
+is news, and are not restated afterwards. Where a flag is still named — on a
+scan event's own fields — it is named for the tense it is in
+(`previouslyDiscovered`, `previouslyMapped`, `previouslyFootfalled`), because a
+bare `discovered` beside an arrival reads as something that just happened.
+Context names come from the same `DecisionNames` table a change uses, so the two
+ways the model can hear about one canonical field cannot drift into two
 spellings.
 
-A sampling sequence appears only while one is running. The previous contract
-sent `active: false` in thirteen turns that had nothing to do with sampling,
-which is a declaration of absence in a contract whose whole rule is that absence
-needs no declaration.
+An event about where the ship is names no place. Approaching or leaving a body,
+dropping out of supercruise, landing, lifting off and changing vessel all leave
+`body` and `system` to the context — the body they would name is the selected
+body by definition of what they did, and naming it on the event as well put one
+string in two shapes in the same document. A scanner still names its body,
+because the body it reports is not the one under the ship.
 
-**The event and the context speak in two tenses, and the vocabularies are kept
-apart.** A `BIOLOGICAL_SAMPLE` event states the transition it just made —
-`START`, `PROGRESS`, `FINAL`, with `complete` beside it — and is unchanged.
-`context.sampling.stage` states the persistent state a sequence has already
-reached, and has exactly two values:
+**A sampling sequence has no context group at all.** It is described by the
+scans that step it — `organism`, `stage` and `complete` on the
+`BIOLOGICAL_SAMPLE` event — and nowhere else. There is no `context.sampling`,
+and with it went the second vocabulary (`STARTED`, `IN_PROGRESS`) that existed
+only to keep a standing description from being read as an event.
 
-| canonical stage | `context.sampling.stage` |
-| --- | --- |
-| `START` | `STARTED` |
-| `PROGRESS` | `IN_PROGRESS` |
+The group used to reach the three presence events, on the argument that getting
+out and getting back in are what a Commander does in the middle of a sequence.
+Measured on the live session of 2026-08-07, that produced eight comments across
+nine presence turns and all eight were about collecting samples rather than
+about what happened; on the one turn that was a step of the sequence, the model
+stayed silent. A standing fact more interesting than the event it travels with
+displaces that event.
 
-The mapping is an explicit table in `DecisionNames.samplingContextStage`, not
-the enum's own name, so a stage added later arrives unmapped and is dropped
-rather than reaching the model in the event's tense. There is no `FINAL` and no
-`COMPLETED` standing state: completing a sequence clears the canonical process,
-so a finished one is absent by the ordinary rule rather than described as
-finished. The group is `{organism, stage}` and nothing else — no `active`, no
-`complete`, no counters, no taxon identifiers, no body. An active sequence whose
-variant label is unknown sends `stage` alone; a raw Codex token is never a
-fallback for a speakable name.
-
-**Presence-transition events receive it.** `EMBARKED`, `DISEMBARKED` and
-`DROPSHIP_DEPLOYED` share `DecisionMechanism.PRESENCE`, which requests
-`ContextNeed.SAMPLING`. Getting out and getting back in is what a Commander does
-in the middle of a sequence, and `trajectory.recent` remembers three
-predecessors — two rides and a landing are enough to push the scan that started
-it out of that memory. The events themselves say nothing about sampling, so
-without this the fact is unreachable. When no sequence is running the group is
-absent, for these three exactly as everywhere else.
+`ContextNeed.SAMPLING` remains as a scope marker only: it puts the sampling
+subject in scope so a hidden change to the sequence can be reported on a turn
+whose events are about sampling.
 
 ---
 

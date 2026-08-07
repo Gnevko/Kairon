@@ -42,8 +42,19 @@ final class EstablishedBodyTypeTest {
         assertEquals(
                     "A ship dropped out of supercruise into normal space.",
                     event.path("event").textValue());
-        assertEquals("Icy One", event.path("body").textValue());
-        assertEquals("Icy System", event.path("system").textValue());
+        assertEquals(
+                List.of("event"),
+                propertyNames(event),
+                "dropping out of supercruise leaves the place to the situation"
+        );
+        assertEquals(
+                "Icy One",
+                request.path("context").path("body").path("name").textValue()
+        );
+        assertEquals(
+                "Icy System",
+                request.path("context").path("system").path("name").textValue()
+        );
         assertFalse(
                 request.path("context").has("navigation"),
                 "the exit says it dropped into normal space in its own words"
@@ -76,28 +87,33 @@ final class EstablishedBodyTypeTest {
     }
 
     /**
-     * Absence means unknown, so an established {@code false} must still be sent
-     * — and an unmeasured count must not be.
+     * What a survey found is the survey's to report, not the body's to carry.
+     *
+     * <p>The scan and the signal reading in this fixture both happened, and
+     * both had their own turn. By the time the ship drops out of supercruise
+     * onto the body, what they established is neither news nor part of what
+     * the body <em>is</em> — so the group carries which body it is and what
+     * kind of thing it is, and nothing else.</p>
      */
     @Test
-    void anEstablishedFalseSurvivesAndAnUnmeasuredCountStaysAbsent() {
+    void whatASurveyFoundDoesNotRideOnTheBody() {
         JsonNode body = supercruiseExit().path("context").path("body");
 
-        for (String flag : List.of(
+        assertEquals(
+                List.of("name", "type", "planetClass"),
+                propertyNames(body)
+        );
+        for (String absent : List.of(
                 "previouslyDiscovered",
                 "previouslyMapped",
-                "previouslyFootfalled"
+                "previouslyFootfalled",
+                "landable",
+                "biologicalSignals",
+                "geologicalSignals",
+                "distanceFromArrivalLs"
         )) {
-            assertTrue(body.has(flag), flag + " was established as false");
-            assertFalse(body.path(flag).booleanValue());
+            assertFalse(body.has(absent), absent);
         }
-        assertTrue(body.path("landable").booleanValue());
-        assertFalse(
-                body.has("geologicalSignals"),
-                "the reading counted biology and said nothing about geology"
-        );
-        assertEquals(1, body.path("biologicalSignals").intValue());
-        assertFalse(body.has("distanceFromArrivalLs"));
     }
 
     // ------------------------------------------------------------- fixtures

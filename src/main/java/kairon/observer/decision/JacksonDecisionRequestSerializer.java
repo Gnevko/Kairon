@@ -145,6 +145,13 @@ public final class JacksonDecisionRequestSerializer {
             for (LlmDecisionRequest.Field fact : group.facts()) {
                 value(json, fact.name(), fact.value());
             }
+            for (LlmDecisionRequest.Listing listing : group.listings()) {
+                json.writeArrayFieldStart(listing.name());
+                for (String value : listing.values()) {
+                    json.writeString(value);
+                }
+                json.writeEndArray();
+            }
             json.writeEndObject();
         }
         json.writeEndObject();

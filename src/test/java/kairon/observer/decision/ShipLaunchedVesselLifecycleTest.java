@@ -223,13 +223,11 @@ final class ShipLaunchedVesselLifecycleTest {
             assertEquals(
                     """
                     {"events":[{"event":"A ship landed on the surface of a planet or moon.",\
-                    "body":"Schieni GG-A c3-84 4 a","commanderControlled":true,\
+                    "commanderControlled":true,\
                     "occurrenceOnBody":1}],\
                     "context":{"system":{"name":"Schieni GG-A c3-84"},\
-                    "body":{"type":"PLANET","planetClass":"Icy body",\
-                    "landable":true,"previouslyDiscovered":false,\
-                    "previouslyMapped":false,"previouslyFootfalled":false,\
-                    "biologicalSignals":1},\
+                    "body":{"name":"Schieni GG-A c3-84 4 a",\
+                    "type":"PLANET","planetClass":"Icy body"},\
                     "vehicle":{"kind":"SLV"}}}""",
                     turnFor(pipeline, "Touchdown")
             );
@@ -272,10 +270,10 @@ final class ShipLaunchedVesselLifecycleTest {
                     """
                     {"events":[{"event":"The Commander stepped out of a ship or SRV.",\
                     "system":"Schieni GG-A c3-84",\
-                    "body":"Schieni GG-A c3-84 4 a",\
                     "onStation":false,"onPlanet":true,\
                     "occurrenceOnBody":1}],\
-                    "context":{"commander":{"presence":"ON_FOOT"},\
+                    "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
+                    "commander":{"presence":"ON_FOOT"},\
                     "vehicle":{"kind":"SLV"}}}""",
                     turnFor(pipeline, "Disembark")
             );
@@ -283,10 +281,10 @@ final class ShipLaunchedVesselLifecycleTest {
                     """
                     {"events":[{"event":"The Commander, on foot, got into a ship or SRV.",\
                     "system":"Schieni GG-A c3-84",\
-                    "body":"Schieni GG-A c3-84 4 a",\
                     "onStation":false,"onPlanet":true,\
                     "occurrenceOnBody":1}],\
-                    "context":{"commander":{"presence":"SLV"},\
+                    "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
+                    "commander":{"presence":"SLV"},\
                     "vehicle":{"kind":"SLV"}}}""",
                     turnFor(pipeline, "Embark")
             );

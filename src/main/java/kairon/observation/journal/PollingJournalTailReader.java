@@ -26,7 +26,6 @@ import java.nio.file.attribute.FileTime;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -54,7 +53,6 @@ public final class PollingJournalTailReader implements AutoCloseable {
 
     public static final Duration POLL_INTERVAL = Duration.ofMillis(250);
     public static final Duration ROTATION_PARTIAL_LINE_TIMEOUT = Duration.ofMillis(2000);
-    public static final int BOOTSTRAP_RECORD_LIMIT = 30;
     private static final int CURSOR_GUARD_BYTES = 256;
     private static final Duration TRANSIENT_READ_DIAGNOSTIC_INTERVAL =
             Duration.ofSeconds(5);
@@ -159,8 +157,22 @@ public final class PollingJournalTailReader implements AutoCloseable {
     }
 
     /**
-     * Captures one startup boundary and publishes only the last up to thirty
-     * valid, complete records below it as {@code BOOTSTRAP}.
+     * Captures one startup boundary and publishes everything below it as
+     * {@code BOOTSTRAP}.
+     *
+     * <p>The whole file, with no window of any kind. A journal file is one
+     * session — the game opens a new one each time it starts — so the file
+     * already is the boundary, and any count on top of it can only cut the
+     * session short. The count that used to be here cut it at thirty records,
+     * and on 2026-08-07 those thirty were consecutive squadron chat messages:
+     * the commander id and the ship id were four hundred records above them, so
+     * the run came up with no identity, no behaviour graph and no knowledge of
+     * the body under the ship — and said so nowhere.</p>
+     *
+     * <p>Every restored record is {@code BOOTSTRAP} capture, so a long session
+     * costs reading and projection at startup and nothing else: no provider
+     * call, no speech, no turn. A file continued into a second part restores
+     * that part, which is all a second part contains.</p>
      */
     public CompletionStage<BootstrapPublicationReport> publishBootstrap() {
         synchronized (this) {
@@ -507,7 +519,7 @@ public final class PollingJournalTailReader implements AutoCloseable {
     private BootstrapScan scanBootstrapBoundary(long startupBoundaryOffset)
             throws IOException {
         byte[] bytes = readRange(activeFile, 0, startupBoundaryOffset);
-        ArrayDeque<ParsedJournalRecord> suffix = new ArrayDeque<>(BOOTSTRAP_RECORD_LIMIT);
+        List<ParsedJournalRecord> records = new ArrayList<>();
         int recordStart = 0;
 
         for (int index = 0; index < bytes.length; index++) {
@@ -524,10 +536,7 @@ public final class PollingJournalTailReader implements AutoCloseable {
                     Arrays.copyOfRange(bytes, recordStart, contentEnd)
             ));
             if (result instanceof ParsedJournalRecord parsed) {
-                if (suffix.size() == BOOTSTRAP_RECORD_LIMIT) {
-                    suffix.removeFirst();
-                }
-                suffix.addLast(parsed);
+                records.add(parsed);
             } else {
                 diagnoseParseFailure((JournalParseFailure) result);
             }
@@ -538,7 +547,7 @@ public final class PollingJournalTailReader implements AutoCloseable {
         partialRecordOffset = recordStart;
         nextReadOffset = startupBoundaryOffset;
         refreshCursorGuard();
-        return new BootstrapScan(List.copyOf(suffix));
+        return new BootstrapScan(List.copyOf(records));
     }
 
     private void readActiveSnapshot(ObservationCaptureMode captureMode) throws IOException {

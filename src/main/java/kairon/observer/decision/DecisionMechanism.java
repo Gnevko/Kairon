@@ -83,24 +83,59 @@ public enum DecisionMechanism {
      * is what is already known about the body — whether anyone has landed on it,
      * whether it carries biological signals — and none of that matters while
      * crossing a system.</p>
+     *
+     * <p>States the body as well as the flight mode. Coming within a body's
+     * orbital-cruise zone is what selecting that body means, so the selection is
+     * not a second piece of news beside it: the arrival is the event, and which
+     * body it was is {@code context.body}. This was covered by the event's own
+     * {@code body} field until the event stopped carrying one — see
+     * {@link #locatedByCanonicalState()} — and it is a claim about the family
+     * either way.</p>
      */
     BODY_TRANSIT(
             DecisionContextProfile.SYSTEM_AND_BODY_DETAIL,
-            Set.of(SemanticField.FLIGHT_MODE),
+            Set.of(
+                    SemanticField.FLIGHT_MODE,
+                    SemanticField.BODY_NAME,
+                    SemanticField.BODY_ID
+            ),
             Map.of()
     ),
 
-    /** Landing on and lifting off a surface. */
+    /**
+     * Landing on and lifting off a surface.
+     *
+     * <p>States the body for the same reason arriving at one does: the surface
+     * it put down on is the selected body, by what landing means.</p>
+     */
     SURFACE(
             DecisionContextProfile.SURFACE,
-            Set.of(SemanticField.FLIGHT_MODE),
+            Set.of(
+                    SemanticField.FLIGHT_MODE,
+                    SemanticField.BODY_NAME,
+                    SemanticField.BODY_ID
+            ),
             Map.of()
     ),
 
-    /** Where the Commander physically is: embark, disembark, dropship. */
+    /**
+     * Where the Commander physically is: embark, disembark, dropship.
+     *
+     * <p>States the body, and here the word means restates rather than moves.
+     * Stepping out of a ship happens on the body the ship is already at, and
+     * the record says which one — so the selection is never news the disembark
+     * made. The event no longer sends the name
+     * ({@link #locatedByCanonicalState()}) and reporting it as a change instead
+     * would announce a body the Commander has been standing on all along.</p>
+     */
     PRESENCE(
             DecisionContextProfile.PRESENCE,
-            Set.of(SemanticField.COMMANDER_MODE, SemanticField.VEHICLE_KIND),
+            Set.of(
+                    SemanticField.COMMANDER_MODE,
+                    SemanticField.VEHICLE_KIND,
+                    SemanticField.BODY_NAME,
+                    SemanticField.BODY_ID
+            ),
             Map.of()
     ),
 
@@ -227,5 +262,37 @@ public enum DecisionMechanism {
      */
     public SemanticField alsoAnsweredBy(String eventFieldName) {
         return alsoAnswered.get(eventFieldName);
+    }
+
+    /**
+     * Whether an event of this family leaves it to the situation to say where
+     * the ship is.
+     *
+     * <p>An approach, a landing and a disembark are all the same sentence about
+     * a place canonical state already holds: the body they name <em>is</em> the
+     * selected body, by definition of what they did. Naming it on the event as
+     * well put the same string in two shapes in one document — a name on the
+     * event, a group of facts under the same word in the context — and left
+     * nothing tying the two together but the assumption that a turn has one
+     * body in it.</p>
+     *
+     * <p>False for a scan, and that is the whole of the distinction. A scanner
+     * reports about a body the ship is not at and need not ever visit; an FSS
+     * sweep names a different one every few seconds. There the name is the
+     * event's own and canonical state cannot answer for it.</p>
+     *
+     * <p>False for a jump too. It names the system it arrived in, and that
+     * field is also the arrival star's name ({@link #alsoAnsweredBy}) — a
+     * pairing that exists only while the field is emitted.</p>
+     *
+     * <p>This decides nothing on its own: the projector drops a name only where
+     * the event's own context profile asks for the subject that replaces it, so
+     * a fact moves from the event to the context and is never simply lost.</p>
+     */
+    public boolean locatedByCanonicalState() {
+        return switch (this) {
+            case BODY_TRANSIT, SURFACE, PRESENCE -> true;
+            default -> false;
+        };
     }
 }

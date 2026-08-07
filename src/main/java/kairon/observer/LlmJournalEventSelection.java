@@ -22,6 +22,7 @@ import kairon.semantics.BodySurveyFacts;
 import kairon.semantics.SemanticSourceRoleCatalog;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
@@ -36,8 +37,16 @@ import java.util.Set;
  */
 public final class LlmJournalEventSelection {
 
-    /** The {@code ReceiveText} channel carrying ambient NPC chatter. */
-    private static final String NPC_CHANNEL = "npc";
+    /**
+     * The {@code ReceiveText} channels that never open a turn.
+     *
+     * <p>{@code npc} is ambient station and traffic chatter addressed to
+     * nobody. {@code squadron} is a conversation between other Commanders,
+     * which is a different reason for the same answer — see
+     * {@link #admitsAsTrigger}.</p>
+     */
+    private static final Set<String> UNADMITTED_CHANNELS =
+            Set.of("npc", "squadron");
 
     /**
      * The profile names, which no longer carry a count.
@@ -198,9 +207,24 @@ public final class LlmJournalEventSelection {
      * traffic chatter addressed to nobody in particular; it is not something
      * the Commander is waiting to be told about, and the measured replay's only
      * NPC message was a system-name announcement the Commander was already
-     * looking at. The decision is made on the {@code Channel} field alone —
-     * never on the message text and never on a localised rendering, either of
-     * which would make admission depend on language.</p>
+     * looking at.</p>
+     *
+     * <p>A {@code ReceiveText} on the {@code squadron} channel is a
+     * conversation between other Commanders. Kairon has no channel into it:
+     * she cannot answer, and the Commander is reading it himself on the same
+     * screen. <strong>Measured on the live session of 2026-08-07:</strong> of
+     * roughly ninety turns, over sixty were squadron messages and they produced
+     * four comments — one that translated the place name Colonia as a common
+     * noun, two that offered actions she cannot perform ("shall I translate?",
+     * "better say it now" into a chat she cannot write to), and one that
+     * remarked on another player's typo. Not one was useful, and two of the
+     * three unsupported suggestions of the whole session came from here.</p>
+     *
+     * <p>Both decisions are made on the {@code Channel} field alone — never on
+     * the message text and never on a localised rendering, either of which
+     * would make admission depend on language. A message addressed to the
+     * Commander personally arrives on {@code player} or {@code friend} and is
+     * unaffected.</p>
      *
      * <p>A {@code Scan.BodyReading} that is not the detailed one established
      * nothing: an automatic scan is the ship noticing a body while flying past,
@@ -230,8 +254,9 @@ public final class LlmJournalEventSelection {
             JsonNode channel = message.raw().parsedJsonObject().get("Channel");
             return channel == null
                     || !channel.isTextual()
-                    || !NPC_CHANNEL.equalsIgnoreCase(
+                    || !UNADMITTED_CHANNELS.contains(
                             channel.textValue().strip()
+                                    .toLowerCase(Locale.ROOT)
                     );
         }
         if (event instanceof Scan scan) {

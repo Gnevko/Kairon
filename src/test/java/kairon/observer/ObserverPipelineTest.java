@@ -618,17 +618,27 @@ final class ObserverPipelineTest {
         }
     }
 
+    /**
+     * A message addressed to the Commander still starts a turn.
+     *
+     * <p>Two channels are declined and neither is this one: {@code npc} is
+     * ambient chatter, {@code squadron} is other Commanders talking to each
+     * other. Someone writing to the Commander directly is what the rule leaves
+     * alone, so the turn is the direct message's and carries nothing of the
+     * other two.</p>
+     */
     @Test
     void aMessageOnAnyOtherChannelStillStartsATurn(@TempDir Path directory)
             throws Exception {
         RecordingLlmClient llm = RecordingLlmClient.silent();
         try (Harness harness = new Harness(
-                directory.resolve("squadron.jsonl"),
+                directory.resolve("direct.jsonl"),
                 llm,
                 policy(8)
         )) {
             harness.publish(receiveText("npc", "Traffic control here."));
             harness.publish(receiveText("squadron", "Nabend CMDRs o7"));
+            harness.publish(receiveText("player", "Brauchst du Hilfe?"));
             harness.finishReplay();
 
             assertEquals(1, llm.inputs.size());
@@ -636,15 +646,16 @@ final class ObserverPipelineTest {
             assertEquals(
                     List.of("Another player sent a text message to a channel the Commander is in."),
                     eventDescriptions(request),
-                    "only the squadron message is a trigger"
+                    "only the message addressed to him is a trigger"
             );
             assertEquals(1, eventCount(request));
             assertEquals(
-                    "SQUADRON",
+                    "PLAYER",
                     request.path("events").get(0).path("channel").textValue(),
                     "a closed vocabulary is sent in the contract's own casing"
             );
             assertFalse(request.toString().contains("Traffic control"));
+            assertFalse(request.toString().contains("Nabend"));
         }
     }
 

@@ -52,6 +52,7 @@ public enum DecisionContextProfile {
     SYSTEM_AND_BODY_DETAIL(Set.of(
             ContextNeed.SYSTEM,
             ContextNeed.BODY_DETAIL,
+            ContextNeed.BODY_GRAVITY,
             ContextNeed.NAVIGATION
     )),
 
@@ -72,18 +73,33 @@ public enum DecisionContextProfile {
     )),
 
     /**
-     * Where the Commander physically is, and what they were in the middle of.
+     * Where the Commander physically is, and nothing about what they are doing.
      *
-     * <p>A running sampling sequence is asked for as well. Getting out and
-     * getting back in are exactly the moves a Commander makes in the middle of
-     * one, and the three remembered predecessors are too short a memory to keep
-     * the scan that started it.</p>
+     * <p>A running sampling sequence used to be asked for here, on the argument
+     * that getting out and getting back in are exactly the moves a Commander
+     * makes in the middle of one. The argument is true and the result was
+     * wrong: the sequence is more interesting than the step, so the model spoke
+     * about the sequence every time and about the event never.</p>
+     *
+     * <p><strong>Measured across the live session of 2026-08-07:</strong> nine
+     * turns of stepping out and getting back in produced eight comments, and
+     * all eight were about collecting samples. Three announced a find that had
+     * happened turns earlier ("a new organism has been found"), one placed a
+     * sample aboard that was not collected yet, and none said what the turn was
+     * actually about. On the one turn that <em>was</em> a step of the sequence,
+     * she stayed silent — the standing fact had already been used up as
+     * news.</p>
+     *
+     * <p>The sequence still reports itself on its own steps, where
+     * {@link #SAMPLING} and {@link #SAMPLING_ANALYSED} ask for it. Absent here
+     * means the sampling subject is also out of scope for a hidden change,
+     * which is the same claim read the other way: a disembark is not about
+     * sampling.</p>
      */
     PRESENCE(Set.of(
             ContextNeed.PRESENCE,
             ContextNeed.VEHICLE,
-            ContextNeed.BODY_IDENTITY,
-            ContextNeed.SAMPLING
+            ContextNeed.BODY_IDENTITY
     )),
 
     /** The auxiliary vehicle and where the Commander is. */
@@ -99,13 +115,11 @@ public enum DecisionContextProfile {
     SYSTEM_AND_BODY(Set.of(ContextNeed.SYSTEM, ContextNeed.BODY_DETAIL)),
 
     /**
-     * The body, the sequence in progress, and where the Commander is.
+     * The body, where the Commander is, and the sequence as a subject.
      *
-     * <p>The sampling group it would build is dropped when one of the turn's own
-     * events is a step of the sequence — see {@code DecisionContextSelector}.
-     * The need is kept because it is also what puts the sampling subject in
-     * scope for a hidden change, which a scan does not state and which is
-     * dropped by subject rather than by group.</p>
+     * <p>{@link ContextNeed#SAMPLING} builds no group; it puts the sampling
+     * subject in scope so a change a hidden observation made can be reported
+     * here. The sequence itself is described by the scan that steps it.</p>
      */
     SAMPLING(Set.of(
             ContextNeed.BODY_DETAIL,
@@ -167,7 +181,7 @@ public enum DecisionContextProfile {
         for (ContextNeed need : contextNeeds) {
             subjects.add(switch (need) {
                 case SYSTEM -> "system";
-                case BODY_IDENTITY, BODY_DETAIL -> "body";
+                case BODY_IDENTITY, BODY_DETAIL, BODY_GRAVITY -> "body";
                 case NAVIGATION -> "navigation";
                 case PRESENCE -> "commander";
                 case SHIP -> "ship";
@@ -198,6 +212,23 @@ public enum DecisionContextProfile {
         /** The body and what is known about it. */
         BODY_DETAIL,
 
+        /**
+         * How heavily it pulls — asked for by an arrival and by nothing else.
+         *
+         * <p>Weight is a question about the descent: whether the ship can be
+         * put down without wrecking it. That question is asked while coming
+         * in, and it is over by the time the landing gear is on the ground. A
+         * touchdown, a lift-off, a sample and a walk are none of them decided
+         * by it — in the live session of 2026-08-07 the same "gravity is low"
+         * arrived on three landings of one body, having already arrived on the
+         * approach to it.</p>
+         *
+         * <p>Separate from {@link #BODY_DETAIL} so that this is a decision
+         * rather than a side effect of asking what the body is: what it is and
+         * how heavily it pulls are wanted at different moments.</p>
+         */
+        BODY_GRAVITY,
+
         /** How the ship is travelling. */
         NAVIGATION,
 
@@ -210,7 +241,17 @@ public enum DecisionContextProfile {
         /** The associated auxiliary vehicle. */
         VEHICLE,
 
-        /** A running organic sampling sequence. */
+        /**
+         * The sampling sequence as a subject, not as a group.
+         *
+         * <p>It builds nothing. There is no {@code context.sampling}: the
+         * sequence is described by the scans that step it — {@code organism},
+         * {@code stage}, {@code complete} — and a standing description beside
+         * them was the same sequence said twice in two vocabularies. What this
+         * need still does is put the subject in scope, so a change to the
+         * sequence that a hidden observation made can be reported on a turn
+         * whose events are about sampling.</p>
+         */
         SAMPLING,
 
         /**

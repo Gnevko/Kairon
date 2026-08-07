@@ -13,6 +13,8 @@ import kairon.behavior.event.BehaviorGraphEvent;
 import kairon.behavior.event.BehaviorGraphEvent.BehaviorGraphUpdated;
 import kairon.behavior.event.BehaviorGraphEvent.GraphCursorChanged;
 import kairon.behavior.event.BehaviorGraphListener;
+import kairon.behavior.snapshot.BehaviorSituationSnapshot;
+import kairon.behavior.graph.BehaviorGraphApplyResult;
 import kairon.behavior.graph.BehaviorGraphIds;
 import kairon.behavior.graph.BehaviorGraphQueryService;
 import kairon.behavior.graph.BehaviorGraphService;
@@ -22,13 +24,17 @@ import kairon.behavior.model.EpisodeCompletionReason;
 import kairon.behavior.model.EpisodeEntrySource;
 import kairon.behavior.model.EventOccurrence;
 import kairon.behavior.model.EventTypeNode;
+import kairon.behavior.model.GraphCursor;
 import kairon.behavior.model.GraphId;
 import kairon.behavior.model.ShipBehaviorGraph;
 import kairon.behavior.model.SystemEpisode;
+import kairon.behavior.model.SystemEpisodeId;
 import kairon.behavior.model.TransitionEdge;
 import kairon.behavior.normalize.BehaviorEventNormalizer;
 import kairon.behavior.normalize.NormalizedEventType;
+import kairon.behavior.persistence.BehaviorGraphStore;
 import kairon.behavior.persistence.InMemoryBehaviorGraphStore;
+import kairon.behavior.persistence.JsonBehaviorGraphStore;
 import kairon.behavior.status.StatusStateDeltaAdapter;
 import kairon.config.KaironConfiguration.BehaviorGraphConfiguration;
 import kairon.observation.ObservationDraft;
@@ -54,6 +60,7 @@ import kairon.state.CurrentGameStateProjection;
 import kairon.state.CurrentGameStateSnapshot;
 import kairon.state.FlightMode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -1291,6 +1298,129 @@ final class BehaviorGraphServiceTest {
         assertEquals(root.id(), episode.rootOccurrenceId());
     }
 
+    /**
+     * A visit Kairon has already recorded is adopted whole, cursor included.
+     *
+     * <p>A restored visit cannot be rebuilt from the journal, because six of
+     * its occurrence types come from {@code Status.json} and no journal
+     * contains them: the live episode this was found on held 48 journal
+     * occurrences and 6 status ones and ended on a landing-gear deployment. So
+     * the persisted episode is adopted rather than replayed — and adopting it
+     * without its position is what a live run did on 2026-08-07: an episode of
+     * fifty-four occurrences beside a graph with no cursor, and four hundred
+     * {@code active episode has no graph cursor} failures in one minute, the
+     * graph recording nothing for the rest of the session.</p>
+     *
+     * <h2>Three conditions, and the defect needs all three</h2>
+     * <p>A real {@link JsonBehaviorGraphStore}, because an in-memory one hands
+     * the same objects back and the pair never reaches disk. A <em>completed</em>
+     * episode, because {@code store.loadEpisode} reads the archive and a clean
+     * shutdown is what puts it there. And {@code BOOTSTRAP} capture, because
+     * {@code REPLAY} takes a different branch entirely — it re-projects the
+     * episode progressively and carries a cursor with it. Four attempts missing
+     * one condition each passed against the broken code.</p>
+     */
+    @Test
+    void aSessionAlreadyRecordedIsRestoredWithoutLosingItsCursor(
+            @TempDir Path directory
+    ) {
+        // The real store, because this defect is about what survives on disk
+        // between two runs and an in-memory one hands the same objects back.
+        BehaviorGraphStore store = new JsonBehaviorGraphStore(directory);
+        Harness first = new Harness(store);
+        first.identifyShip9();
+        PublishedObservation<JournalEventObservation> located =
+                first.accept(RESTORE_LOCATION);
+        SystemEpisodeId episodeId = BehaviorGraphIds.restoredEpisode(
+                SHIP_9,
+                located.observationId()
+        );
+        first.accept(RESTORE_TOUCHDOWN);
+        first.accept(RESTORE_LIFTOFF);
+        assertEquals(
+                2,
+                first.service.activeEpisode(SHIP_9).orElseThrow()
+                        .timeline().size()
+        );
+        // A clean shutdown: the episode is completed and archived, and the
+        // graph is written with no cursor because a completed episode has
+        // none. Both files are correct on their own.
+        first.completeReplay();
+        assertNull(store.loadGraph(SHIP_9).orElseThrow().cursor());
+        assertEquals(
+                2,
+                store.loadEpisode(episodeId).orElseThrow().timeline().size(),
+                "the visit is archived under the id its Location record mints"
+        );
+
+        // The restart, captured the way a restart captures: BOOTSTRAP, not
+        // REPLAY. The distinction is the whole of this defect — the replay
+        // path re-projects a persisted episode progressively and carries a
+        // cursor with it, and the bootstrap path adopted the episode whole.
+        Harness second = new Harness(store);
+        // Byte-for-byte the record the first run read, because the episode id
+        // is derived from the observation id and the observation id from the
+        // record's place in the file. A restart reads the same file.
+        second.bootstrap("""
+                {"timestamp":"2026-07-24T11:00:00Z",
+                 "event":"LoadGame","FID":"F12345678",
+                 "ShipID":9,"Ship":"explorer_nx"}
+                """);
+        // The same Location record: its observation id is the episode id, so
+        // this is the moment the persisted episode is adopted.
+        PublishedObservation<JournalEventObservation> restore =
+                second.bootstrap(RESTORE_LOCATION);
+        assertNotNull(
+                second.capture(restore),
+                "an adopted episode is adopted with its cursor"
+        );
+
+        // And one the store has never seen, which is where the live run threw.
+        PublishedObservation<JournalEventObservation> landing = second.bootstrap("""
+                {"timestamp":"2026-07-24T12:10:00Z","event":"Touchdown",
+                 "PlayerControlled":true,"StarSystem":"Restore A",
+                 "SystemAddress":2001,"Body":"Restore A 1","BodyID":5,
+                 "OnStation":false,"OnPlanet":true}
+                """);
+        // The capture the coordinator performs for every observation, which is
+        // where the live run threw four hundred times.
+        assertNotNull(second.capture(landing));
+
+        GraphCursor cursor = second.service.cursor(SHIP_9).orElseThrow();
+        SystemEpisode episode =
+                second.service.activeEpisode(SHIP_9).orElseThrow();
+        assertEquals(
+                episode.id(),
+                cursor.episodeId(),
+                "the cursor names an occurrence of the episode it is in"
+        );
+        assertEquals(
+                episode.timeline().getLast().id(),
+                cursor.occurrenceId(),
+                "and it is the last thing the visit recorded"
+        );
+    }
+
+    private static final String RESTORE_LOCATION = """
+            {"timestamp":"2026-07-24T12:00:01Z","event":"Location",
+             "StarSystem":"Restore A","SystemAddress":2001,
+             "Body":"Restore A 1","BodyID":5,"Docked":false}
+            """;
+
+    private static final String RESTORE_TOUCHDOWN = """
+            {"timestamp":"2026-07-24T12:00:02Z","event":"Touchdown",
+             "PlayerControlled":true,"StarSystem":"Restore A",
+             "SystemAddress":2001,"Body":"Restore A 1","BodyID":5,
+             "OnStation":false,"OnPlanet":true}
+            """;
+
+    private static final String RESTORE_LIFTOFF = """
+            {"timestamp":"2026-07-24T12:00:03Z","event":"Liftoff",
+             "PlayerControlled":true,"StarSystem":"Restore A",
+             "SystemAddress":2001,"Body":"Restore A 1","BodyID":5,
+             "OnStation":false,"OnPlanet":true}
+            """;
+
     private static final class Harness {
 
         private static final String BASENAME = "Journal.behavior-test.log";
@@ -1320,7 +1450,7 @@ final class BehaviorGraphServiceTest {
                 );
         private final StatusStateDeltaAdapter statusDeltaAdapter =
                 new StatusStateDeltaAdapter();
-        private final InMemoryBehaviorGraphStore store;
+        private final BehaviorGraphStore store;
         private final CurrentGameStateProjector currentGameState =
                 new CurrentGameStateProjector();
         /**
@@ -1339,7 +1469,7 @@ final class BehaviorGraphServiceTest {
             this(new InMemoryBehaviorGraphStore());
         }
 
-        private Harness(InMemoryBehaviorGraphStore store) {
+        private Harness(BehaviorGraphStore store) {
             this.store = store;
             this.service = new BehaviorGraphService(
                         CONFIGURATION,
@@ -1351,6 +1481,8 @@ final class BehaviorGraphServiceTest {
                 );
         }
 
+        private BehaviorGraphApplyResult lastApplyResult;
+        private CurrentGameStateSnapshot lastState;
         private long busSequence;
         private long sourceOffset;
         private long statusSequence;
@@ -1363,8 +1495,22 @@ final class BehaviorGraphServiceTest {
                     """);
         }
 
+        /** The same record, captured the way a live restart captures it. */
+        private PublishedObservation<JournalEventObservation> bootstrap(
+                String rawJson
+        ) {
+            return accept(rawJson, ObservationCaptureMode.BOOTSTRAP);
+        }
+
         private PublishedObservation<JournalEventObservation> accept(
                 String rawJson
+        ) {
+            return accept(rawJson, ObservationCaptureMode.REPLAY);
+        }
+
+        private PublishedObservation<JournalEventObservation> accept(
+                String rawJson,
+                ObservationCaptureMode captureMode
         ) {
             byte[] bytes = rawJson.strip().getBytes(StandardCharsets.UTF_8);
             ParsedJournalRecord parsed = assertInstanceOf(
@@ -1378,7 +1524,7 @@ final class BehaviorGraphServiceTest {
             sourceOffset += bytes.length + 1L;
             ObservationDraft<JournalEventObservation> draft = adapter.adapt(
                     parsed,
-                    ObservationCaptureMode.REPLAY,
+                    captureMode,
                     parsed.optionalJournalTimestamp().orElse(Instant.EPOCH)
             );
             PublishedObservation<JournalEventObservation> published =
@@ -1477,11 +1623,29 @@ final class BehaviorGraphServiceTest {
         ) {
             CurrentGameStateProjection projection =
                     currentGameState.applyAndCapture(observation);
-            service.onObservation(
+            lastApplyResult = service.onObservation(
                     observation,
                     projection.currentState(),
                     projection.observationContext(),
                     bodies(observation, projection.currentState())
+            );
+            lastState = projection.currentState();
+        }
+
+        /**
+         * The situation the coordinator would capture for this observation.
+         *
+         * <p>Through the same query service the runtime uses, because the
+         * check that matters here lives in {@code captureSituation} and not in
+         * the apply path.</p>
+         */
+        private BehaviorSituationSnapshot capture(
+                PublishedObservation<?> observation
+        ) {
+            return new BehaviorGraphQueryService(service).capture(
+                    observation,
+                    lastState,
+                    lastApplyResult
             );
         }
 

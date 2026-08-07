@@ -381,7 +381,7 @@ final class DecisionRequestArchitectureGuardTest {
     /**
      * The prompt says who she is, and that is one of its three remaining jobs.
      *
-     * <p>It carried six blocks and now carries three: the role, one line of
+     * <p>It carried six blocks and now carries three: the role, three lines of
      * preference, and the answer contract. This is the half a guard can state
      * positively — the other half is stated by
      * {@link #thePromptStatesTheCurrentOutputContract} — so that reducing it to

@@ -302,8 +302,109 @@ class JournalSourceTest {
         );
     }
 
+    /**
+     * The whole file is restored, however long it is.
+     *
+     * <p>Forty-three records, which is more than any window would have kept.
+     * A journal file is one session — the game opens a new one each time it
+     * starts — so the file already is the boundary and nothing is counted on
+     * top of it.</p>
+     */
     @Test
-    void bootstrapKeepsLastThirtyAndBoundaryPartialBecomesLiveBeforeBoundedRotation(
+    void bootstrapRestoresTheWholeJournalFile(@TempDir Path directory)
+            throws Exception {
+        Path journal = directory.resolve("Journal.2026-07-28T120000.01.log");
+        StringBuilder content = new StringBuilder();
+        content.append("{\"event\":\"Fileheader\"}\n");
+        content.append("{\"event\":\"Commander\",\"FID\":\"F1\"}\n");
+        content.append(
+                "{\"event\":\"LoadGame\",\"FID\":\"F1\",\"ShipID\":9}\n"
+        );
+        for (int index = 0; index < 40; index++) {
+            content.append("{\"event\":\"Event").append(index).append("\"}\n");
+        }
+        Files.writeString(journal, content, StandardCharsets.UTF_8);
+
+        List<String> restored = bootstrapEventTypes(directory);
+
+        assertEquals(43, restored.size(), restored.toString());
+        assertEquals("Fileheader", restored.getFirst());
+        assertEquals("Event39", restored.getLast());
+    }
+
+    /**
+     * A change of ship shortens nothing: both vessels are restored.
+     *
+     * <p>The graph is isolated per Commander and concrete ship, so the records
+     * from before the change belong to another graph — and that graph is
+     * Kairon's to keep too. Restoring the file restores both, each into its
+     * own, which is what a window anchored at the change would have thrown
+     * away.</p>
+     */
+    @Test
+    void aShipChangeRestoresBothVessels(
+            @TempDir Path directory
+    ) throws Exception {
+        Path journal = directory.resolve("Journal.2026-07-28T120000.01.log");
+        StringBuilder content = new StringBuilder();
+        content.append(
+                "{\"event\":\"LoadGame\",\"FID\":\"F1\",\"ShipID\":9}\n"
+        );
+        for (int index = 0; index < 10; index++) {
+            content.append("{\"event\":\"Before").append(index).append("\"}\n");
+        }
+        content.append("{\"event\":\"Loadout\",\"ShipID\":11}\n");
+        for (int index = 0; index < 3; index++) {
+            content.append("{\"event\":\"After").append(index).append("\"}\n");
+        }
+        Files.writeString(journal, content, StandardCharsets.UTF_8);
+
+        List<String> restored = bootstrapEventTypes(directory);
+
+        assertEquals(15, restored.size(), restored.toString());
+        assertEquals("LoadGame", restored.getFirst());
+        assertEquals(
+                List.of("Loadout", "After0", "After1", "After2"),
+                restored.subList(11, 15),
+                "and the change of ship is restored in its place"
+        );
+    }
+
+    /** Every event type a bootstrap published, in source order. */
+    private static List<String> bootstrapEventTypes(Path directory)
+            throws Exception {
+        RecordingBus bus = new RecordingBus();
+        JournalObservationAdapter adapter = new JournalObservationAdapter(
+                new ObservationSource("elite-dangerous-journal", "live-source")
+        );
+        try (PollingJournalTailReader source = new PollingJournalTailReader(
+                directory,
+                new JournalLineParser(),
+                adapter,
+                bus,
+                new MutableClock(FIXED_CLOCK.instant())
+        )) {
+            var report = source.publishBootstrap().toCompletableFuture().join();
+            assertTrue(report.successful());
+            return bus.accepted().stream()
+                    .map(draft -> ((JournalEventObservation) draft.payload())
+                            .raw()
+                            .optionalEventType()
+                            .orElseThrow())
+                    .toList();
+        }
+    }
+
+    /**
+     * The boundary partial record becomes live, and rotation stays bounded.
+     *
+     * <p>Thirty-two complete records below the startup boundary and all of
+     * them restored; what this case is really about is the partial line at the
+     * boundary, which belongs to the live stream rather than to the
+     * restore.</p>
+     */
+    @Test
+    void bootstrapRestoresEveryRecordAndTheBoundaryPartialBecomesLive(
             @TempDir Path directory
     )
             throws Exception {
@@ -332,11 +433,11 @@ class JournalSourceTest {
         )) {
             var report = source.publishBootstrap().toCompletableFuture().join();
             assertTrue(report.successful());
-            assertEquals(30, report.selectedRecordCount());
-            assertEquals(30, report.publishedRecordCount());
-            assertEquals(30, bus.accepted().size());
+            assertEquals(32, report.selectedRecordCount());
+            assertEquals(32, report.publishedRecordCount());
+            assertEquals(32, bus.accepted().size());
             assertEquals(
-                    "Event2",
+                    "Event0",
                     ((JournalEventObservation) bus.accepted().getFirst().payload())
                             .raw()
                             .optionalEventType()
@@ -356,7 +457,7 @@ class JournalSourceTest {
             );
             source.pollNow().toCompletableFuture().join();
 
-            assertEquals(31, bus.accepted().size());
+            assertEquals(33, bus.accepted().size());
             ObservationDraft<?> liveDraft = bus.accepted().getLast();
             assertEquals(ObservationCaptureMode.LIVE, liveDraft.captureMode());
             assertEquals(
@@ -378,7 +479,7 @@ class JournalSourceTest {
                     StandardOpenOption.APPEND
             );
             source.pollNow().toCompletableFuture().join();
-            assertEquals(32, bus.accepted().size());
+            assertEquals(34, bus.accepted().size());
             ObservationDraft<?> afterMalformed = bus.accepted().getLast();
             assertEquals(
                     malformedOffset + malformedRecord.getBytes(StandardCharsets.UTF_8).length,
@@ -406,11 +507,11 @@ class JournalSourceTest {
                     StandardCharsets.UTF_8
             );
             source.pollNow().toCompletableFuture().join();
-            assertEquals(32, bus.accepted().size());
+            assertEquals(34, bus.accepted().size());
 
             clock.advance(PollingJournalTailReader.ROTATION_PARTIAL_LINE_TIMEOUT);
             source.pollNow().toCompletableFuture().join();
-            assertEquals(33, bus.accepted().size());
+            assertEquals(35, bus.accepted().size());
             ObservationDraft<?> successorDraft = bus.accepted().getLast();
             assertEquals(
                     successor.getFileName().toString(),
@@ -431,7 +532,7 @@ class JournalSourceTest {
             );
             Files.move(replacement, successor, StandardCopyOption.REPLACE_EXISTING);
             source.pollNow().toCompletableFuture().join();
-            assertEquals(33, bus.accepted().size());
+            assertEquals(35, bus.accepted().size());
 
             Path recovery = directory.resolve("Journal.2026-07-28T120200.01.log");
             Files.writeString(
@@ -440,7 +541,7 @@ class JournalSourceTest {
                     StandardCharsets.UTF_8
             );
             source.pollNow().toCompletableFuture().join();
-            assertEquals(34, bus.accepted().size());
+            assertEquals(36, bus.accepted().size());
 
             bus.drainAndClose().toCompletableFuture().join();
             Files.writeString(

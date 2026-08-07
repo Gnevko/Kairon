@@ -108,11 +108,13 @@ final class StatedFactsContractTest {
     }
 
     /**
-     * A string an event states under a canonical slot is not repeated.
+     * A string is stated once, wherever it is stated.
      *
-     * <p>An approach names the body it approached, and the body group would
-     * name the same body under {@code name}. The pairing is declared rather
-     * than found by the two values being equal.</p>
+     * <p>An approach no longer names the body it approached — the situation
+     * answers for where the ship is — so the name arrives as
+     * {@code context.body.name} and appears nowhere else. The pairing is
+     * declared rather than found by two values being equal, and it holds in
+     * whichever direction the fact travels.</p>
      */
     @Test
     void aStringStatedUnderASlotIsNotRepeated(@TempDir Path directory) {
@@ -126,17 +128,19 @@ final class StatedFactsContractTest {
             PipelineTrace trace = harness.trace();
 
             PipelineTrace.TurnView turn = turnWith(trace, "BODY_APPROACHED");
+            assertFalse(
+                    eventOfKind(turn, "BODY_APPROACHED").has("body"),
+                    "the approach leaves the naming to the situation: "
+                            + turn.userMessage()
+            );
             assertEquals(
                     "Schieni 4 a",
-                    eventOfKind(turn, "BODY_APPROACHED").path("body")
-                            .textValue()
+                    turn.context().path("body").path("name").textValue(),
+                    "the body is named once, and here: " + turn.userMessage()
             );
-            assertFalse(
-                    turn.context().path("body").has("name"),
-                    "the body is named once: " + turn.userMessage()
-            );
-            assertFalse(
-                    turn.context().path("system").has("name"),
+            assertEquals(
+                    "Schieni",
+                    turn.context().path("system").path("name").textValue(),
                     "and so is the system: " + turn.userMessage()
             );
             assertChangesAndContextPartition(trace);
@@ -282,12 +286,14 @@ final class StatedFactsContractTest {
             assertEquals(
                     "Schieni",
                     turn.context().path("system").path("name").textValue(),
-                    "the system is still reported: " + turn.userMessage()
-            );
-            assertFalse(
-                    turn.context().path("body").has("name"),
-                    "while the body the event named is not: "
+                    "the system is reported under its own slot: "
                             + turn.userMessage()
+            );
+            assertEquals(
+                    "Schieni 4 a",
+                    turn.context().path("body").path("name").textValue(),
+                    "and the body under its own, neither displacing the "
+                            + "other: " + turn.userMessage()
             );
             assertChangesAndContextPartition(trace);
         }
@@ -369,10 +375,12 @@ final class StatedFactsContractTest {
                     .closeBatch();
             PipelineTrace after = harness.trace();
             PipelineTrace.TurnView presence = turnWith(after, "EMBARKED");
-            assertTrue(
+            assertFalse(
                     presence.context().has("sampling"),
-                    "but a presence event during one still carries it: "
-                            + presence.userMessage()
+                    "and a presence event during one carries none of it "
+                            + "either: there is no context.sampling at all, "
+                            + "because the sequence is described by the scans "
+                            + "that step it: " + presence.userMessage()
             );
         }
     }

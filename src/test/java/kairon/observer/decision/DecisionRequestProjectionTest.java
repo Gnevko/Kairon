@@ -489,16 +489,19 @@ final class DecisionRequestProjectionTest {
                     "The Commander stepped out of a ship or SRV.",
                     disembark.path("event").textValue());
         assertEquals(
-                List.of("event", "system", "body", "onStation", "onPlanet"),
-                propertyNames(disembark)
+                List.of("event", "system", "onStation", "onPlanet"),
+                propertyNames(disembark),
+                "stepping out does not name the body it stepped onto"
         );
         assertEquals(
                 "Schieni GG-A c3-84",
-                disembark.path("system").textValue()
+                disembark.path("system").textValue(),
+                "the system stays: a disembark is not read against one, so "
+                        + "no context group would answer for it"
         );
         assertEquals(
                 "Schieni GG-A c3-84 4 a",
-                disembark.path("body").textValue()
+                request.path("context").path("body").path("name").textValue()
         );
         assertFalse(
                 disembark.path("onStation").booleanValue(),
@@ -553,8 +556,9 @@ final class DecisionRequestProjectionTest {
                     "The Commander, on foot, got into a ship or SRV.",
                     embark.path("event").textValue());
         assertEquals(
-                List.of("event", "system", "body", "onStation", "onPlanet"),
-                propertyNames(embark)
+                List.of("event", "system", "onStation", "onPlanet"),
+                propertyNames(embark),
+                "getting in does not name the body it happened on"
         );
         assertEquals(
                 "Schieni GG-A c3-84",
@@ -562,7 +566,7 @@ final class DecisionRequestProjectionTest {
         );
         assertEquals(
                 "Schieni GG-A c3-84 4 a",
-                embark.path("body").textValue()
+                request.path("context").path("body").path("name").textValue()
         );
         assertFalse(
                 embark.path("onStation").booleanValue(),
@@ -601,8 +605,15 @@ final class DecisionRequestProjectionTest {
                  "FID":"F12345678","ShipID":9,"Ship":"explorer_nx",
                  "ShipName":"Wanderer"}
                 """);
+        // The system is established before the approach, as it is in a real
+        // session: the jump or the supercruise entry names it, and by the time
+        // a body is approached it is standing background.
+        fixture.inputs(List.of(fixture.graphDisabled("""
+                {"timestamp":"2026-07-30T10:00:01Z","event":"SupercruiseEntry",
+                 "StarSystem":"Schieni GG-A c3-84","SystemAddress":23155}
+                """)));
         fixture.graphDisabled("""
-                {"timestamp":"2026-07-30T10:00:01Z","event":"Scan",
+                {"timestamp":"2026-07-30T10:00:02Z","event":"Scan",
                  "SystemAddress":23155,"BodyID":20,
                  "BodyName":"Schieni GG-A c3-84 4 a","PlanetClass":"Icy body",
                  "Landable":true,"WasDiscovered":false,"WasMapped":false,
@@ -610,7 +621,7 @@ final class DecisionRequestProjectionTest {
                 """);
         JsonNode request = request(fixture, List.of(
                 fixture.graphDisabled("""
-                        {"timestamp":"2026-07-30T10:00:02Z",
+                        {"timestamp":"2026-07-30T10:00:03Z",
                          "event":"ApproachBody",
                          "StarSystem":"Schieni GG-A c3-84",
                          "SystemAddress":23155,
@@ -620,19 +631,26 @@ final class DecisionRequestProjectionTest {
 
         assertFalse(
                 request.has("changes"),
-                "remembering a body is not the body changing"
+                () -> "remembering a body is not the body changing: " + request
         );
         JsonNode body = request.path("context").path("body");
         assertEquals("Icy body", body.path("planetClass").textValue());
-        assertTrue(body.path("landable").booleanValue());
-        assertFalse(body.path("previouslyDiscovered").booleanValue());
+        assertEquals(
+                "Schieni GG-A c3-84 4 a",
+                body.path("name").textValue(),
+                "the approach leaves the naming to the situation"
+        );
         assertFalse(
                 body.has("distanceFromArrivalLs"),
                 "the arrival distance is not model-facing"
         );
         assertFalse(
-                body.has("name"),
-                "the event already names the body"
+                body.has("landable"),
+                "whether it can be landed on is not what the body is"
+        );
+        assertFalse(
+                body.has("previouslyDiscovered"),
+                "a survey flag is the survey's to report"
         );
         assertFalse(
                 body.has("bodyId"),
@@ -715,14 +733,12 @@ final class DecisionRequestProjectionTest {
         assertEquals(
                     "A ship landed on the surface of a planet or moon.",
                     event.path("event").textValue());
-        assertEquals(
-                "Schieni GG-A c3-84 4 a",
-                event.path("body").textValue()
-        );
         assertTrue(event.path("commanderControlled").booleanValue());
         assertEquals(
-                List.of("event", "body", "commanderControlled"),
-                propertyNames(event)
+                List.of("event", "commanderControlled"),
+                propertyNames(event),
+                "the landing says what happened; where it happened is the "
+                        + "situation's to answer"
         );
 
         JsonNode context = request.path("context");
@@ -740,27 +756,23 @@ final class DecisionRequestProjectionTest {
         );
         JsonNode body = context.path("body");
         assertEquals(
-                List.of(
-                        "type",
-                        "planetClass",
-                        "landable",
-                        "previouslyDiscovered",
-                        "previouslyMapped",
-                        "previouslyFootfalled",
-                        "biologicalSignals"
-                ),
+                List.of("name", "type", "planetClass"),
                 propertyNames(body),
-                "the survey flags say what was true before this landing, and "
-                        + "a category nothing counted is absent"
+                "which body it is and what it is; what a survey found on it "
+                        + "belongs to the survey's own turn"
+        );
+        assertEquals(
+                "Schieni GG-A c3-84 4 a",
+                body.path("name").textValue()
         );
         assertEquals("Icy body", body.path("planetClass").textValue());
-        assertTrue(body.path("landable").booleanValue());
-        assertFalse(body.path("previouslyDiscovered").booleanValue());
-        assertFalse(body.path("previouslyMapped").booleanValue());
-        assertFalse(body.path("previouslyFootfalled").booleanValue());
+        assertFalse(body.has("landable"));
+        assertFalse(body.has("previouslyDiscovered"));
+        assertFalse(body.has("previouslyMapped"));
+        assertFalse(body.has("previouslyFootfalled"));
         assertFalse(body.has("distanceFromArrivalLs"));
-        assertEquals(1, body.path("biologicalSignals").intValue());
-        assertEquals(0, body.path("geologicalSignals").intValue());
+        assertFalse(body.has("biologicalSignals"));
+        assertFalse(body.has("geologicalSignals"));
         assertFalse(request.toString().contains("distanceLs"));
         assertFalse(request.toString().contains("\"discovered\""));
     }
@@ -807,9 +819,11 @@ final class DecisionRequestProjectionTest {
         assertFalse(left.toString().contains("BODY_APPROACHED"));
         assertFalse(left.toString().contains("ApproachBody"));
         assertEquals(
-                List.of("event", "body", "system"),
+                List.of("event"),
                 propertyNames(left),
-                "the event keeps everything that is not the relationship");
+                "leaving a body is read against the body and the system, so "
+                        + "both are the situation's to name and neither is "
+                        + "the relationship this test is about");
 
         JsonNode recovered = request(fixture, List.of(
                 fixture.graphDisabled("""

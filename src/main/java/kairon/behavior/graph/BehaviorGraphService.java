@@ -1112,6 +1112,29 @@ public final class BehaviorGraphService {
                     eventTime
             );
             activeEpisode = activeCopy(persisted.orElseThrow());
+            /*
+             * Adopted with its cursor. A restored visit is not rebuilt from
+             * the journal and cannot be: six of its occurrence types come from
+             * Status.json, which no journal contains — the live episode this
+             * was found on held 48 journal occurrences and 6 status ones, and
+             * ended on a landing-gear deployment. So the persisted episode is
+             * taken whole, and taking it without its position left an episode
+             * with fifty-four occurrences beside a graph with no cursor, which
+             * the situation snapshot refuses on every observation thereafter.
+             * Nothing is invented here: the cursor is the last occurrence and
+             * this episode carries it.
+             */
+            ShipBehaviorGraph adopted = requiredActiveGraph()
+                    .withEpisode(activeEpisode)
+                    .withCursor(
+                            activeEpisode.awaitingFirstOccurrence()
+                                    ? null
+                                    : cursorFor(
+                                            activeEpisode.timeline().getLast()
+                                    )
+                    );
+            registry.replace(adopted);
+            advanceRevision(adopted.graphId(), false);
             return;
         }
         completeCurrentEpisode(

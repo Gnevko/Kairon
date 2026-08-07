@@ -6,10 +6,8 @@ import kairon.semantics.SemanticField;
 import kairon.semantics.SemanticValue;
 import kairon.state.CurrentGameStateSemantics;
 import kairon.state.CurrentGameStateSnapshot;
-import kairon.semantics.BodySurveyFacts;
 import kairon.system.BiologicalSurvey;
 import kairon.system.PlanetBody;
-import kairon.system.StarBody;
 import kairon.system.SystemObject;
 import kairon.system.SystemObjectKind;
 import kairon.system.SystemRegistrySnapshot;
@@ -77,7 +75,6 @@ public final class DecisionContextSelector {
         addCommander(groups, state, needs, stated);
         addShip(groups, state, needs, stated);
         addVehicle(groups, state, needs, stated);
-        addSampling(groups, state, needs, stated, events);
         return List.copyOf(groups);
     }
 
@@ -162,10 +159,21 @@ public final class DecisionContextSelector {
      * specific class answer different questions — planet or star, and which
      * kind of planet — so both are sent when both are established.</p>
      *
-     * <p>The survey flags are named {@code previouslyDiscovered},
-     * {@code previouslyMapped} and {@code previouslyFootfalled}. They record
-     * what was true before this arrival, and a bare {@code discovered} beside an
-     * approach reads as something that just happened.</p>
+     * <h2>Four facts, and why the rest went</h2>
+     * <p>The group was the body's whole standing record: its class, its star
+     * type, whether it can be landed on, three survey flags and its signal
+     * counts. All of them true, and all of them true again in the next turn and
+     * the one after — {@code previouslyDiscovered} was {@code false} in 37 of
+     * the 90 turns of the 2026-08-07 replay and never once carried a remark,
+     * while the signal counts restated a finding the scan event had already
+     * reported in its own words.</p>
+     *
+     * <p>What stays is what a body <em>is</em>: which one, planet or star,
+     * which kind, and how heavily it pulls. What a survey found stays on the
+     * survey — the reading that establishes it says so once, where it is news.
+     * A standing fact that is true in every turn is not thereby needed in every
+     * turn; the same argument already moved the biology inventory to
+     * {@link DecisionContextProfile#SAMPLING_ANALYSED}.</p>
      */
     private static void addBody(
             List<LlmDecisionRequest.ContextGroup> groups,
@@ -203,65 +211,26 @@ public final class DecisionContextSelector {
                             ? SemanticValue.ofText(planet.planetClass())
                             : SemanticValue.unknown()
             );
-            add(
-                    facts,
-                    stated,
-                    SemanticField.STAR_TYPE,
-                    body instanceof StarBody star
-                            ? SemanticValue.ofText(star.starType())
-                            : SemanticValue.unknown()
-            );
-            add(
-                    facts,
-                    stated,
-                    SemanticField.LANDABLE,
-                    body instanceof PlanetBody planet
-                            ? SemanticValue.ofBoolean(planet.landable())
-                            : SemanticValue.unknown()
-            );
-            // Only where the ship can put down. On a gas giant the pull is a
-            // number about a place nothing stands on, and "high gravity" beside
-            // a body no one can land on reads as a warning about a landing that
-            // was never possible.
-            add(
-                    facts,
-                    stated,
-                    SemanticField.SURFACE_GRAVITY,
-                    body instanceof PlanetBody planet
-                            && Boolean.TRUE.equals(planet.landable())
-                            ? DecisionNames.gravityBand(planet.surfaceGravity())
-                            : SemanticValue.unknown()
-            );
-            add(
-                    facts,
-                    stated,
-                    SemanticField.WAS_DISCOVERED,
-                    SemanticValue.ofBoolean(body.profile().wasDiscovered())
-            );
-            add(
-                    facts,
-                    stated,
-                    SemanticField.WAS_MAPPED,
-                    SemanticValue.ofBoolean(body.profile().wasMapped())
-            );
-            add(
-                    facts,
-                    stated,
-                    SemanticField.WAS_FOOTFALLED,
-                    SemanticValue.ofBoolean(body.profile().wasFootfalled())
-            );
-            add(
-                    facts,
-                    stated,
-                    SemanticField.BIOLOGICAL_SIGNAL_COUNT,
-                    signalCount(body, BodySurveyFacts.BIOLOGICAL)
-            );
-            add(
-                    facts,
-                    stated,
-                    SemanticField.GEOLOGICAL_SIGNAL_COUNT,
-                    signalCount(body, BodySurveyFacts.GEOLOGICAL)
-            );
+            // Only where the ship can put down, and only while it is still
+            // deciding to. On a gas giant the pull is a number about a place
+            // nothing stands on, and "high gravity" beside a body no one can
+            // land on reads as a warning about an impossible landing; after
+            // the touchdown it is a warning about a descent already made. It
+            // is also what says the body is landable at all, now that the flag
+            // itself is not sent.
+            if (needs.contains(ContextNeed.BODY_GRAVITY)) {
+                add(
+                        facts,
+                        stated,
+                        SemanticField.SURFACE_GRAVITY,
+                        body instanceof PlanetBody planet
+                                && Boolean.TRUE.equals(planet.landable())
+                                ? DecisionNames.gravityBand(
+                                        planet.surfaceGravity()
+                                )
+                                : SemanticValue.unknown()
+                );
+            }
         }
         group(groups, "body", facts);
     }
@@ -283,15 +252,6 @@ public final class DecisionContextSelector {
             return null;
         }
         return registry.object(state.bodyId());
-    }
-
-    private static SemanticValue signalCount(
-            SystemObject body,
-            String category
-    ) {
-        return SemanticValue.ofIntegral(
-                body.profile().signalCounts().get(category)
-        );
     }
 
     /**
@@ -353,17 +313,35 @@ public final class DecisionContextSelector {
                 named.put(name, genus.getKey());
             }
         }
-        List<LlmDecisionRequest.Field> facts = named.entrySet().stream()
-                .map(genus -> new LlmDecisionRequest.Field(
-                        genus.getKey(),
-                        SemanticValue.ofSymbol(
-                                survey.completed().contains(genus.getValue())
-                                        ? "COLLECTED"
-                                        : "NOT_COLLECTED"
-                        )
-                ))
-                .toList();
-        group(groups, "biology", facts);
+        List<String> collected = new ArrayList<>();
+        List<String> remaining = new ArrayList<>();
+        for (Map.Entry<String, String> genus : named.entrySet()) {
+            if (survey.completed().contains(genus.getValue())) {
+                collected.add(genus.getKey());
+            } else {
+                remaining.add(genus.getKey());
+            }
+        }
+        List<LlmDecisionRequest.Listing> listings = new ArrayList<>();
+        if (!collected.isEmpty()) {
+            listings.add(new LlmDecisionRequest.Listing(
+                    "collected",
+                    collected
+            ));
+        }
+        if (!remaining.isEmpty()) {
+            listings.add(new LlmDecisionRequest.Listing(
+                    "remaining",
+                    remaining
+            ));
+        }
+        if (!listings.isEmpty()) {
+            groups.add(new LlmDecisionRequest.ContextGroup(
+                    "biology",
+                    List.of(),
+                    List.copyOf(listings)
+            ));
+        }
     }
 
     private static void addNavigation(
@@ -464,82 +442,6 @@ public final class DecisionContextSelector {
             );
         }
         group(groups, "vehicle", facts);
-    }
-
-    /**
-     * A running organic sampling sequence, when one is running.
-     *
-     * <p>An inactive process is absent rather than reported as inactive. The
-     * previous contract sent {@code active: false} in thirteen turns that had
-     * nothing to do with sampling, which is a declaration of absence in a
-     * contract whose whole rule is that absence needs no declaration. A
-     * finished sequence is absent for the same reason and by the same route:
-     * completing one clears it, so there is nothing here to describe.</p>
-     *
-     * <p>The stage is said in the tense a standing fact is in — {@code STARTED},
-     * {@code IN_PROGRESS} — while the event beside it keeps the tense an event
-     * is in. {@link DecisionNames#samplingContextStage} is where the two
-     * vocabularies are held apart.</p>
-     *
-     * <p>Absent from the sampling event's own turn. The group exists because a
-     * sequence outlives the events that are not about it — a Commander logs a
-     * plant, drives back, lands again, and by then nothing in the request says a
-     * sequence is running. A scan is not one of those events: it reports the
-     * organism, the position it just reached and whether that finished it, so
-     * the standing description beside it is the same sequence said twice, once
-     * in each vocabulary. Two spellings of one position — {@code PROGRESS} and
-     * {@code IN_PROGRESS} — is exactly the shape a reader has to work out is not
-     * two things.</p>
-     *
-     * <p>Read off the mechanism rather than the kind: the sampling mechanism is
-     * what makes an event a statement about the sequence, and it is the same
-     * mechanism that asks for this group in the first place. Nothing else
-     * changes — a presence event during a running sequence still carries it, and
-     * so does every other mechanism that asks.</p>
-     */
-    private static void addSampling(
-            List<LlmDecisionRequest.ContextGroup> groups,
-            CurrentGameStateSnapshot state,
-            Set<ContextNeed> needs,
-            StatedFacts stated,
-            List<ProjectedEvent> events
-    ) {
-        if (!needs.contains(ContextNeed.SAMPLING)
-                || !Boolean.TRUE.equals(state.activeOrganicSampling())
-                || statesTheSequenceItself(events)) {
-            return;
-        }
-        List<LlmDecisionRequest.Field> facts = new ArrayList<>();
-        add(
-                facts,
-                stated,
-                SemanticField.ORGANIC_SAMPLING_VARIANT_LABEL,
-                CurrentGameStateSemantics.valueOf(
-                        SemanticField.ORGANIC_SAMPLING_VARIANT_LABEL,
-                        state
-                )
-        );
-        add(
-                facts,
-                stated,
-                SemanticField.ORGANIC_SAMPLING_STAGE,
-                DecisionNames.samplingContextStage(
-                        CurrentGameStateSemantics.valueOf(
-                                SemanticField.ORGANIC_SAMPLING_STAGE,
-                                state
-                        )
-                )
-        );
-        group(groups, "sampling", facts);
-    }
-
-    /** Whether an event of this turn is itself a step of the sequence. */
-    private static boolean statesTheSequenceItself(
-            List<ProjectedEvent> events
-    ) {
-        return events.stream().anyMatch(
-                event -> event.mechanism() == DecisionMechanism.SAMPLING
-        );
     }
 
     private static SemanticValue symbol(Enum<?> value) {

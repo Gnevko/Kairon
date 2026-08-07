@@ -64,14 +64,9 @@ final class DecisionSurfaceVehicleContextTest {
                     "A ship landed on the surface of a planet or moon.",
                     event.path("event").textValue());
             assertEquals(
-                    List.of(
-                            "event",
-                            "body",
-                            "commanderControlled",
-                            "occurrenceOnBody"
-                    ),
+                    List.of("event", "commanderControlled", "occurrenceOnBody"),
                     propertyNames(event),
-                    "the event payload is unchanged"
+                    "the landing leaves the place to the situation"
             );
 
             JsonNode context = request.path("context");

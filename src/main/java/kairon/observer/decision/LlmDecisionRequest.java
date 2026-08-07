@@ -232,12 +232,22 @@ public record LlmDecisionRequest(
      * vehicle associated with the Commander is never merged into where the
      * Commander is standing.</p>
      */
-    public record ContextGroup(String name, List<Field> facts) {
+    public record ContextGroup(
+            String name,
+            List<Field> facts,
+            List<Listing> listings
+    ) {
+
+        /** A group of plain facts, which is what most subjects carry. */
+        public ContextGroup(String name, List<Field> facts) {
+            this(name, facts, List.of());
+        }
 
         public ContextGroup {
             name = requireNonBlank(name, "name");
             facts = List.copyOf(Objects.requireNonNull(facts, "facts"));
-            if (facts.isEmpty()) {
+            listings = List.copyOf(Objects.requireNonNull(listings, "listings"));
+            if (facts.isEmpty() && listings.isEmpty()) {
                 throw new IllegalArgumentException(
                         "an empty context group says nothing"
                 );

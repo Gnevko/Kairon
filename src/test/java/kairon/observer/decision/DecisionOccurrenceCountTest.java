@@ -209,45 +209,34 @@ final class DecisionOccurrenceCountTest {
             JsonNode request = lastRequest(pipeline);
             JsonNode event = request.path("events").get(0);
             assertEquals(
-                    List.of(
-                            "event",
-                            "body",
-                            "commanderControlled",
-                            "occurrenceOnBody"
-                    ),
-                    propertyNames(event)
+                    List.of("event", "commanderControlled", "occurrenceOnBody"),
+                    propertyNames(event),
+                    "a landing does not name the body it landed on; the "
+                            + "situation answers for where the ship is"
             );
             assertEquals(
                     "A ship landed on the surface of a planet or moon.",
                     event.path("event").textValue());
-            assertEquals(
-                    "Schieni GG-A c3-84 4 a",
-                    event.path("body").textValue()
-            );
             assertTrue(event.path("commanderControlled").booleanValue());
             assertEquals(2, event.path("occurrenceOnBody").intValue());
 
             JsonNode body = request.path("context").path("body");
             assertEquals(
-                    List.of(
-                            "type",
-                            "planetClass",
-                            "landable",
-                            "previouslyDiscovered",
-                            "previouslyMapped",
-                            "previouslyFootfalled",
-                            "biologicalSignals"
-                    ),
+                    List.of("name", "type", "planetClass"),
                     propertyNames(body),
-                    "the existing body context is untouched, and the scan's "
-                            + "own class now types the body it described"
+                    "what the body is, and nothing that was merely found on it"
             );
-            assertFalse(body.path("previouslyDiscovered").booleanValue());
+            assertEquals(
+                    "Schieni GG-A c3-84 4 a",
+                    body.path("name").textValue(),
+                    "the name the event stopped carrying arrives here instead"
+            );
             assertFalse(
-                    body.has("geologicalSignals"),
-                    "the survey counted biology and said nothing about geology"
+                    body.has("biologicalSignals"),
+                    "what a survey found is the survey's to report"
             );
-            assertEquals(1, body.path("biologicalSignals").intValue());
+            assertFalse(body.has("previouslyDiscovered"));
+            assertFalse(body.has("landable"));
             assertFalse(body.has("distanceFromArrivalLs"));
             assertEquals(
                     "Schieni GG-A c3-84",

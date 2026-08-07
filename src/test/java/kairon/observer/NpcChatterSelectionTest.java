@@ -53,10 +53,30 @@ final class NpcChatterSelectionTest {
         assertTrue(LlmJournalEventSelection.NEW_EVENT_TYPE_COUNT > 0);
     }
 
+    /**
+     * A squadron conversation is between other Commanders, and is declined.
+     *
+     * <p>Measured on the live session of 2026-08-07: over sixty squadron
+     * messages, four comments, none of them useful — a place name translated as
+     * a common noun, two offers to do things Kairon has no channel to do, and a
+     * remark on another player's typo.</p>
+     */
+    @Test
+    void squadronChatterIsNotEligibleForAModelTurn() {
+        assertFalse(LlmJournalEventSelection.admitsAsTrigger(
+                receiveText("squadron", "Nabend CMDRs o7")
+        ));
+    }
+
+    /**
+     * A message addressed to the Commander still opens a turn.
+     *
+     * <p>The two declined channels are the ones nobody is speaking to him on.
+     * {@code player} and {@code friend} are, and the rest are untouched.</p>
+     */
     @Test
     void everyOtherChannelKeepsItsCurrentBehaviour() {
         for (String channel : List.of(
-                "squadron",
                 "local",
                 "wing",
                 "direct",
@@ -102,6 +122,19 @@ final class NpcChatterSelectionTest {
                             receiveText(spelling, "traffic control")
                     ),
                     spelling + " is the NPC channel"
+            );
+        }
+        for (String spelling : List.of(
+                "squadron",
+                "SQUADRON",
+                "Squadron",
+                " squadron "
+        )) {
+            assertFalse(
+                    LlmJournalEventSelection.admitsAsTrigger(
+                            receiveText(spelling, "o7")
+                    ),
+                    spelling + " is the squadron channel"
             );
         }
     }

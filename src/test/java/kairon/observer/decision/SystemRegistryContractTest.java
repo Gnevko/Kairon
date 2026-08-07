@@ -370,16 +370,18 @@ final class SystemRegistryContractTest {
             );
             JsonNode biology = completion.context().path("biology");
             assertEquals(
-                    "COLLECTED",
-                    biology.path("Bacterial").textValue()
+                    List.of("collected", "remaining"),
+                    fieldNames(biology),
+                    "two lists, and the question the turn is about is the "
+                            + "second one: " + completion.userMessage()
             );
             assertEquals(
-                    "NOT_COLLECTED",
-                    biology.path("Tussocks").textValue()
+                    List.of("Bacterial"),
+                    values(biology.path("collected"))
             );
             assertEquals(
-                    "NOT_COLLECTED",
-                    biology.path("Fonticulus").textValue(),
+                    List.of("Fonticulus", "Tussocks"),
+                    values(biology.path("remaining")),
                     "and what is still out there is named beside it"
             );
             assertEquals(
@@ -411,13 +413,14 @@ final class SystemRegistryContractTest {
             PipelineTrace trace = harness.trace();
             PipelineTrace.TurnView arrival = trace.turns().getLast();
 
-            assertTrue(
+            assertFalse(
                     arrival.context().path("body").has("biologicalSignals"),
-                    "the count is standing background and still reaches it"
+                    "the count belongs to the reading that made it, and this "
+                            + "turn is an arrival: " + arrival.userMessage()
             );
             assertTrue(
                     arrival.context().path("biology").isMissingNode(),
-                    "but nothing names an organism yet"
+                    "and nothing names an organism yet"
             );
         }
     }
@@ -458,8 +461,13 @@ final class SystemRegistryContractTest {
                     trace.turns().getLast().context().path("biology");
 
             assertEquals(
-                    List.of("Tussocks"),
+                    List.of("remaining"),
                     fieldNames(biology),
+                    "nothing is collected here, so no collected list at all"
+            );
+            assertEquals(
+                    List.of("Tussocks"),
+                    values(biology.path("remaining")),
                     "only the organism the game has a word for, named by the "
                             + "word in its own identity"
             );
@@ -549,7 +557,10 @@ final class SystemRegistryContractTest {
                     "what the model is told is what the registry holds: "
                             + turn.userMessage()
             );
-            assertTrue(body.path("landable").booleanValue());
+            assertFalse(
+                    body.has("landable"),
+                    "whether it can be landed on is not what the body is"
+            );
             assertFalse(
                     body.has("distanceFromArrivalLs"),
                     "the arrival distance is not model-facing"

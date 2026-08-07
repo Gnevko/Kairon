@@ -205,8 +205,7 @@ final class UnknownSignalCategoryTest {
                     {"events":[{"event":"A surface area analysis scan reported \
                     signal data for a planet or rings.",\
                     "body":"Schieni 4 a","system":"Schieni",\
-                    "geologicalSignals":2}],\
-                    "context":{"body":{"biologicalSignals":1}}}""",
+                    "geologicalSignals":2}]}""",
                     trace.turns().getLast().userMessage()
             );
             assertEquals(

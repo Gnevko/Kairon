@@ -12,6 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
@@ -126,8 +127,16 @@ final class StaleHiddenChangeTest {
 
             LlmDecisionRequest prepared =
                     requestFor(pipeline, "ApproachBody");
-            JsonNode change = sent(prepared).path("changes").get(0);
-            assertEquals("navigation", change.path("subject").textValue());
+            // Looked up by subject rather than by position: the approach no
+            // longer names the system it is in, so the restore's system is a
+            // change of its own and stands ahead of this one.
+            JsonNode change = null;
+            for (JsonNode candidate : sent(prepared).path("changes")) {
+                if ("navigation".equals(candidate.path("subject").textValue())) {
+                    change = candidate;
+                }
+            }
+            assertNotNull(change, sent(prepared).toString());
             assertEquals(
                     "NORMAL_SPACE",
                     change.path("fields").path("flightMode")

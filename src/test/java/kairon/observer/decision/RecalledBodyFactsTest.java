@@ -42,8 +42,20 @@ final class RecalledBodyFactsTest {
         assertEquals(
                     "A ship in supercruise came within a body's orbital-cruise zone.",
                     event.path("event").textValue());
-        assertEquals("Icy One", event.path("body").textValue());
-        assertEquals("Icy System", event.path("system").textValue());
+        assertEquals(
+                List.of("event"),
+                propertyNames(event),
+                "an approach says what happened; where it happened is the "
+                        + "situation's to answer"
+        );
+        assertEquals(
+                "Icy One",
+                request.path("context").path("body").path("name").textValue()
+        );
+        assertEquals(
+                "Icy System",
+                request.path("context").path("system").path("name").textValue()
+        );
         assertFalse(
                 request.path("context").has("navigation"),
                 "the approach says the ship is in supercruise in its own words"
@@ -54,10 +66,10 @@ final class RecalledBodyFactsTest {
     void recalledBodyFactsArriveInTheContext() {
         JsonNode body = approach().path("context").path("body");
 
+        assertEquals("Icy One", body.path("name").textValue());
+        assertEquals("PLANET", body.path("type").textValue());
         assertEquals("Icy body", body.path("planetClass").textValue());
-        assertTrue(body.path("landable").booleanValue());
         assertFalse(body.has("distanceFromArrivalLs"));
-        assertEquals(1, body.path("biologicalSignals").intValue());
     }
 
     /**
@@ -96,30 +108,87 @@ final class RecalledBodyFactsTest {
     }
 
     /**
-     * Absence means unknown, so an established {@code false} must still be sent
-     * — and a category nobody counted must not be.
+     * Weight is an arrival's question, and the arrival's alone.
      *
-     * <p>The two halves are the same rule read in both directions. A survey flag
-     * the game reported as {@code false} is a fact and is sent; a signal
-     * category the reading never mentioned is not a fact, and a zero in its
-     * place would say that somebody counted and found none.</p>
+     * <p>It decides whether the descent can be made without wrecking the ship,
+     * and it is decided by the time the gear is down. A landing carrying it
+     * again is a warning about a descent already survived — in the live session
+     * of 2026-08-07 the same "gravity is low" arrived on three landings of one
+     * body, after arriving on the approach to it. What the body <em>is</em>
+     * still travels with the landing; only the pull stops.</p>
      */
     @Test
-    void anEstablishedFalseSurvivesAndAnUnmeasuredCountStaysAbsent() {
+    void onlyAnArrivalIsToldHowHeavilyTheBodyPulls() {
+        assertEquals(
+                "LOW",
+                bodyWithGravity(2.0, true).path("gravity").textValue(),
+                "the approach asks"
+        );
+        JsonNode landed = landingOn(2.0);
+        assertFalse(landed.has("gravity"), "and the landing does not: " + landed);
+        assertEquals(
+                "Icy body",
+                landed.path("planetClass").textValue(),
+                "what the body is still travels with it"
+        );
+    }
+
+    /** The same body, landed on rather than approached. */
+    private JsonNode landingOn(double surfaceGravity) {
+        DecisionTurnFixture fixture = new DecisionTurnFixture();
+        fixture.inputs(List.of(fixture.graphDisabled("""
+                {"timestamp":"2026-07-30T10:00:00Z","event":"SupercruiseEntry",
+                 "StarSystem":"Icy System","SystemAddress":23155}
+                """)));
+        fixture.graphDisabled("""
+                {"timestamp":"2026-07-30T10:00:01Z","event":"Scan",
+                 "SystemAddress":23155,"BodyID":20,"BodyName":"Icy One",
+                 "PlanetClass":"Icy body","Landable":true,
+                 "SurfaceGravity":%s,
+                 "WasDiscovered":false,"WasMapped":false,
+                 "WasFootfalled":false}
+                """.formatted(surfaceGravity));
+        fixture.inputs(List.of(fixture.graphDisabled("""
+                {"timestamp":"2026-07-30T10:00:02Z",
+                 "event":"ApproachBody","StarSystem":"Icy System",
+                 "SystemAddress":23155,"Body":"Icy One","BodyID":20}
+                """)));
+        return read(serializer.serialize(factory.create(fixture.inputs(List.of(
+                fixture.graphDisabled("""
+                        {"timestamp":"2026-07-30T10:00:03Z",
+                         "event":"Touchdown","PlayerControlled":true,
+                         "Body":"Icy One","BodyID":20}
+                        """)
+        ))))).path("context").path("body");
+    }
+
+    /**
+     * The body carries what it is, and no record of what was done to it.
+     *
+     * <p>The survey flags and the signal counts were all established by this
+     * fixture and are all true; none of them is what the body <em>is</em>. The
+     * reading that established each one had its own turn and said so there.
+     * </p>
+     */
+    @Test
+    void nothingASurveyEstablishedRidesOnTheBody() {
         JsonNode body = approach().path("context").path("body");
 
-        for (String flag : List.of(
+        assertEquals(
+                List.of("name", "type", "planetClass"),
+                propertyNames(body),
+                "no gravity either: this fixture's scan never measured it"
+        );
+        for (String absent : List.of(
                 "previouslyDiscovered",
                 "previouslyMapped",
-                "previouslyFootfalled"
+                "previouslyFootfalled",
+                "landable",
+                "biologicalSignals",
+                "geologicalSignals"
         )) {
-            assertTrue(body.has(flag), flag + " was established as false");
-            assertFalse(body.path(flag).booleanValue());
+            assertFalse(body.has(absent), absent);
         }
-        assertFalse(
-                body.has("geologicalSignals"),
-                "no reading counted geology here, so nothing says it is zero"
-        );
     }
 
     /** An approach to a known body reports no change at all. */

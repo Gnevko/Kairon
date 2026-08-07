@@ -50,26 +50,6 @@ final class DecisionNames {
     );
 
     /**
-     * A canonical stage, said as the state a sequence has reached.
-     *
-     * <p>An event and a standing fact are two different tenses of the same
-     * sequence, and the contract keeps them in two vocabularies so they cannot
-     * be read as one. {@code stage: START} on a {@code BIOLOGICAL_SAMPLE} means
-     * <em>this scan started it</em>; {@code stage: STARTED} in the context means
-     * <em>it is underway, at its first scan</em>. Nothing is inferred either
-     * way — the same canonical value is being said about a different subject.
-     * </p>
-     *
-     * <p>Deliberately not the enum's own name. Two stages exist and both are
-     * spelled out here, so a third one added later arrives unmapped and is
-     * dropped rather than reaching the model in the event's tense.</p>
-     */
-    private static final Map<String, String> SAMPLING_CONTEXT_STAGES = Map.of(
-            "START", "STARTED",
-            "PROGRESS", "IN_PROGRESS"
-    );
-
-    /**
      * Event fields that answer a context slot outright.
      *
      * <p>The context is dropped when a change names the same canonical field or
@@ -393,23 +373,6 @@ final class DecisionNames {
                 : SemanticValue.ofSymbol(domain);
     }
 
-    /**
-     * How far a standing sampling sequence has got, or unknown.
-     *
-     * <p>Unknown for anything outside {@link #SAMPLING_CONTEXT_STAGES}, which
-     * drops the field: a completed sequence is not standing state at all — the
-     * canonical process is cleared when it ends — so there is no state-oriented
-     * name for a finished one and none is invented.</p>
-     */
-    static SemanticValue samplingContextStage(SemanticValue value) {
-        if (!(value instanceof SemanticValue.SymbolicValue symbol)) {
-            return SemanticValue.unknown();
-        }
-        String state = SAMPLING_CONTEXT_STAGES.get(symbol.symbol());
-        return state == null
-                ? SemanticValue.unknown()
-                : SemanticValue.ofSymbol(state);
-    }
 
     /**
      * A closed game vocabulary, in the casing the rest of the contract uses.

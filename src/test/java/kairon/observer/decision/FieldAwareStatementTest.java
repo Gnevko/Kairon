@@ -39,19 +39,26 @@ final class FieldAwareStatementTest {
 
     // ------------------------------------------------ the predicate itself
 
-    /** A5: a real duplicate is still a duplicate. */
+    /**
+     * A5: a real duplicate is still a duplicate.
+     *
+     * <p>Read off a scanner rather than a landing. A landing no longer names
+     * the body it happened on — the situation answers for where the ship is —
+     * so it has no body name for the predicate to match. A reading does: the
+     * body it reports is its own, not the one under the ship.</p>
+     */
     @Test
     void anEventStatesTheFieldItNamesAtTheValueItNames(
             @TempDir Path directory
     ) {
-        ProjectedEvent event = touchdown(directory);
+        ProjectedEvent event = lastProjected(directory, bodySignals());
 
         assertTrue(
                 event.states(
                         SemanticField.BODY_NAME,
-                        SemanticValue.ofText("Schieni GG-A c3-84 4 a")
+                        SemanticValue.ofText("Schieni 4 a")
                 ),
-                "the landing names the body it happened on"
+                "the reading names the body it is about"
         );
     }
 
@@ -64,8 +71,8 @@ final class FieldAwareStatementTest {
 
         assertTrue(
                 event.states(
-                        SemanticField.BODY_NAME,
-                        SemanticValue.ofText("Schieni GG-A c3-84 4 a")
+                        SemanticField.FLIGHT_MODE,
+                        SemanticValue.ofSymbol("LANDED")
                 ),
                 "the fixture must really state something"
         );
@@ -97,7 +104,7 @@ final class FieldAwareStatementTest {
     void aDifferentValueForTheSameFieldIsNotAStatement(
             @TempDir Path directory
     ) {
-        ProjectedEvent event = touchdown(directory);
+        ProjectedEvent event = lastProjected(directory, bodySignals());
 
         assertFalse(
                 event.states(
@@ -201,50 +208,39 @@ final class FieldAwareStatementTest {
     /**
      * A3: two unrelated booleans no longer collide.
      *
-     * <p>A landing says {@code playerControlled: true}; a scan established that
-     * the body is landable. Under the old rule the second was suppressed
-     * because {@code true} equalled {@code true} — a value alone, with no
-     * canonical field beside it, proved nothing and suppressed anything.</p>
+     * <p>A landing says {@code commanderControlled: true}, and whether the body
+     * can be landed on is also {@code true}. Under the old rule the second was
+     * suppressed because {@code true} equalled {@code true} — a value alone,
+     * with no canonical field beside it, proved nothing and suppressed
+     * anything.</p>
      *
-     * <p>The scan is automatic on purpose: it is declined as a trigger, so the
-     * turn is the landing's and nothing in it states {@code landable} itself.
-     * What the scan established reaches the model as {@code context.body},
-     * which is where a body fact lives now that it is the current system
-     * registry's rather than a delta of where the ship is.</p>
+     * <p>Asserted on the predicate rather than on the document, because the
+     * document no longer has anywhere to show it: {@code landable} was one of
+     * the standing facts that stopped riding on {@code context.body}. The claim
+     * is unchanged and this is where it lives — an event states a field it
+     * named, at the value it named, and an equal boolean elsewhere is not
+     * that.</p>
      */
     @Test
     void anEqualBooleanInAnotherFieldNoLongerSuppressesAFact(
             @TempDir Path directory
     ) {
-        try (SemanticPipelineHarness harness =
-                     SemanticPipelineHarness.create(directory)) {
-            harness.journal(loadGame())
-                    .journal(ObservationCaptureMode.BOOTSTRAP, jump())
-                    .journal(ObservationCaptureMode.BOOTSTRAP, approach())
-                    .settleProjection();
-            harness.journal(ObservationCaptureMode.LIVE, automaticScan())
-                    .journal(ObservationCaptureMode.LIVE, touchdownJson())
-                    .closeBatch();
-            PipelineTrace trace = harness.trace();
-            PipelineTrace.TurnView turn = trace.turns().getLast();
+        ProjectedEvent event = touchdown(directory);
 
-            assertTrue(
-                    turn.events().get(0).path("commanderControlled")
-                            .booleanValue(),
-                    "the landing states who was flying"
-            );
-            assertTrue(
-                    turn.context().path("body").path("landable")
-                            .booleanValue(),
-                    "whether the body can be landed on is a different fact "
-                            + "from who was flying: " + turn.userMessage()
-            );
-            assertFalse(
-                    changedSlots(turn).contains("body.landable"),
-                    "and it is stated once, as the standing fact it is"
-            );
-            assertChangesAndContextPartition(trace);
-        }
+        assertTrue(
+                event.event().fields().stream().anyMatch(field ->
+                        "commanderControlled".equals(field.name())
+                                && SemanticValue.ofBoolean(true)
+                                .equals(field.value())),
+                "the landing states who was flying, and states it as true"
+        );
+        assertFalse(
+                event.states(
+                        SemanticField.LANDABLE,
+                        SemanticValue.ofBoolean(true)
+                ),
+                "who was flying says nothing about whether it can be landed on"
+        );
     }
 
     /** A5 end to end: a real duplicate is still dropped. */
@@ -265,17 +261,17 @@ final class FieldAwareStatementTest {
 
             assertEquals(
                     "Schieni GG-A c3-84 4 a",
-                    turn.events().get(0).path("body").textValue(),
-                    "the landing names the body"
-            );
-            assertFalse(
-                    changedSlots(turn).contains("body.name"),
-                    "so the same name is not also reported as a change: "
+                    turn.context().path("body").path("name").textValue(),
+                    "the situation names the body the landing happened on: "
                             + turn.userMessage()
             );
             assertFalse(
-                    turn.context().path("body").has("name"),
-                    "nor as context"
+                    turn.events().get(0).has("body"),
+                    "and the landing does not name it a second time"
+            );
+            assertFalse(
+                    changedSlots(turn).contains("body.name"),
+                    "nor is it reported as a change: " + turn.userMessage()
             );
             assertChangesAndContextPartition(trace);
         }
@@ -293,6 +289,16 @@ final class FieldAwareStatementTest {
      */
     private ProjectedEvent touchdown(Path directory) {
         return lastProjected(directory, touchdownJson());
+    }
+
+    /** A reading that names the body it is about. */
+    private static String bodySignals() {
+        return """
+                {"timestamp":"2026-07-30T10:01:00Z","event":"FSSBodySignals",
+                 "StarSystem":"Schieni","SystemAddress":23155,"BodyID":20,
+                 "BodyName":"Schieni 4 a",
+                 "Signals":[{"Type":"$SAA_SignalType_Biological;","Count":1}]}
+                """;
     }
 
     /**

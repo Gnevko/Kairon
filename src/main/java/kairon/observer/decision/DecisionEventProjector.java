@@ -337,7 +337,7 @@ public final class DecisionEventProjector {
         String name = rule.objectName() != null
                 ? rule.objectName()
                 : DecisionNames.entity(object.kind());
-        if (name == null) {
+        if (name == null || answeredByContext(name, rule)) {
             return;
         }
         if (rule.mechanism() == DecisionMechanism.SAMPLING) {
@@ -352,6 +352,38 @@ public final class DecisionEventProjector {
     }
 
     /**
+     * Whether the situation already answers this name, so the event need not.
+     *
+     * <p>Two conditions, and both are necessary. The mechanism must be one that
+     * {@linkplain DecisionMechanism#locatedByCanonicalState() leaves the place
+     * to canonical state} — an arrival, a landing, a change of vessel — and the
+     * event's own context profile must ask for the subject that then answers
+     * it. The second half is what makes this a move rather than a deletion: a
+     * disembark is read against the Commander, the vehicle and the body, but
+     * not against the system, so it goes on naming the system itself.</p>
+     *
+     * <p>Applied to the object and to the qualifiers alike, because which of
+     * the two carries the place is the adapter's business and not a claim about
+     * the event: an approach names its body as the thing acted on, a landing
+     * names it beside the ship.</p>
+     */
+    private static boolean answeredByContext(
+            String name,
+            DecisionEventRule rule
+    ) {
+        if (!rule.mechanism().locatedByCanonicalState()) {
+            return false;
+        }
+        return switch (name) {
+            case "body" -> rule.contextProfile().asksAboutABody();
+            case "system" -> rule.contextProfile()
+                    .contextNeeds()
+                    .contains(DecisionContextProfile.ContextNeed.SYSTEM);
+            default -> false;
+        };
+    }
+
+    /**
      * Whether this attribute is dropped for this event.
      *
      * <p>{@code bodyType} has one exception, and it is the event that earns it.
@@ -362,6 +394,9 @@ public final class DecisionEventProjector {
      * scan the model sees.</p>
      */
     private static boolean dropped(String key, DecisionEventRule rule) {
+        if (answeredByContext(key, rule)) {
+            return true;
+        }
         if (!rule.retainedQualifiers().isEmpty()
                 && !rule.retainedQualifiers().contains(key)) {
             // The kind was derived from a record that says more than the kind
