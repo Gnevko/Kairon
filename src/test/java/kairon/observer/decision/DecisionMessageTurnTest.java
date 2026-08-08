@@ -1,7 +1,6 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.behavior.normalize.NormalizedEventType;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.projection.ProjectedObservation;
@@ -11,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import static kairon.observer.decision.RequestJson.propertyNames;
+import static kairon.observer.decision.RequestJson.read;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,8 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * to read.</p>
  */
 final class DecisionMessageTurnTest {
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final LlmDecisionRequestFactory factory =
             new LlmDecisionRequestFactory();
@@ -244,19 +243,5 @@ final class DecisionMessageTurnTest {
         request.path("events").forEach(event ->
                 descriptions.add(event.path("event").textValue()));
         return List.copyOf(descriptions);
-    }
-
-    private static List<String> propertyNames(JsonNode node) {
-        List<String> names = new ArrayList<>();
-        node.fieldNames().forEachRemaining(names::add);
-        return List.copyOf(names);
-    }
-
-    private static JsonNode read(String serialized) {
-        try {
-            return JSON.readTree(serialized);
-        } catch (Exception failure) {
-            throw new IllegalStateException(failure);
-        }
     }
 }

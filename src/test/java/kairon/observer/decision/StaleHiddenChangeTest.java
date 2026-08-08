@@ -1,7 +1,6 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.projection.ProjectedObservation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -10,6 +9,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static kairon.observer.decision.Journal.loadGame;
+import static kairon.observer.decision.RequestJson.read;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -34,8 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * influence what is built.</p>
  */
 final class StaleHiddenChangeTest {
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final LlmDecisionRequestFactory factory =
             new LlmDecisionRequestFactory();
@@ -260,15 +259,6 @@ final class StaleHiddenChangeTest {
     }
 
     // ------------------------------------------------------------- fixtures
-
-    private static String loadGame() {
-        return """
-                {"timestamp":"2026-07-30T10:00:00Z","event":"LoadGame",
-                 "FID":"F12345678","ShipID":9,"Ship":"explorer_nx",
-                 "ShipName":"Wanderer"}
-                """;
-    }
-
     // -------------------------------------------------------------- reading
 
     /**
@@ -351,13 +341,5 @@ final class StaleHiddenChangeTest {
         throw new AssertionError(
                 "no change for " + subject + ": " + request
         );
-    }
-
-    private static JsonNode read(String serialized) {
-        try {
-            return JSON.readTree(serialized);
-        } catch (Exception failure) {
-            throw new IllegalStateException(failure);
-        }
     }
 }

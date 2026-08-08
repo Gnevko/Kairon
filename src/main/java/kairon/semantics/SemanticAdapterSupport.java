@@ -12,8 +12,8 @@ import java.util.List;
  * Shared building blocks for mechanism-oriented semantic adapters.
  *
  * <p>Kept in one place so adapters stay declarative and so no adapter is
- * tempted to reach for rendered prose. Nothing here reads
- * {@code llmPresentation()}.</p>
+ * tempted to reach for rendered prose. Everything here reads the record's own
+ * JSON.</p>
  */
 final class SemanticAdapterSupport {
 

@@ -1,16 +1,10 @@
 package kairon.observation.journal.event.ship;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.JournalEventObservation.RawJournalData;
 import kairon.observation.journal.LlmPresentableJournalEvent;
-import kairon.observation.journal.LlmPresentableJournalEvent.LlmEventPresentation;
-
-import java.util.List;
-import java.util.Locale;
-
 /**
- * Typed identity and sourced LLM presentation for the Elite Dangerous
+ * Typed identity and model-facing sentence for the Elite Dangerous
  * {@code LaunchDrone} journal event.
  *
  * <p>One wire event, nine domain events. A prospector limpet and a repair
@@ -77,11 +71,6 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         public String modelFacingDescription() {
             return "A hatch-breaker limpet was launched.";
         }
-
-        @Override
-        public LlmEventPresentation llmPresentation() {
-            return launched("a hatch-breaker limpet");
-        }
     }
 
     record FuelTransfer(RawJournalData raw) implements LaunchDrone {
@@ -92,11 +81,6 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         @Override
         public String modelFacingDescription() {
             return "A fuel-transfer limpet was launched.";
-        }
-
-        @Override
-        public LlmEventPresentation llmPresentation() {
-            return launched("a fuel-transfer limpet");
         }
     }
 
@@ -109,11 +93,6 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         public String modelFacingDescription() {
             return "A collector limpet was launched.";
         }
-
-        @Override
-        public LlmEventPresentation llmPresentation() {
-            return launched("a collector limpet");
-        }
     }
 
     record Prospector(RawJournalData raw) implements LaunchDrone {
@@ -124,11 +103,6 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         @Override
         public String modelFacingDescription() {
             return "A prospector limpet was launched.";
-        }
-
-        @Override
-        public LlmEventPresentation llmPresentation() {
-            return launched("a prospector limpet");
         }
     }
 
@@ -141,11 +115,6 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         public String modelFacingDescription() {
             return "A repair limpet was launched.";
         }
-
-        @Override
-        public LlmEventPresentation llmPresentation() {
-            return launched("a repair limpet");
-        }
     }
 
     record Research(RawJournalData raw) implements LaunchDrone {
@@ -156,11 +125,6 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         @Override
         public String modelFacingDescription() {
             return "A research limpet was launched.";
-        }
-
-        @Override
-        public LlmEventPresentation llmPresentation() {
-            return launched("a research limpet");
         }
     }
 
@@ -173,11 +137,6 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         public String modelFacingDescription() {
             return "A decontamination limpet was launched.";
         }
-
-        @Override
-        public LlmEventPresentation llmPresentation() {
-            return launched("a decontamination limpet");
-        }
     }
 
     record Recon(RawJournalData raw) implements LaunchDrone {
@@ -188,11 +147,6 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         @Override
         public String modelFacingDescription() {
             return "A recon limpet was launched.";
-        }
-
-        @Override
-        public LlmEventPresentation llmPresentation() {
-            return launched("a recon limpet");
         }
     }
 
@@ -206,41 +160,5 @@ public sealed interface LaunchDrone extends LlmPresentableJournalEvent {
         public String modelFacingDescription() {
             return UNSPECIFIED_DESCRIPTION;
         }
-
-        @Override
-        public LlmEventPresentation llmPresentation() {
-            JsonNode event = raw.parsedJsonObject();
-            return new LlmEventPresentation(List.of(
-                    LlmPresentableJournalEvent.textual(event.get("Type"))
-                            .map(type -> "The player launched "
-                                    + describe(type)
-                                    + ".")
-                            .orElse("The player launched a limpet or drone "
-                                    + "whose type is not reported."),
-                    OUTCOME_UNKNOWN
-            ));
-        }
-    }
-
-    private static LlmEventPresentation launched(String limpet) {
-        return new LlmEventPresentation(List.of(
-                "The player launched " + limpet + ".",
-                OUTCOME_UNKNOWN
-        ));
-    }
-
-    private static String describe(String sourceType) {
-        return switch (sourceType.toLowerCase(Locale.ROOT)) {
-            case "hatchbreaker" -> "a hatch-breaker limpet";
-            case "fueltransfer" -> "a fuel-transfer limpet";
-            case "collection" -> "a collector limpet";
-            case "prospector" -> "a prospector limpet";
-            case "repair" -> "a repair limpet";
-            case "research" -> "a research limpet";
-            case "decontamination" -> "a decontamination limpet";
-            case "recon" -> "a recon limpet";
-            default -> "a limpet or drone identified by the journal as type "
-                    + LlmPresentableJournalEvent.quoted(sourceType);
-        };
     }
 }

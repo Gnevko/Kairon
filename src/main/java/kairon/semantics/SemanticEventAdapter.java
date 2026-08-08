@@ -7,9 +7,8 @@ import java.util.List;
 /**
  * Derives structured facts for one journal event type.
  *
- * <p>Adapters read {@link JournalEventObservation#raw()} directly. They must
- * never parse {@code llmPresentation()} output: prose is a rendering of
- * meaning, not a source of it.</p>
+ * <p>Adapters read {@link JournalEventObservation#raw()} directly: the record's
+ * own JSON is the source of meaning, and any rendering of it is not.</p>
  *
  * <p>An adapter is mechanism-oriented. It describes what a class of events
  * means, not how one replay fixture should look.</p>

@@ -3,12 +3,9 @@ package kairon.observation.journal.event.combat;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.JournalEventObservation.RawJournalData;
 import kairon.observation.journal.LlmPresentableJournalEvent;
-import kairon.observation.journal.LlmPresentableJournalEvent.LlmEventPresentation;
-
-import java.util.List;
 
 /**
- * Typed identity and sourced LLM presentation for the Elite Dangerous
+ * Typed identity and model-facing sentence for the Elite Dangerous
  * {@code SystemsShutdown} journal event.
  *
  * @see <a href="https://hosting.zaonce.net/community/journal/v37/Journal_Manual_v37.pdf">
@@ -26,13 +23,5 @@ public record SystemsShutdown(RawJournalData raw)
     @Override
     public String modelFacingDescription() {
         return "The Commander's ship systems shut down.";
-    }
-
-    @Override
-    public LlmEventPresentation llmPresentation() {
-        return new LlmEventPresentation(List.of(
-                "The player's ship systems shut down.",
-                "This event does not identify what caused the shutdown."
-        ));
     }
 }

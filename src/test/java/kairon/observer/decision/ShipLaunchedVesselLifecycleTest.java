@@ -1,7 +1,6 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.projection.ProjectedObservation;
 import kairon.state.CommanderLocationMode;
@@ -13,6 +12,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static kairon.observer.decision.RequestJson.read;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -35,8 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * after it.</p>
  */
 final class ShipLaunchedVesselLifecycleTest {
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final LlmDecisionRequestFactory factory =
             new LlmDecisionRequestFactory();
@@ -681,13 +679,5 @@ final class ShipLaunchedVesselLifecycleTest {
             throw new IllegalStateException("no " + journalEvent + " projected");
         }
         return matches.getFirst();
-    }
-
-    private static JsonNode read(String serialized) {
-        try {
-            return JSON.readTree(serialized);
-        } catch (Exception failure) {
-            throw new IllegalStateException(failure);
-        }
     }
 }

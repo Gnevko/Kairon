@@ -1,7 +1,6 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.behavior.model.ContextSnapshot;
 import kairon.behavior.model.EpisodeEntrySource;
 import kairon.behavior.model.EventOccurrence;
@@ -19,10 +18,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static kairon.observer.decision.RequestJson.read;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -44,7 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 final class SessionRestoreEpisodeTest {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
     private static final GraphId SHIP_9 = new GraphId("F12345678", 9);
 
     private final LlmDecisionRequestFactory factory =
@@ -445,13 +443,5 @@ final class SessionRestoreEpisodeTest {
                 .orElseThrow(() -> new AssertionError(
                         payloadSimpleName + " never became a trigger"
                 ));
-    }
-
-    private static JsonNode read(String serialized) {
-        try {
-            return JSON.readTree(serialized);
-        } catch (Exception failure) {
-            throw new IllegalStateException(failure);
-        }
     }
 }

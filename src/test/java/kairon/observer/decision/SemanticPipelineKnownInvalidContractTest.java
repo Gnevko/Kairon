@@ -12,6 +12,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static kairon.observer.decision.Journal.jump;
+import static kairon.observer.decision.Journal.loadGame;
+import static kairon.observer.decision.Journal.location;
 import static kairon.observer.decision.SemanticPipelineAssertions
         .assertDuplicateSuppressed;
 import static kairon.observer.decision.SemanticPipelineAssertions
@@ -360,27 +363,6 @@ final class SemanticPipelineKnownInvalidContractTest {
                 .journal(approach("10:00:30Z"))
                 .closeBatch();
     }
-
-    private static String loadGame(String time) {
-        return "{\"timestamp\":\"2026-07-30T" + time
-                + "\",\"event\":\"LoadGame\",\"FID\":\"F12345678\","
-                + "\"ShipID\":9,\"Ship\":\"explorer_nx\","
-                + "\"ShipName\":\"Wanderer\"}";
-    }
-
-    private static String jump(String time, long address, String system) {
-        return "{\"timestamp\":\"2026-07-30T" + time
-                + "\",\"event\":\"FSDJump\",\"StarSystem\":\"" + system
-                + "\",\"SystemAddress\":" + address
-                + ",\"JumpDist\":8.5,\"FuelUsed\":0.4,\"FuelLevel\":30.2}";
-    }
-
-    private static String location(String time, long address, String system) {
-        return "{\"timestamp\":\"2026-07-30T" + time
-                + "\",\"event\":\"Location\",\"StarSystem\":\"" + system
-                + "\",\"SystemAddress\":" + address + ",\"Docked\":false}";
-    }
-
     private static String approach(String time) {
         return "{\"timestamp\":\"2026-07-30T" + time
                 + "\",\"event\":\"ApproachBody\",\"StarSystem\":\"Schieni\","

@@ -198,8 +198,12 @@ implementation, which `BodySurveyFacts` delegates to, so no record reads the
 semantic layer to describe itself and no layer re-derives the reading. A
 trigger that cannot describe itself fails the turn through the existing
 preparation-failure path: no provider call, and the internal kind is never a
-fallback. `llmPresentation()` is untouched and is still not called in
-production. Every phrase was checked against the Frontier Player Journal manual
+fallback. `llmPresentation()` — the per-record prose that had never been called
+in production — was **removed** on 2026-08-08 by
+[ADR-0027](decisions/ADR-0027-THE-RESEARCHED-PROSE-IS-NOT-KEPT.md), together
+with its 121 implementations, the five interface helpers that only phrased it
+and the two test classes that were its only readers. Every phrase was checked
+against the Frontier Player Journal manual
 reference and the pinned `jixxed/ed-journal-schemas` revision, and 83 of them
 were corrected: claims the source does not make were removed
 (`ShipRedeemed` no longer says a ship joined the fleet, `ApproachBody` no longer
@@ -1692,6 +1696,21 @@ See
 [ADR-0007](decisions/ADR-0007-LLM-REQUEST-STATISTICS.md).
 
 ## Desktop GUI
+
+**The GUI has no automated tests, by decision of 2026-08-08.** All 17 classes
+under `src/test/java/kairon/ui` — 97 tests, 6 652 lines, 13% of the whole suite
+— were deleted, and none is to be written back. The GUI is a diagnostic window
+onto a pipeline whose contracts are stated elsewhere: nothing it renders decides
+what Kairon says, and its own defects are visible the moment it is looked at,
+which is the opposite of the defects the suite exists to catch. What went with
+them is stated rather than hidden — the tab controller's debounce, snapshot
+staleness and version ordering, the layout engine's determinism, and the edge
+router's geometry are now unverified, and a regression in any of them will be
+found by looking at the window.
+
+This is a scope decision, not a claim that the code is simple. It also removes
+the only reader of `BehaviorEventNormalizer.journalTypesOf`, which exists for
+`NodeModelReach` and is now exercised by nothing.
 
 The initial Swing monitor is implemented and enabled by `ui.enabled`. It shows:
 

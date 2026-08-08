@@ -2,22 +2,17 @@ package kairon.observation.journal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Pattern;
-
-import static java.util.regex.Pattern.UNICODE_CHARACTER_CLASS;
 
 /**
  * Contract implemented by a journal event only after its official semantics
- * have been researched and encoded as deterministic English sentences.
+ * have been researched.
  *
- * <p>The presentation explains source facts; it must not assign narrative
- * importance, rarity, value, emotion, intent, or comment-worthiness. Raw
- * journal data remains the authoritative observation and trace evidence.</p>
+ * <p>The sentence explains what the source reports; it must not assign
+ * narrative importance, rarity, value, emotion, intent, or comment-worthiness.
+ * Raw journal data remains the authoritative observation and trace evidence.
+ * </p>
  */
 public interface LlmPresentableJournalEvent
         extends JournalEventObservation {
@@ -42,72 +37,16 @@ public interface LlmPresentableJournalEvent
      * a description that read the record's own fields to pick a phrase would be
      * a second dispatch, made where nothing else can see it.</p>
      *
-     * <p>This is not a shorter {@link #llmPresentation()}. That method renders
-     * the facts of one record as prose and is a separate contract; this one
-     * names the kind of thing that happened and nothing about this instance.
-     * </p>
+     * <p>It is the whole of what this interface says to the model. A second
+     * method once rendered each record's own facts as prose —
+     * {@code llmPresentation()}, researched per event and never called by
+     * anything after ADR-0013 moved the model onto structured events. It was
+     * removed on 2026-08-08 with its 121 implementations and the 132 tests that
+     * were its only readers; the research it recorded lives on in the semantic
+     * adapters, which read the same source fields and are read by the
+     * runtime.</p>
      */
     String modelFacingDescription();
-
-    LlmEventPresentation llmPresentation();
-
-    /**
-     * Immutable, human-readable facts contributed by one source event.
-     */
-    record LlmEventPresentation(List<String> sentences) {
-
-        private static final Pattern SENTENCE_END =
-                Pattern.compile("[.!?\\u2026]$", UNICODE_CHARACTER_CLASS);
-
-        public LlmEventPresentation {
-            sentences = List.copyOf(Objects.requireNonNull(
-                    sentences,
-                    "sentences"
-            ));
-            if (sentences.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "sentences must not be empty"
-                );
-            }
-            for (String sentence : sentences) {
-                Objects.requireNonNull(sentence, "sentence");
-                if (sentence.isBlank()) {
-                    throw new IllegalArgumentException(
-                            "presentation sentences must not be blank"
-                    );
-                }
-                if (!sentence.equals(sentence.strip())) {
-                    throw new IllegalArgumentException(
-                            "presentation sentences must be stripped"
-                    );
-                }
-                if (sentence.codePoints().anyMatch(
-                        LlmEventPresentation::isLineSeparator
-                )) {
-                    throw new IllegalArgumentException(
-                            "presentation sentences must be single-line"
-                    );
-                }
-                if (!SENTENCE_END.matcher(sentence).find()) {
-                    throw new IllegalArgumentException(
-                            "presentation sentences must end with punctuation"
-                    );
-                }
-            }
-        }
-
-        public String text() {
-            return String.join(" ", sentences);
-        }
-
-        private static boolean isLineSeparator(int codePoint) {
-            return codePoint == '\r'
-                    || codePoint == '\n'
-                    || codePoint == 0x0085
-                    || codePoint == 0x2028
-                    || codePoint == 0x2029;
-        }
-    }
 
     /**
      * Returns the localized source label when available, then a non-opaque
@@ -138,23 +77,12 @@ public interface LlmPresentableJournalEvent
         return text.isEmpty() ? Optional.empty() : Optional.of(text);
     }
 
-    static Optional<String> decimal(JsonNode value) {
-        if (value == null || !value.isNumber()) {
-            return Optional.empty();
-        }
-        BigDecimal decimal = value.decimalValue().stripTrailingZeros();
-        return Optional.of(decimal.toPlainString());
-    }
-
-    static Optional<Long> nonNegativeIntegral(JsonNode value) {
-        return value != null
-                && value.isIntegralNumber()
-                && value.canConvertToLong()
-                && value.longValue() >= 0
-                ? Optional.of(value.longValue())
-                : Optional.empty();
-    }
-
+    /**
+     * A journal flag, read either as a boolean or as the 0/1 some records use.
+     *
+     * <p>Kept because the parser dispatches on one: {@code IsPreview} decides
+     * which of the two {@code EngineerLegacyConvert} events a record is.</p>
+     */
     static Optional<Boolean> booleanValue(JsonNode value) {
         if (value == null) {
             return Optional.empty();
@@ -172,47 +100,15 @@ public interface LlmPresentableJournalEvent
         return Optional.empty();
     }
 
-    static String formattedInteger(long value) {
-        return String.format(Locale.ROOT, "%,d", value);
-    }
-
-    static String joinFacts(List<String> facts) {
-        List<String> immutableFacts = List.copyOf(
-                Objects.requireNonNull(facts, "facts")
-        );
-        if (immutableFacts.isEmpty()) {
-            throw new IllegalArgumentException("facts must not be empty");
-        }
-        if (immutableFacts.size() == 1) {
-            return immutableFacts.getFirst();
-        }
-        if (immutableFacts.size() == 2) {
-            return immutableFacts.getFirst()
-                    + " and "
-                    + immutableFacts.getLast();
-        }
-        return String.join(
-                ", ",
-                immutableFacts.subList(0, immutableFacts.size() - 1)
-        ) + ", and " + immutableFacts.getLast();
-    }
-
-    static String quoted(String value) {
-        String normalized = normalizeInlineText(
-                Objects.requireNonNull(value, "value")
-        );
-        if (normalized.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "quoted value must not be blank"
-            );
-        }
-        return "\u201c"
-                + normalized
-                        .replace('\u201c', '"')
-                        .replace('\u201d', '"')
-                + "\u201d";
-    }
-
+    /**
+     * Five more helpers stood here \u2014 {@code decimal},
+     * {@code nonNegativeIntegral}, {@code formattedInteger}, {@code joinFacts}
+     * and {@code quoted}. Every one of them existed to phrase a number or a
+     * name inside a rendered sentence, and they went with the sentences on
+     * 2026-08-08. What is left is what the parser and the registry read: a
+     * label that is safe to show, a flag the parser dispatches on, and the
+     * whitespace normalisation under both.
+     */
     static String normalizeInlineText(String value) {
         Objects.requireNonNull(value, "value");
         StringBuilder normalized = new StringBuilder(value.length());

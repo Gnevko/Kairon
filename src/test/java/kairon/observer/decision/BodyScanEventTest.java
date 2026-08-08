@@ -1,7 +1,6 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.behavior.normalize.NormalizedEventType;
 import kairon.observation.journal.event.exploration.Scan;
 import kairon.projection.ProjectedObservation;
@@ -11,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.util.List;
 
+import static kairon.observer.decision.RequestJson.read;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 final class BodyScanEventTest {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     /**
      * The class a scan record parses to here.
@@ -475,11 +474,4 @@ final class BodyScanEventTest {
                 .toList();
     }
 
-    private static JsonNode read(String serialized) {
-        try {
-            return JSON.readTree(serialized);
-        } catch (Exception failure) {
-            throw new IllegalStateException(failure);
-        }
-    }
 }

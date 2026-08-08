@@ -1,7 +1,6 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.projection.ProjectedObservation;
 import kairon.semantics.SemanticField;
 import kairon.semantics.SemanticValue;
@@ -15,6 +14,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static kairon.observer.decision.RequestJson.propertyNames;
+import static kairon.observer.decision.RequestJson.read;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,8 +42,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * scan is the reading they were separated to prevent.</p>
  */
 final class DecisionSamplingContextTest {
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private static final String ORGANISM = "Bacterium Bullaris - Red";
 
@@ -503,17 +502,4 @@ final class DecisionSamplingContextTest {
         return List.copyOf(values);
     }
 
-    private static List<String> propertyNames(JsonNode node) {
-        List<String> names = new ArrayList<>();
-        node.fieldNames().forEachRemaining(names::add);
-        return List.copyOf(names);
-    }
-
-    private static JsonNode read(String serialized) {
-        try {
-            return JSON.readTree(serialized);
-        } catch (Exception failure) {
-            throw new IllegalStateException(failure);
-        }
-    }
 }

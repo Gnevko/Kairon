@@ -7,8 +7,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.util.List;
 
+import static kairon.observer.decision.Journal.loadGame;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
@@ -204,15 +204,6 @@ final class BodyTypeSelectionTest {
     }
 
     // ------------------------------------------------------------- fixtures
-
-    private static String loadGame() {
-        return """
-                {"timestamp":"2026-07-30T10:00:00Z","event":"LoadGame",
-                 "FID":"F12345678","ShipID":9,"Ship":"explorer_nx",
-                 "ShipName":"Wanderer"}
-                """;
-    }
-
     private static String jump() {
         return """
                 {"timestamp":"2026-07-30T10:00:01Z","event":"FSDJump",

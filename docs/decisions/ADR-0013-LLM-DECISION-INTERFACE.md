@@ -105,10 +105,12 @@ second amendment: `{"decision":"COMMENT","comment":"…"}`.*
 
 - The provider input is a domain document. A reader who knows Elite Dangerous
   and nothing about Kairon can read it.
-- Prose event summaries no longer reach the model. ADR-0010's
-  `llmPresentation()` remains the authority for diagnostics, the GUI and the
-  observation corpus; it is simply no longer model input. Where it existed to
+- Prose event summaries no longer reach the model. Where the prose existed to
   carry an unprovable caveat, a typed uncertainty field carries it instead.
+  *This clause also said `llmPresentation()` "remains the authority for
+  diagnostics, the GUI and the observation corpus". It never was: none of the
+  three ever called it. Corrected and the method removed by
+  [ADR-0027](ADR-0027-THE-RESEARCHED-PROSE-IS-NOT-KEPT.md).*
 - The evidence contract is now schema-independent in a stronger sense than
   before: the validator takes a mapping, not a document, and the citable set has
   no members that were never offered. *The second amendment removes citation

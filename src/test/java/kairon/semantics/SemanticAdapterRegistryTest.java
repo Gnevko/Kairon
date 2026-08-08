@@ -101,33 +101,11 @@ class SemanticAdapterRegistryTest {
         );
     }
 
-    @Test
-    void adaptersNeverParseRenderedPresentation() throws Exception {
-        // A structural guard: nothing that derives structured meaning may
-        // reference the presentation contract, wherever it lives.
-        for (String name : List.of(
-                "kairon.semantics.JournalSemanticAdapters",
-                "kairon.projection.SemanticEnvelopeFactory",
-                "kairon.semantics.RawFields"
-        )) {
-            Class<?> type = Class.forName(name);
-            for (Method method : type.getDeclaredMethods()) {
-                assertNotEquals(
-                        LlmPresentableJournalEvent.LlmEventPresentation.class,
-                        method.getReturnType(),
-                        name + " must not handle rendered presentation"
-                );
-                for (Class<?> parameter : method.getParameterTypes()) {
-                    assertNotEquals(
-                            LlmPresentableJournalEvent.LlmEventPresentation
-                                    .class,
-                            parameter,
-                            name + " must not consume rendered presentation"
-                    );
-                }
-            }
-        }
-    }
+    // Retired on 2026-08-08 with the contract it guarded. It asserted that no
+    // adapter took or returned an LlmEventPresentation; that type is gone, so
+    // the guard could no longer fail. What it protected — an adapter deriving
+    // meaning from a rendering rather than from the record — is now protected
+    // by there being nothing to render.
 
     @Test
     void everyCatalogEventTypeIsAccountedFor() {

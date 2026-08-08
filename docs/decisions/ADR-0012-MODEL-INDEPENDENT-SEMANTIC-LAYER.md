@@ -12,8 +12,11 @@ The layer feeds diagnostics and, through the projection in
 
 Every catalogued journal event is a `record X(RawJournalData raw)`. Under
 ADR-0002 those records are transport identities around exact raw JSON and are
-not a domain model. Under ADR-0010 each selected type owns an English
-`llmPresentation()`.
+not a domain model. Under ADR-0010 each selected type owned an English
+`llmPresentation()`. *(That method was removed by
+[ADR-0027](ADR-0027-THE-RESEARCHED-PROSE-IS-NOT-KEPT.md) once this layer had
+taken over the carrying of meaning. The context below is what was true when this
+decision was made.)*
 
 Prose was therefore the only carrier of meaning reaching the model. Subject,
 operation, quantity, process stage, completion and — critically — negation

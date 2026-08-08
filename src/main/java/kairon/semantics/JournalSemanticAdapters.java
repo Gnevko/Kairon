@@ -55,8 +55,7 @@ import static kairon.semantics.SemanticAdapterSupport.withGap;
  *
  * <p>Each adapter describes what a class of events <em>means</em> — subject,
  * operation, identity, quantity, stage, completion, negation — rather than how
- * one replay fixture should render. None of them reads
- * {@code llmPresentation()}.</p>
+ * one replay fixture should render.</p>
  *
  * <p>Coverage is partial and deliberately honest: see the Phase B report in
  * {@code target/audit/kairon-llm-situation-v2-phase-b-report.md}. Unregistered

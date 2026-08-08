@@ -1,7 +1,6 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.behavior.normalize.NormalizedEventType;
 import kairon.llm.DecisionPromptFactory;
 import kairon.projection.ProjectedObservation;
@@ -12,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import static kairon.observer.decision.RequestJson.read;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -28,8 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * names.</p>
  */
 final class DecisionRequestArchitectureGuardTest {
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     /**
      * Kairon's own vocabulary, in the exact spelling it used to be sent under.
@@ -638,15 +636,6 @@ final class DecisionRequestArchitectureGuardTest {
             node.forEach(item -> collect(item, names));
         }
     }
-
-    private static JsonNode read(String serialized) {
-        try {
-            return JSON.readTree(serialized);
-        } catch (Exception failure) {
-            throw new IllegalStateException(failure);
-        }
-    }
-
     private record Fixture(String name, String json) {
     }
 }

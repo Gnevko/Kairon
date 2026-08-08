@@ -1,7 +1,6 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.behavior.normalize.NormalizedEventType;
 import kairon.observation.journal.event.ship.LaunchFighter;
 import kairon.projection.ProjectedObservation;
@@ -10,9 +9,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
+import static kairon.observer.decision.RequestJson.propertyNames;
+import static kairon.observer.decision.RequestJson.read;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,8 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * report it then, and nothing already sent to the model is revised.</p>
  */
 final class DecisionVehicleLaunchTest {
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final LlmDecisionRequestFactory factory =
             new LlmDecisionRequestFactory();
@@ -268,19 +266,5 @@ final class DecisionVehicleLaunchTest {
         return read(serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(triggers.get(index)))
         )));
-    }
-
-    private static List<String> propertyNames(JsonNode node) {
-        List<String> names = new ArrayList<>();
-        node.fieldNames().forEachRemaining(names::add);
-        return List.copyOf(names);
-    }
-
-    private static JsonNode read(String serialized) {
-        try {
-            return JSON.readTree(serialized);
-        } catch (Exception failure) {
-            throw new IllegalStateException(failure);
-        }
     }
 }

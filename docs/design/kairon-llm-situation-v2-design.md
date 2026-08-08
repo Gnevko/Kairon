@@ -6,7 +6,11 @@
 > that existed and has been removed. Body detail is the current-system
 > registry's ([ADR-0025](../decisions/ADR-0025-THE-CURRENT-SYSTEM-IS-A-REGISTRY.md)),
 > canonical state answers only which body the Commander is at, and a body fact
-> is therefore not a canonical delta at all. Read
+> is therefore not a canonical delta at all. Everything below that describes
+> `llmPresentation()` — the L3 finding, OQ-9, and the two notes that no adapter
+> reads it — describes a method that was removed by
+> [ADR-0027](../decisions/ADR-0027-THE-RESEARCHED-PROSE-IS-NOT-KEPT.md), along
+> with the test named there. Read
 > [`CURRENT_STATE.md`](../CURRENT_STATE.md) for what is true now.
 
 Phase A design-only audit. **No production code, test, or configuration was changed.**

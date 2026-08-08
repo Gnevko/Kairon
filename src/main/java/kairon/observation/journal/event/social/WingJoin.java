@@ -1,16 +1,11 @@
 package kairon.observation.journal.event.social;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.JournalEventObservation.RawJournalData;
 import kairon.observation.journal.LlmPresentableJournalEvent;
-import kairon.observation.journal.LlmPresentableJournalEvent.LlmEventPresentation;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * Typed identity and sourced LLM presentation for the Elite Dangerous
+ * Typed identity and model-facing sentence for the Elite Dangerous
  * {@code WingJoin} journal event.
  *
  * @see <a href="https://hosting.zaonce.net/community/journal/v37/Journal_Manual_v37.pdf">
@@ -28,26 +23,5 @@ public record WingJoin(RawJournalData raw)
     @Override
     public String modelFacingDescription() {
         return "The Commander joined a wing.";
-    }
-
-    @Override
-    public LlmEventPresentation llmPresentation() {
-        JsonNode othersNode = raw.parsedJsonObject().get("Others");
-        List<String> others = new ArrayList<>();
-        if (othersNode != null && othersNode.isArray()) {
-            for (JsonNode member : othersNode) {
-                LlmPresentableJournalEvent.textual(member)
-                        .map(LlmPresentableJournalEvent::quoted)
-                        .ifPresent(others::add);
-            }
-        }
-        String sentence = "The player joined a wing"
-                + (others.isEmpty()
-                ? "."
-                : " whose other recorded "
-                        + (others.size() == 1 ? "member was " : "members were ")
-                        + LlmPresentableJournalEvent.joinFacts(others)
-                        + ".");
-        return new LlmEventPresentation(List.of(sentence));
     }
 }

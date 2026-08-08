@@ -1,16 +1,11 @@
 package kairon.observation.journal.event.inventory;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.JournalEventObservation.RawJournalData;
 import kairon.observation.journal.LlmPresentableJournalEvent;
-import kairon.observation.journal.LlmPresentableJournalEvent.LlmEventPresentation;
-
-import java.util.List;
-import java.util.Optional;
 
 /**
- * Typed identity and sourced LLM presentation for the Elite Dangerous
+ * Typed identity and model-facing sentence for the Elite Dangerous
  * {@code MaterialCollected} journal event.
  *
  * @see <a href="https://hosting.zaonce.net/community/journal/v37/Journal_Manual_v37.pdf">
@@ -28,32 +23,5 @@ public record MaterialCollected(RawJournalData raw)
     @Override
     public String modelFacingDescription() {
         return "A material was picked up.";
-    }
-
-    @Override
-    public LlmEventPresentation llmPresentation() {
-        JsonNode event = raw.parsedJsonObject();
-        String material = LlmPresentableJournalEvent
-                .displayText(event, "Name")
-                .map(LlmPresentableJournalEvent::quoted)
-                .orElse("an unspecified material");
-        Optional<Long> count = LlmPresentableJournalEvent
-                .nonNegativeIntegral(event.get("Count"));
-        Optional<String> category = LlmPresentableJournalEvent
-                .displayText(event, "Category");
-        return new LlmEventPresentation(List.of(
-                "The player collected "
-                        + count.map(value -> value + " units of ")
-                                .orElse("")
-                        + "material "
-                        + material
-                        + category.map(value ->
-                                " in journal category "
-                                        + LlmPresentableJournalEvent.quoted(
-                                                value
-                                        ))
-                                .orElse("")
-                        + "."
-        ));
     }
 }

@@ -10,6 +10,9 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.util.List;
 
+import static kairon.observer.decision.Journal.jump;
+import static kairon.observer.decision.Journal.loadGame;
+import static kairon.observer.decision.Journal.loadGameOnShip;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -218,24 +221,6 @@ final class SystemVisitBoundaryContractTest {
                 directory,
                 new DecisionTurnPolicy(1, 16_000)
         );
-    }
-
-    private static String loadGame(String time) {
-        return loadGameOnShip(time, 9);
-    }
-
-    private static String loadGameOnShip(String time, int shipId) {
-        return "{\"timestamp\":\"2026-07-30T" + time
-                + "\",\"event\":\"LoadGame\",\"FID\":\"F12345678\","
-                + "\"ShipID\":" + shipId + ",\"Ship\":\"explorer_nx\","
-                + "\"ShipName\":\"Wanderer\"}";
-    }
-
-    private static String jump(String time, long address, String system) {
-        return "{\"timestamp\":\"2026-07-30T" + time
-                + "\",\"event\":\"FSDJump\",\"StarSystem\":\"" + system
-                + "\",\"SystemAddress\":" + address
-                + ",\"JumpDist\":8.5,\"FuelUsed\":0.4,\"FuelLevel\":30.2}";
     }
 
     private static String restore(String time, long address, String system) {

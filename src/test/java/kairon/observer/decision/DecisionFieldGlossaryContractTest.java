@@ -1,7 +1,6 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.projection.ProjectedObservation;
 import kairon.turn.glossary.DecisionFieldGlossary;
 import org.junit.jupiter.api.Test;
@@ -17,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+import static kairon.observer.decision.RequestJson.read;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,8 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * rather than accumulating.</p>
  */
 final class DecisionFieldGlossaryContractTest {
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private static final List<String> FIXTURES = List.of(
             "biological-contexts.jsonl",
@@ -290,14 +288,6 @@ final class DecisionFieldGlossaryContractTest {
             String name = property.getKey();
             names.add("context".equals(trail) ? "context." + name : name);
             collect(property.getValue(), name, names);
-        }
-    }
-
-    private static JsonNode read(String serialized) {
-        try {
-            return JSON.readTree(serialized);
-        } catch (IOException failure) {
-            throw new IllegalStateException(failure);
         }
     }
 }

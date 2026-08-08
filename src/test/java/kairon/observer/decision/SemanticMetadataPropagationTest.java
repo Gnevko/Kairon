@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static kairon.observer.decision.Journal.loadGame;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -304,15 +305,6 @@ final class SemanticMetadataPropagationTest {
                 draft.payload()
         ));
     }
-
-    private static String loadGame() {
-        return """
-                {"timestamp":"2026-07-30T10:00:00Z","event":"LoadGame",
-                 "FID":"F12345678","ShipID":9,"Ship":"explorer_nx",
-                 "ShipName":"Wanderer"}
-                """;
-    }
-
     private static String jump() {
         return """
                 {"timestamp":"2026-07-30T10:00:01Z","event":"FSDJump",

@@ -55,7 +55,9 @@ what it could have been compared against was another identifier.
   `Sampled` recorded a subsequent scan of an unfinished sequence; `Analysed`
   recorded the final scan and completed a sequence; `Unrecognised` was used at an
   unidentified step. The wording follows the researched `llmPresentation()`
-  sentences, which were checked against the Frontier manual.
+  sentences, which were checked against the Frontier manual. *(Those sentences
+  were removed by [ADR-0027](ADR-0027-THE-RESEARCHED-PROSE-IS-NOT-KEPT.md); the
+  wording they seeded here is unchanged, and this is its provenance.)*
 - `EngineerLegacyConvert.Unrecognised` reports a conversion **or** a preview
   without saying which — which is the one thing the variant exists to say.
 - Each `LaunchDrone` limpet names its own kind; `Unspecified` keeps the sentence

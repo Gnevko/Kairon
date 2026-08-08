@@ -1,6 +1,5 @@
 package kairon.observer.decision;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.behavior.model.SystemEpisode;
 import kairon.behavior.normalize.NormalizedEventType;
 import kairon.observation.ObservationDraft.ObservationCaptureMode;
@@ -8,9 +7,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
+import static kairon.observer.decision.Journal.jump;
+import static kairon.observer.decision.Journal.loadGame;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 final class ScannerVisitScopeTest {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     // ------------------------------------------------------------ C. visits
 
@@ -460,19 +459,6 @@ final class ScannerVisitScopeTest {
         pipeline.settle();
     }
 
-    private static String loadGame(String time) {
-        return "{\"timestamp\":\"2026-07-30T" + time
-                + "\",\"event\":\"LoadGame\",\"FID\":\"F12345678\","
-                + "\"ShipID\":9,\"Ship\":\"explorer_nx\","
-                + "\"ShipName\":\"Wanderer\"}";
-    }
-
-    private static String jump(String time, long address, String system) {
-        return "{\"timestamp\":\"2026-07-30T" + time
-                + "\",\"event\":\"FSDJump\",\"StarSystem\":\"" + system
-                + "\",\"SystemAddress\":" + address
-                + ",\"JumpDist\":8.5,\"FuelUsed\":0.4,\"FuelLevel\":30.2}";
-    }
 
     private static String restore(String time, long address, String system) {
         return "{\"timestamp\":\"2026-07-30T" + time

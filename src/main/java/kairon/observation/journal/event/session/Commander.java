@@ -1,15 +1,11 @@
 package kairon.observation.journal.event.session;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.JournalEventObservation.RawJournalData;
 import kairon.observation.journal.LlmPresentableJournalEvent;
-import kairon.observation.journal.LlmPresentableJournalEvent.LlmEventPresentation;
-
-import java.util.List;
 
 /**
- * Typed identity and sourced LLM presentation for the Elite Dangerous
+ * Typed identity and model-facing sentence for the Elite Dangerous
  * {@code Commander} journal event.
  *
  * @see <a href="https://hosting.zaonce.net/community/journal/v37/Journal_Manual_v37.pdf">
@@ -34,23 +30,5 @@ public record Commander(RawJournalData raw)
     @Override
     public String modelFacingDescription() {
         return "The Commander came aboard, and this session began.";
-    }
-
-    @Override
-    public LlmEventPresentation llmPresentation() {
-        JsonNode event = raw.parsedJsonObject();
-        String commander = LlmPresentableJournalEvent
-                .textual(event.get("Name"))
-                .map(LlmPresentableJournalEvent::quoted)
-                .orElse("whose name was not supplied");
-
-        return new LlmEventPresentation(List.of(
-                "A new game-loading session started for the current player, "
-                        + "Commander "
-                        + commander
-                        + ".",
-                "The journal writes this commander identity before the "
-                        + "player's inventory and ship loadout."
-        ));
     }
 }

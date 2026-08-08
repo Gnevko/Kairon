@@ -1,7 +1,6 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.behavior.graph.BehaviorGraphApplyStatus;
 import kairon.projection.ProjectedObservation;
 import kairon.state.CommanderLocationMode;
@@ -10,13 +9,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
+import static kairon.observer.decision.RequestJson.propertyNames;
+import static kairon.observer.decision.RequestJson.read;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  * Which vehicle is on the ground changes what a landing is.
  *
@@ -30,8 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * a claim about where the Commander is sitting.</p>
  */
 final class DecisionSurfaceVehicleContextTest {
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final LlmDecisionRequestFactory factory =
             new LlmDecisionRequestFactory();
@@ -299,19 +295,5 @@ final class DecisionSurfaceVehicleContextTest {
         return read(serializer.serialize(factory.create(
                 pipeline.inputsFor(List.of(triggers.getLast()))
         )));
-    }
-
-    private static List<String> propertyNames(JsonNode node) {
-        List<String> names = new ArrayList<>();
-        node.fieldNames().forEachRemaining(names::add);
-        return List.copyOf(names);
-    }
-
-    private static JsonNode read(String serialized) {
-        try {
-            return JSON.readTree(serialized);
-        } catch (Exception failure) {
-            throw new IllegalStateException(failure);
-        }
     }
 }

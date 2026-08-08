@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static kairon.observer.decision.Journal.loadGame;
 import static kairon.observer.decision.SemanticPipelineAssertions
         .assertChangesAndContextPartition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -213,15 +214,6 @@ final class SystemJumpProjectionTest {
         });
         return List.copyOf(slots);
     }
-
-    private static String loadGame() {
-        return """
-                {"timestamp":"2026-07-30T10:00:00Z","event":"LoadGame",
-                 "FID":"F12345678","ShipID":9,"Ship":"explorer_nx",
-                 "ShipName":"Wanderer"}
-                """;
-    }
-
     /** A real jump record, with the arrival star the journal actually sends. */
     private static String jump(String time, long address, String system) {
         return "{\"timestamp\":\"2026-07-30T" + time

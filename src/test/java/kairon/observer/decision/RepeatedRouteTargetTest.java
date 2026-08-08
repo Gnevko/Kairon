@@ -1,7 +1,6 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.behavior.model.EventOccurrence;
 import kairon.behavior.model.SystemEpisode;
 import kairon.behavior.normalize.NormalizedEventType;
@@ -14,6 +13,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static kairon.observer.decision.RequestJson.read;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,8 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * chose something.</p>
  */
 final class RepeatedRouteTargetTest {
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final LlmDecisionRequestFactory factory =
             new LlmDecisionRequestFactory();
@@ -352,13 +350,5 @@ final class RepeatedRouteTargetTest {
         List<String> values = new ArrayList<>();
         array.forEach(node -> values.add(node.textValue()));
         return List.copyOf(values);
-    }
-
-    private static JsonNode read(String serialized) {
-        try {
-            return JSON.readTree(serialized);
-        } catch (Exception failure) {
-            throw new IllegalStateException(failure);
-        }
     }
 }

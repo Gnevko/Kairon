@@ -1,16 +1,11 @@
 package kairon.observation.journal.event.colonisation;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.JournalEventObservation.RawJournalData;
 import kairon.observation.journal.LlmPresentableJournalEvent;
-import kairon.observation.journal.LlmPresentableJournalEvent.LlmEventPresentation;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * Typed identity and sourced LLM presentation for the Elite Dangerous
+ * Typed identity and model-facing sentence for the Elite Dangerous
  * {@code ColonisationSystemClaim} journal event.
  *
  * @see <a href="https://schemas.edomh.nl/ColonisationSystemClaim.html">
@@ -28,32 +23,5 @@ public record ColonisationSystemClaim(RawJournalData raw)
     @Override
     public String modelFacingDescription() {
         return "A star system was claimed for colonisation.";
-    }
-
-    @Override
-    public LlmEventPresentation llmPresentation() {
-        JsonNode event = raw.parsedJsonObject();
-        List<String> facts = new ArrayList<>();
-        LlmPresentableJournalEvent.textual(event.get("StarSystem"))
-                .ifPresent(system -> facts.add(
-                        "star system "
-                                + LlmPresentableJournalEvent.quoted(system)
-                ));
-        LlmPresentableJournalEvent
-                .nonNegativeIntegral(event.get("SystemAddress"))
-                .ifPresent(address -> facts.add(
-                        "star-system address " + address
-                ));
-
-        StringBuilder sentence = new StringBuilder(
-                "The player paid to claim a star system for colonisation"
-        );
-        if (!facts.isEmpty()) {
-            sentence.append(": ")
-                    .append(LlmPresentableJournalEvent.joinFacts(facts));
-        }
-        sentence.append("; this event does not report that construction has "
-                + "started.");
-        return new LlmEventPresentation(List.of(sentence.toString()));
     }
 }

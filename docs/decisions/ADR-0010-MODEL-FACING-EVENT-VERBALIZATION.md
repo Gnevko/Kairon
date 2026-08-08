@@ -5,12 +5,21 @@
 Accepted and implemented for all 114 event types in the active
 `BALANCED-109` and `CONTEXT-5` profiles.
 
-Amended by ADR-0013: `llmPresentation()` is no longer model input. It remains
-the authority for diagnostics, the desktop GUI and the observation corpus, and
-it remains the researched interpretation of each event's source fields — but the
-provider now receives domain-facing structured events, and the two cases the
-prose was retained for are covered by the event kind and by a typed uncertainty
-field. The evidence-first evaluation rule below is unchanged and applies to the
+Amended by ADR-0013: `llmPresentation()` is no longer model input. The provider
+receives domain-facing structured events, and the two cases the prose was
+retained for are covered by the event kind and by a typed uncertainty field.
+
+Superseded on that point by
+[ADR-0027](ADR-0027-THE-RESEARCHED-PROSE-IS-NOT-KEPT.md): `llmPresentation()` is
+**removed**. ADR-0013 retained it as "the authority for diagnostics, the desktop
+GUI and the observation corpus"; none of the three ever called it, and the
+method, its 121 implementations and its 132 tests were deleted on 2026-08-08.
+The researched interpretation of each event's source fields lives in
+`kairon.semantics`, which the runtime does read.
+
+Everything else here stands. An event still owns what it means, one constant
+sentence per class still reaches the model through `modelFacingDescription()`,
+and the evidence-first evaluation rule below is unchanged — it applies to the
 structured projection exactly as it applied to the prose.
 
 ## Context
