@@ -301,94 +301,15 @@ final class DecisionSamplingContextTest {
 
     // ------------------------------------------------------- the whole path
 
-    /**
-     * The audited sequence, against the real graph and the real projector.
-     *
-     * <p>Two rides and a landing separate the second disembark from the scan
-     * that started the sequence, which is exactly long enough for the three
-     * remembered predecessors to lose it. The forecast is untouched: it is what
-     * followed the last disembark, and it still is.</p>
+    /*
+     * "The second disembark of a running sequence says so whole" stood here.
+     * A disembark stopped opening a turn on 2026-08-08 — its document was a
+     * body name and a presence, and something was invented to fill it nearly
+     * every time — so there is no such turn to inspect. What the case really
+     * asserted, that a running sequence is described by the scans that step it
+     * and never by a standing group, is checked above against those scans.
      */
-    @Test
-    void theSecondDisembarkOfARunningSequenceSaysSoWhole(
-            @TempDir Path directory
-    ) throws Exception {
-        try (DecisionProductionPipeline pipeline =
-                     new DecisionProductionPipeline(directory)) {
-            for (String line : JOURNAL) {
-                pipeline.journal(line);
-            }
-            pipeline.settleProjection();
 
-            List<ProjectedObservation> triggers = pipeline.capturedTriggers();
-            ProjectedObservation last = triggers.getLast();
-            CurrentGameStateSnapshot state = last.currentState();
-            assertEquals(Boolean.TRUE, state.activeOrganicSampling());
-            assertEquals(
-                    SemanticValue.ofSymbol("START"),
-                    CurrentGameStateSemantics.valueOf(
-                            SemanticField.ORGANIC_SAMPLING_STAGE,
-                            state
-                    )
-            );
-            assertEquals(
-                    SemanticValue.ofText(ORGANISM),
-                    CurrentGameStateSemantics.valueOf(
-                            SemanticField.ORGANIC_SAMPLING_VARIANT_LABEL,
-                            state
-                    )
-            );
-            assertEquals(CommanderLocationMode.ON_FOOT, state.commanderMode());
-            assertEquals(
-                    CurrentGameStateSnapshot.VEHICLE_SLV,
-                    state.vehicleKind(),
-                    "this journal's vehicle is the audited Nomad"
-            );
-
-            for (int index = 0; index < triggers.size() - 1; index++) {
-                pipeline.inputsFor(List.of(triggers.get(index)));
-            }
-            String serialized = serializer.serialize(factory.create(
-                    pipeline.inputsFor(List.of(last))
-            ));
-            JsonNode request = read(serialized);
-
-            assertEquals("The Commander stepped out of a ship or SRV.",
-                    request.path("events").get(0).path("event").textValue());
-            assertEquals(2,
-                    request.path("events").get(0)
-                            .path("occurrenceOnBody").intValue());
-            assertEquals(
-                    """
-                    {"events":[{"event":"The Commander stepped out of a ship or SRV.",\
-                    "system":"Schieni GG-A c3-84",\
-                    "onStation":false,"onPlanet":true,\
-                    "occurrenceOnBody":2}],\
-                    "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
-                    "commander":{"presence":"ON_FOOT"},\
-                    "vehicle":{"kind":"SLV"}}}""",
-                    serialized
-            );
-
-            // The graph predicts by structural type, and the three sampling
-            // scans are three types — so the transition it had seen once was a
-            // *first* scan, in the middle of a sequence the same request says
-            // is already running. Dropped twice over: once as a forecast with a
-            // single observation behind it, and once as the opening step of a
-            // process in progress.
-            assertFalse(
-                    serialized.contains("likelyNext"),
-                    serialized
-            );
-
-            assertFalse(
-                    request.path("context").has("sampling"),
-                    "the sequence is the scans' to describe: " + serialized
-            );
-            assertFalse(serialized.contains(ORGANISM));
-            assertFalse(serialized.contains("STARTED"));
-        }
-    }
 
     // ------------------------------------------------------------- fixtures
 

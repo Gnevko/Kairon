@@ -67,7 +67,26 @@ import static kairon.state.CurrentGameStateSnapshot.VEHICLE_UNKNOWN;
 public final class CurrentGameStateProjector
         implements CurrentGameStateProjectionWriter {
 
+    /**
+     * Where the game's suit identities start, well clear of any ship's.
+     *
+     * <p>Observed as 4293000000, 4293000001 and 4293000003 across this
+     * project's journals, against ship ids 0 to 10. Not a limit on how many
+     * ships a Commander may own — a sentinel block the client mints suit
+     * identities from.</p>
+     */
+    private static final long RESERVED_SUIT_ID_BLOCK = 4_293_000_000L;
+
     private final Map<Long, String> vehicleKindsById = new TreeMap<>();
+
+    /**
+     * Where this run starts from, or null when nothing is remembered.
+     *
+     * <p>Read exactly once per Commander, in {@link #seedShipIfStillUnknown()},
+     * and never again — it is not a fallback consulted whenever the ship is
+     * missing, which would make a corrected identity revert.</p>
+     */
+    private final LastKnownShip lastKnownShip;
 
     private String commanderFid;
     private Long shipId;
@@ -101,6 +120,18 @@ public final class CurrentGameStateProjector
 
     private Boolean activeOrganicSampling;
     private BiologicalSamplingProcess samplingProcess;
+
+    /** A run with no memory of an earlier one. */
+    public CurrentGameStateProjector() {
+        this(null);
+    }
+
+    /**
+     * @param lastKnownShip the ship the previous run ended on, or null
+     */
+    public CurrentGameStateProjector(LastKnownShip lastKnownShip) {
+        this.lastKnownShip = lastKnownShip;
+    }
 
     @Override
     public synchronized CurrentGameStateProjection applyAndCapture(
@@ -358,7 +389,9 @@ public final class CurrentGameStateProjector
         }
         if (event instanceof LoadGame) {
             textual(raw, "FID").ifPresent(this::setCommanderFid);
-            updateShipIdentity(raw);
+            if (namesAStarship(raw)) {
+                updateShipIdentity(raw);
+            }
             return;
         }
         if (event instanceof Loadout) {
@@ -389,6 +422,67 @@ public final class CurrentGameStateProjector
             samplingProcess = null;
         }
         commanderFid = value;
+        seedShipIfStillUnknown();
+    }
+
+    /**
+     * Starts this Commander from the ship they were last known to be flying.
+     *
+     * <p>Only while no ship is known, and only for the Commander the seed names
+     * — a different one arriving clears the state above and finds nothing to
+     * seed from. The first {@code Loadout} of the session replaces it, so this
+     * is where a run begins rather than what it believes.</p>
+     */
+    private void seedShipIfStillUnknown() {
+        if (shipId != null
+                || lastKnownShip == null
+                || !lastKnownShip.commanderFid().equals(commanderFid)) {
+            return;
+        }
+        shipId = lastKnownShip.shipId();
+        shipType = lastKnownShip.shipType();
+        shipName = lastKnownShip.shipName();
+    }
+
+    /**
+     * Whether a session opening is describing the Commander's ship.
+     *
+     * <p>{@code LoadGame} answers "what is the Commander sitting in", which is
+     * their ship whenever the session opens in it and something else whenever
+     * it does not. Measured across the 340 {@code LoadGame} records in this
+     * project's journals, 22 named something that is not a ship — an SRV
+     * ({@code TestBuggy} id 3, {@code Lander01} id 10) or a suit
+     * ({@code FlightSuit}, {@code ExplorationSuit_Class1}/{@code _Class5}).
+     * One session in fifteen. Taken at face value each of those mints a graph
+     * of its own: on 2026-08-08 an evening was recorded against the Nomad while
+     * the Mandalay's graph, holding every episode of the visit, sat untouched
+     * beside it.</p>
+     *
+     * <p>Two facts separate them, and each is read as itself rather than as a
+     * threshold. <strong>An SRV reports no fuel tank</strong> —
+     * {@code FuelCapacity: 0.0}, against 16, 20, 32, 64 and 128 for the ships
+     * in the same journals. <strong>A suit's id comes from a reserved
+     * block</strong> far above any ship's: 4293000000, 4293000001, 4293000003,
+     * where ships run 0 to 10. Its {@code FuelCapacity} is 1.0 for every suit
+     * class, which is an energy pack rather than a tank, but the id is the
+     * sturdier of the two — a fuel figure is game balance and can be retuned,
+     * a sentinel block is a format decision.</p>
+     *
+     * <p><strong>Rejection is on positive evidence only.</strong> A record that
+     * says nothing about a fuel tank is an ordinary ship record — an older
+     * client, or a fixture written before any of this mattered — and is taken
+     * as one. The failure direction is therefore "no ship established", which
+     * {@link LastKnownShip} covers and which is visible, rather than a wrong
+     * ship, which is not.</p>
+     */
+    private static boolean namesAStarship(JsonNode raw) {
+        boolean reportsNoFuelTank = decimal(raw, "FuelCapacity")
+                .map(capacity -> capacity <= 0.0)
+                .orElse(false);
+        boolean carriesASuitIdentity = positiveLong(raw, "ShipID")
+                .map(id -> id >= RESERVED_SUIT_ID_BLOCK)
+                .orElse(false);
+        return !reportsNoFuelTank && !carriesASuitIdentity;
     }
 
     private void updateShipIdentity(JsonNode raw) {
@@ -758,6 +852,13 @@ public final class CurrentGameStateProjector
 
     private static Optional<Long> positiveLong(JsonNode raw, String name) {
         return positiveOrZeroLong(raw, name).filter(value -> value > 0);
+    }
+
+    private static Optional<Double> decimal(JsonNode raw, String name) {
+        JsonNode value = raw.get(name);
+        return value != null && value.isNumber()
+                ? Optional.of(value.doubleValue())
+                : Optional.empty();
     }
 
     private static Optional<Long> positiveOrZeroLong(

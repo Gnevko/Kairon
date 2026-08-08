@@ -234,8 +234,8 @@ final class StaleHiddenChangeTest {
 
             assertEquals(
                     List.of(
-                            "A ship jumped from one star system to another.",
-                            "A vehicle was launched from the ship."
+                            "The Commander's ship jumped from one star system to another.",
+                            "The Commander's ship launched a vehicle it was carrying."
                     ),
                     descriptions(request)
             );

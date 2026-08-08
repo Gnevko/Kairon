@@ -27,7 +27,7 @@ public record Touchdown(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship landed on the surface of a planet or moon.";
+        return "The Commander's ship landed on the surface of a planet or moon.";
     }
 
     @Override

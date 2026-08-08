@@ -102,8 +102,8 @@ final class ObserverPipelineTest {
             JsonNode request = turn(llm.inputs.getFirst());
             assertEquals(
                     List.of(
-                            "A ship lifted off from a landing pad at a station, outpost or settlement.",
-                            "A ship entered supercruise from normal space."
+                            "The Commander's ship lifted off from a landing pad at a station, outpost or settlement.",
+                            "The Commander's ship entered supercruise from normal space."
                     ),
                     eventDescriptions(request)
             );
@@ -159,11 +159,11 @@ final class ObserverPipelineTest {
                 "four minutes of game time is two moments"
         );
         assertEquals(
-                List.of("A ship dropped out of supercruise into normal space."),
+                List.of("The Commander's ship left supercruise for normal space."),
                 eventDescriptions(turn(apart.inputs.getFirst()))
         );
         assertEquals(
-                List.of("A vehicle was launched from the ship."),
+                List.of("The Commander's ship launched a vehicle it was carrying."),
                 eventDescriptions(turn(apart.inputs.getLast()))
         );
 
@@ -224,7 +224,7 @@ final class ObserverPipelineTest {
 
             JsonNode request = turn(llm.inputs.getFirst());
             assertEquals(
-                    List.of("A ship lifted off from a landing pad at a station, outpost or settlement."),
+                    List.of("The Commander's ship lifted off from a landing pad at a station, outpost or settlement."),
                     eventDescriptions(request));
             // The later Location established "Later Context". If it had
             // replaced this turn's snapshot the name would be present; an

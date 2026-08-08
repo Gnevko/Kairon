@@ -27,7 +27,7 @@ public record SRVDestroyed(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A surface vehicle was destroyed.";
+        return "The Commander's surface vehicle was destroyed.";
     }
 
     @Override

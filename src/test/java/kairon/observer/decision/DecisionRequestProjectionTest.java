@@ -389,7 +389,7 @@ final class DecisionRequestProjectionTest {
         JsonNode event = request.path("events").get(0);
 
         assertEquals(
-                    "A vehicle was launched from the ship.",
+                    "The Commander's ship launched a vehicle it was carrying.",
                     event.path("event").textValue());
         assertFalse(
                 event.has("loadout"),
@@ -433,7 +433,7 @@ final class DecisionRequestProjectionTest {
                         """)
         )).path("events").get(0);
         assertEquals(
-                    "A ship-launched fighter was destroyed.",
+                    "The Commander's ship-launched fighter was destroyed.",
                     destroyed.path("event").textValue());
         assertEquals(
                 "UNCONFIRMED",
@@ -448,7 +448,7 @@ final class DecisionRequestProjectionTest {
                         """)
         )).path("events").get(0);
         assertEquals(
-                    "A surface vehicle was brought back aboard the ship.",
+                    "The Commander's ship took a surface vehicle back aboard.",
                     recovered.path("event").textValue());
         assertEquals(
                 "SLV",
@@ -731,7 +731,7 @@ final class DecisionRequestProjectionTest {
         assertEquals(List.of("events", "context"), propertyNames(request));
         JsonNode event = request.path("events").get(0);
         assertEquals(
-                    "A ship landed on the surface of a planet or moon.",
+                    "The Commander's ship landed on the surface of a planet or moon.",
                     event.path("event").textValue());
         assertTrue(event.path("commanderControlled").booleanValue());
         assertEquals(
@@ -746,9 +746,9 @@ final class DecisionRequestProjectionTest {
         // group is absent rather than reported as unknown. A landing that does
         // know is covered by DecisionSurfaceVehicleContextTest.
         assertFalse(context.has("vehicle"));
-        assertEquals(
-                "Schieni GG-A c3-84",
-                context.path("system").path("name").textValue()
+        assertTrue(
+                context.path("system").path("name").isMissingNode(),
+                "a landing is not an arrival in a system"
         );
         assertFalse(
                 context.has("navigation"),
@@ -792,7 +792,7 @@ final class DecisionRequestProjectionTest {
         assertFalse(serialized.contains("18.767"));
         assertFalse(serialized.contains("position"));
         assertTrue(serialized.contains(
-                "A ship landed on the surface of a planet or moon."));
+                "The Commander's ship landed on the surface of a planet or moon."));
     }
 
     /**
@@ -832,7 +832,7 @@ final class DecisionRequestProjectionTest {
                         """)
         )).path("events").get(0);
         assertEquals(
-                    "A surface vehicle was brought back aboard the ship.",
+                    "The Commander's ship took a surface vehicle back aboard.",
                     recovered.path("event").textValue());
         assertFalse(recovered.has("reverses"));
         assertFalse(recovered.toString().contains("LaunchSRV"));

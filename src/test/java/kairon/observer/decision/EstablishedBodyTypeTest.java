@@ -40,7 +40,7 @@ final class EstablishedBodyTypeTest {
         );
         JsonNode event = request.path("events").get(0);
         assertEquals(
-                    "A ship dropped out of supercruise into normal space.",
+                    "The Commander's ship left supercruise for normal space.",
                     event.path("event").textValue());
         assertEquals(
                 List.of("event"),
@@ -51,9 +51,10 @@ final class EstablishedBodyTypeTest {
                 "Icy One",
                 request.path("context").path("body").path("name").textValue()
         );
-        assertEquals(
-                "Icy System",
-                request.path("context").path("system").path("name").textValue()
+        assertTrue(
+                request.path("context").path("system").path("name")
+                        .isMissingNode(),
+                "leaving supercruise inside a system is not arriving in one"
         );
         assertFalse(
                 request.path("context").has("navigation"),

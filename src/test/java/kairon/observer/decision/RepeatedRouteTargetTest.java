@@ -113,7 +113,7 @@ final class RepeatedRouteTargetTest {
             JsonNode request = read(serialized);
             assertEquals(
                     """
-                    {"events":[{"event":"A ship entered supercruise from normal space.",\
+                    {"events":[{"event":"The Commander's ship entered supercruise from normal space.",\
                     "system":"Schieni GG-A c3-84"}]}""",
                     serialized
             );

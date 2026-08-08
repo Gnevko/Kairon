@@ -43,6 +43,7 @@ import kairon.observation.journal.event.travel.Touchdown;
 import kairon.observation.journal.event.travel.Undocked;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +58,64 @@ public final class BehaviorEventNormalizer {
             Class<? extends JournalEventObservation>,
             DirectRule
             > DIRECT_RULES = directRules();
+
+    private static final Map<
+            NormalizedEventType,
+            List<Class<? extends JournalEventObservation>>
+            > JOURNAL_TYPES_BY_NORMALIZED_TYPE = journalTypesByNormalizedType();
+
+    /**
+     * Which journal classes a normalized type was projected from.
+     *
+     * <p>The inverse of the rule table, and read by the GUI: a graph node is a
+     * normalized type, and whether observations of it ever reach the model is a
+     * question about the journal classes behind it. More than one class can
+     * share a type — either scanner reports a set of signals — so the answer is
+     * a list. Empty means the type was not projected from a journal record at
+     * all, which for now means it came from {@code Status.json}: those six
+     * never open a model turn and no journal contains them.</p>
+     */
+    public static List<Class<? extends JournalEventObservation>> journalTypesOf(
+            NormalizedEventType eventType
+    ) {
+        Objects.requireNonNull(eventType, "eventType");
+        return JOURNAL_TYPES_BY_NORMALIZED_TYPE.getOrDefault(
+                eventType,
+                List.of()
+        );
+    }
+
+    private static Map<
+            NormalizedEventType,
+            List<Class<? extends JournalEventObservation>>
+            > journalTypesByNormalizedType() {
+        Map<NormalizedEventType, List<Class<? extends JournalEventObservation>>>
+                inverse = new LinkedHashMap<>();
+        DIRECT_RULES.forEach((journalType, rule) -> {
+            // A rule may carry no constant type: the variant decides it, and
+            // an unrecognised discriminator mints an unknown one at read time.
+            // Those have no fixed node to answer for.
+            if (rule.eventType() == null) {
+                return;
+            }
+            inverse.computeIfAbsent(
+                    rule.eventType(),
+                    ignored -> new ArrayList<>()
+            ).add(journalType);
+        });
+        // SYSTEM_ENTRY is minted by normalizeSystemEntry rather than by a
+        // rule, and its two records are the ones that method accepts. Without
+        // this the root of every episode would answer "from no journal record".
+        inverse.put(
+                NormalizedEventType.SYSTEM_ENTRY,
+                new ArrayList<>(List.of(FSDJump.class, Location.class))
+        );
+        Map<NormalizedEventType, List<Class<? extends JournalEventObservation>>>
+                copy = new LinkedHashMap<>();
+        inverse.forEach((eventType, journalTypes) ->
+                copy.put(eventType, List.copyOf(journalTypes)));
+        return Map.copyOf(copy);
+    }
 
     public NormalizedBehaviorEvent normalize(
             PublishedObservation<? extends JournalEventObservation> observation

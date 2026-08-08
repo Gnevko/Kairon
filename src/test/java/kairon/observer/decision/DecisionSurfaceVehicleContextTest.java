@@ -61,17 +61,17 @@ final class DecisionSurfaceVehicleContextTest {
             );
             JsonNode event = request.path("events").get(0);
             assertEquals(
-                    "A ship landed on the surface of a planet or moon.",
+                    "The Commander's ship landed on the surface of a planet or moon.",
                     event.path("event").textValue());
             assertEquals(
-                    List.of("event", "commanderControlled", "occurrenceOnBody"),
+                    List.of("event", "commanderControlled"),
                     propertyNames(event),
                     "the landing leaves the place to the situation"
             );
 
             JsonNode context = request.path("context");
             assertEquals(
-                    List.of("system", "body", "vehicle"),
+                    List.of("body", "vehicle"),
                     propertyNames(context),
                     "the landing says the ship is down in its own words, so "
                             + "no navigation group repeats it"
@@ -161,7 +161,7 @@ final class DecisionSurfaceVehicleContextTest {
 
             JsonNode request = lastRequest(pipeline);
             assertEquals(
-                    "A ship took off from the surface of a planet or moon.",
+                    "The Commander's ship took off from the surface of a planet or moon.",
                     request.path("events").get(0).path("event").textValue()
             );
             assertEquals(
@@ -200,7 +200,7 @@ final class DecisionSurfaceVehicleContextTest {
             assertFalse(request.path("context").has("vehicle"));
             assertFalse(request.toString().contains("UNKNOWN"));
             assertEquals(
-                    List.of("system", "body"),
+                    List.of("body"),
                     propertyNames(request.path("context")),
                     "the landing says the ship is down in its own words"
             );

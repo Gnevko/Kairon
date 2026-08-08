@@ -150,16 +150,16 @@ final class ModelFacingDescriptionContractTest {
     void theEventsThatWereMisreadNowSayWhatTheyAre() {
         Map<String, String> described = described();
         assertEquals(
-                "A ship landed on the surface of a planet or moon.",
+                "The Commander's ship landed on the surface of a planet or moon.",
                 described.get("Touchdown")
         );
         assertEquals(
-                "A ship in supercruise came within a body's orbital-cruise "
-                        + "zone.",
+                "The Commander's ship, in supercruise, came within a body's "
+                        + "orbital-cruise zone.",
                 described.get("ApproachBody")
         );
         assertEquals(
-                "A ship dropped out of supercruise into normal space.",
+                "The Commander's ship left supercruise for normal space.",
                 described.get("SupercruiseExit")
         );
         for (String notALanding : List.of("ApproachBody", "SupercruiseExit")) {
@@ -170,6 +170,54 @@ final class ModelFacingDescriptionContractTest {
                     notALanding + " reports no landing"
             );
         }
+    }
+
+    /**
+     * A ship the Commander's document mentions is the Commander's ship.
+     *
+     * <p>Every one of these sentences began "A ship …", and on 2026-08-08 the
+     * indefinite article was read as a stranger: an approach to a body was
+     * answered "a foreign ship entered the orbital-cruise zone". Nothing in
+     * that request contradicted it — the approach profile asks for no
+     * {@code context.ship}, so the document said nothing about whose ship it
+     * was, and the model's reading was the reasonable one.</p>
+     *
+     * <p>Only the Commander's own vessel appears in these records at all;
+     * another player's ship is not written to this journal. So the indefinite
+     * article was not ambiguous, it was wrong. (A multicrew session, where the
+     * Commander is a guest aboard someone else's ship, is the one case where
+     * "the Commander's ship" is loose — {@code Touchdown} and {@code Liftoff}
+     * carry a {@code Multicrew} flag for it. This contract has never had to
+     * represent that, and a sentence chosen by reading the record's own fields
+     * is exactly what {@code modelFacingDescription()} may not be.)</p>
+     */
+    @Test
+    void aShipInThisDocumentIsTheCommandersShip() {
+        List<String> unowned = new ArrayList<>();
+        described().forEach((eventType, description) -> {
+            if (description == null) {
+                return;
+            }
+            for (String indefinite : List.of(
+                    "A ship", "A vehicle", "A surface vehicle"
+            )) {
+                if (description.startsWith(indefinite)) {
+                    unowned.add(eventType + ": " + description);
+                }
+            }
+        });
+
+        assertTrue(
+                unowned.isEmpty(),
+                "an indefinite ship reads as somebody else's: " + unowned
+        );
+        assertEquals(
+                "The Commander's ship left supercruise for normal space.",
+                described().get("SupercruiseExit"),
+                "leaving a flight mode, not arriving somewhere — \"dropped "
+                        + "out into normal space\" was answered \"welcome to "
+                        + "the system\" in a system the Commander had not left"
+        );
     }
 
     /**

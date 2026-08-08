@@ -47,12 +47,14 @@ public record BehaviorGraphRenderModel(
             int level,
             Ellipse2D.Double circleBounds,
             Rectangle2D.Double labelBounds,
-            boolean current
+            boolean current,
+            NodeModelReach modelReach
     ) {
 
         public NodeRenderData {
             Objects.requireNonNull(eventType, "eventType");
             Objects.requireNonNull(label, "label");
+            Objects.requireNonNull(modelReach, "modelReach");
             if (activeEpisodeOccurrenceCount < 0) {
                 throw new IllegalArgumentException(
                         "activeEpisodeOccurrenceCount must be nonnegative"

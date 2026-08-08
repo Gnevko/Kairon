@@ -25,7 +25,7 @@ public record SystemsShutdown(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship's systems shut down.";
+        return "The Commander's ship systems shut down.";
     }
 
     @Override

@@ -72,6 +72,7 @@ import kairon.semantics.SystemVisitPolicy;
 import kairon.semantics.SystemVisitPolicy.SystemVisitState;
 import kairon.semantics.SystemVisitTransition;
 import kairon.state.CurrentGameStateSnapshot;
+import kairon.state.LastKnownShip;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -2046,6 +2047,19 @@ public final class BehaviorGraphService {
         if (!graphId.equals(activeGraphId)) {
             GraphId previousGraphId = activeGraphId;
             activeGraphId = graphId;
+            /*
+             * The ship the graph is active on is what the next run starts from.
+             * Written here rather than by canonical state because this is the
+             * moment the identity has been resolved all the way to a graph —
+             * and because a session that opens in an SRV has no journal record
+             * naming a ship at all, so the memory has to outlive the run.
+             */
+            store.recordLastKnownShip(new LastKnownShip(
+                    graphId.commanderFid(),
+                    graphId.shipId(),
+                    context.shipType(),
+                    context.shipName()
+            ));
             tryRestoreActiveEpisode(resolution.graph());
             notifyListener(new ActiveGraphChanged(
                     graphId,

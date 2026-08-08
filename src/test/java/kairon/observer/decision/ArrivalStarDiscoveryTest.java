@@ -177,7 +177,7 @@ final class ArrivalStarDiscoveryTest {
             );
             JsonNode request = JSON.readTree(document(pipeline));
             assertEquals(
-                    "A ship in supercruise came within a body's orbital-cruise zone.",
+                    "The Commander's ship, in supercruise, came within a body's orbital-cruise zone.",
                     request.path("events").get(0)
                             .path("event").textValue()
             );

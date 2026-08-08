@@ -25,7 +25,7 @@ public record SelfDestruct(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship's self-destruct function was used.";
+        return "The Commander's ship self-destruct function was used.";
     }
 
     @Override

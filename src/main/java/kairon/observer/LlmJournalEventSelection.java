@@ -243,6 +243,45 @@ public final class LlmJournalEventSelection {
      * cannot even name. It is not a finding, and it is explicitly not evidence
      * that a previously reported signal is gone.</p>
      *
+     * <p>A {@code ScanOrganic.Sampled} is a middle step of a sequence whose two
+     * ends already speak. {@code Logged} announces the organism and
+     * {@code Analysed} says it is collected and what is left; the samples
+     * between them carry the same organism, the same {@code stage: PROGRESS}
+     * and the same {@code complete: false}, and there are always two of them.
+     * <strong>Measured on the live session of 2026-08-08:</strong> sixteen such
+     * turns produced eleven comments, and all eleven were the same sentence —
+     * "there are still uncollected samples of X on the planet" — about an
+     * organism {@code Logged} had already named. Eleven provider calls to
+     * repeat a fact.</p>
+     *
+     * <p>Getting out of a ship and getting back into one carry almost nothing
+     * to read. Their profile is {@code PRESENCE} — the body by name, where the
+     * Commander is, which vehicle — and the move itself is the whole of the
+     * news. <strong>Measured on the live session of 2026-08-08:</strong> these
+     * two types were the largest single source of unsupported statements of the
+     * evening. Nine invented gravities arrived on a disembark, then "9
+     * biological signals detected on the planet" and "there are still
+     * biological signals here" after gravity stopped being mentioned, and
+     * "still low gravity here" — a claim of continuity with a turn the model was
+     * never shown. Each time the document held a body name and nothing else,
+     * and something had to be said.</p>
+     *
+     * <p>This is the provisional lever rather than a change of source role, and
+     * deliberately: the catalogue rules for both types stay where they are, so
+     * restoring them is deleting two clauses. They also go on being projected
+     * into canonical state and recorded by the behaviour graph exactly as
+     * before — a walk on a surface is still part of the visit, it is simply not
+     * a turn.</p>
+     *
+     * <p>The third sample is <em>not</em> what is excluded, because the journal
+     * does not say which one it is: both samples are the same record with no
+     * counter, and {@code BiologicalSamplingProcess} keeps none for the same
+     * reason — no journal event states one. What follows the last sample is an
+     * {@code Analyse} five seconds later, and recognising the third by waiting
+     * for it would be a timer deciding a turn's fate after the turn was built.
+     * So the boundary is drawn by the kind of step, which the parser already
+     * decided.</p>
+     *
      * <p>Excluded here means excluded from model input only. The observation is
      * still parsed, still published, still projected into canonical state and
      * the behaviour graph, still carries its semantic effect into the next
@@ -273,7 +312,9 @@ public final class LlmJournalEventSelection {
                     event.raw().parsedJsonObject()
             ) != null;
         }
-        return true;
+        return !(event instanceof ScanOrganic.Sampled)
+                && !(event instanceof Disembark)
+                && !(event instanceof Embark);
     }
 
     /**

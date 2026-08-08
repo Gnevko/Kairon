@@ -188,10 +188,10 @@ final class SnapshotReplayIntegrationTest {
             JsonNode request = turn(llm.inputs.getFirst());
             assertEquals(
                     List.of(
-                            "A ship jumped from one star system to another.",
-                            "A ship entered supercruise from normal space.",
+                            "The Commander's ship jumped from one star system to another.",
+                            "The Commander's ship entered supercruise from normal space.",
                             "Information about a friend's status was received.",
-                            "A ship jumped from one star system to another."
+                            "The Commander's ship jumped from one star system to another."
                     ),
                     eventDescriptions(request)
             );

@@ -51,7 +51,7 @@ final class DecisionVehicleLaunchTest {
                 propertyNames(event)
         );
         assertEquals(
-                    "A vehicle was launched from the ship.",
+                    "The Commander's ship launched a vehicle it was carrying.",
                     event.path("event").textValue());
         assertFalse(
                 event.has("loadout"),
@@ -195,7 +195,7 @@ final class DecisionVehicleLaunchTest {
 
             JsonNode launch = requestFor(pipeline, triggers, 0);
             assertEquals(
-                    "A vehicle was launched from the ship.",
+                    "The Commander's ship launched a vehicle it was carrying.",
                     launch.path("events").get(0).path("event").textValue()
             );
             assertFalse(launch.toString().contains("Nomad"));
@@ -218,7 +218,7 @@ final class DecisionVehicleLaunchTest {
             );
             JsonNode recovered = recovery.path("events").get(0);
             assertEquals(
-                    "A surface vehicle was brought back aboard the ship.",
+                    "The Commander's ship took a surface vehicle back aboard.",
                     recovered.path("event").textValue()
             );
             assertEquals(

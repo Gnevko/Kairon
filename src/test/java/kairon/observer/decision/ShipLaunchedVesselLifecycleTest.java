@@ -171,9 +171,8 @@ final class ShipLaunchedVesselLifecycleTest {
 
             String launch = turnFor(pipeline, "LaunchFighter");
             assertEquals(
-                    "{\"event\":\"A vehicle was launched from the ship.\","
-                            + "\"commanderControlled\":true,"
-                            + "\"occurrenceOnBody\":1}",
+                    "{\"event\":\"The Commander's ship launched a vehicle it was carrying.\","
+                            + "\"commanderControlled\":true}",
                     read(launch).path("events").get(0).toString()
             );
             for (String unproven : List.of(
@@ -222,11 +221,9 @@ final class ShipLaunchedVesselLifecycleTest {
             // existing ones rather than merely present.
             assertEquals(
                     """
-                    {"events":[{"event":"A ship landed on the surface of a planet or moon.",\
-                    "commanderControlled":true,\
-                    "occurrenceOnBody":1}],\
-                    "context":{"system":{"name":"Schieni GG-A c3-84"},\
-                    "body":{"name":"Schieni GG-A c3-84 4 a",\
+                    {"events":[{"event":"The Commander's ship landed on the surface of a planet or moon.",\
+                    "commanderControlled":true}],\
+                    "context":{"body":{"name":"Schieni GG-A c3-84 4 a",\
                     "type":"PLANET","planetClass":"Icy body"},\
                     "vehicle":{"kind":"SLV"}}}""",
                     turnFor(pipeline, "Touchdown")
@@ -270,8 +267,7 @@ final class ShipLaunchedVesselLifecycleTest {
                     """
                     {"events":[{"event":"The Commander stepped out of a ship or SRV.",\
                     "system":"Schieni GG-A c3-84",\
-                    "onStation":false,"onPlanet":true,\
-                    "occurrenceOnBody":1}],\
+                    "onStation":false,"onPlanet":true}],\
                     "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
                     "commander":{"presence":"ON_FOOT"},\
                     "vehicle":{"kind":"SLV"}}}""",
@@ -281,8 +277,7 @@ final class ShipLaunchedVesselLifecycleTest {
                     """
                     {"events":[{"event":"The Commander, on foot, got into a ship or SRV.",\
                     "system":"Schieni GG-A c3-84",\
-                    "onStation":false,"onPlanet":true,\
-                    "occurrenceOnBody":1}],\
+                    "onStation":false,"onPlanet":true}],\
                     "context":{"body":{"name":"Schieni GG-A c3-84 4 a"},\
                     "commander":{"presence":"SLV"},\
                     "vehicle":{"kind":"SLV"}}}""",
@@ -309,9 +304,8 @@ final class ShipLaunchedVesselLifecycleTest {
             String recovery = turnFor(pipeline, "DockSRV");
             assertEquals(
                     """
-                    {"events":[{"event":"A surface vehicle was brought back aboard the ship.",\
-                    "vehicleKind":"SLV","vehicleType":"Nomad",\
-                    "occurrenceOnBody":1}],\
+                    {"events":[{"event":"The Commander's ship took a surface vehicle back aboard.",\
+                    "vehicleKind":"SLV","vehicleType":"Nomad"}],\
                     "changes":[{"subject":"commander",\
                     "kind":"UPDATED","fields":{"presence":\
                     {"before":"SLV","after":"SHIP"}}}]}""",
@@ -386,7 +380,7 @@ final class ShipLaunchedVesselLifecycleTest {
             JsonNode recovery = read(turnFor(pipeline, "DockSRV"));
             JsonNode event = recovery.path("events").get(0);
             assertEquals(
-                    "A surface vehicle was brought back aboard the ship.",
+                    "The Commander's ship took a surface vehicle back aboard.",
                     event.path("event").textValue());
             assertEquals("SRV", event.path("vehicleKind").textValue());
             assertEquals("Scarab", event.path("vehicleType").textValue());
@@ -425,7 +419,7 @@ final class ShipLaunchedVesselLifecycleTest {
             JsonNode event = read(turnFor(pipeline, "DockSRV"))
                     .path("events").get(0);
             assertEquals(
-                    "A surface vehicle was brought back aboard the ship.",
+                    "The Commander's ship took a surface vehicle back aboard.",
                     event.path("event").textValue());
             assertFalse(
                     event.has("vehicleKind"),

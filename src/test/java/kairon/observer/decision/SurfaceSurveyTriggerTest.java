@@ -134,7 +134,7 @@ final class SurfaceSurveyTriggerTest {
             assertEquals(1, pipeline.modelInputs().size());
             assertEquals(
                     """
-                    {"events":[{"event":"A ship jumped from one star system to another.",\
+                    {"events":[{"event":"The Commander's ship jumped from one star system to another.",\
                     "system":"Schieni","fuelUsed":0.4,"distanceLy":8.5},\
                     {"event":"A full spectrum system scan reported signal data for a body.",\
                     "body":"Schieni 4 a","system":"Schieni",\

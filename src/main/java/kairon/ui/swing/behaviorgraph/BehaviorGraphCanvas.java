@@ -22,6 +22,7 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.Comparator;
@@ -274,6 +275,7 @@ public final class BehaviorGraphCanvas extends JPanel implements Scrollable {
                 paintOrdinaryLabels(canvas, model);
                 paintCurrentNode(canvas, model);
                 paintSelectedNode(canvas, model);
+                paintModelReachLegend(canvas);
             }
             if (stateMessage != null) {
                 paintCenteredMessage(canvas, stateMessage, mutedColor());
@@ -365,16 +367,101 @@ public final class BehaviorGraphCanvas extends JPanel implements Scrollable {
             Graphics2D canvas,
             BehaviorGraphRenderModel model
     ) {
-        canvas.setStroke(new BasicStroke(1.4f));
         for (NodeRenderData node : model.nodes().values()) {
             if (node.current()) {
                 continue;
             }
-            canvas.setColor(nodeFillColor());
+            canvas.setColor(nodeFillColor(node.modelReach()));
             canvas.fill(node.circleBounds());
             canvas.setColor(nodeOutlineColor());
+            canvas.setStroke(nodeOutlineStroke(node.modelReach()));
             canvas.draw(node.circleBounds());
         }
+        canvas.setStroke(new BasicStroke(1.4f));
+    }
+
+    /**
+     * How a node says whether the model ever hears about it.
+     *
+     * <p>Two channels rather than one, so the distinction survives a theme and
+     * a monochrome screen: the outline is solid for a type every observation of
+     * which opens a turn, dashed for one judged per observation, and dotted for
+     * one the model is never shown; the fill fades in the same order. Colour
+     * alone would be lost in the dark theme, and stroke alone is hard to see on
+     * a small node.</p>
+     */
+    private static BasicStroke nodeOutlineStroke(NodeModelReach reach) {
+        return switch (reach) {
+            case ALWAYS -> new BasicStroke(1.8f);
+            case SOMETIMES -> new BasicStroke(
+                    1.4f,
+                    BasicStroke.CAP_BUTT,
+                    BasicStroke.JOIN_ROUND,
+                    1.0f,
+                    new float[] {5.0f, 3.5f},
+                    0.0f
+            );
+            case NEVER -> new BasicStroke(
+                    1.0f,
+                    BasicStroke.CAP_ROUND,
+                    BasicStroke.JOIN_ROUND,
+                    1.0f,
+                    new float[] {1.0f, 3.0f},
+                    0.0f
+            );
+        };
+    }
+
+    private Color nodeFillColor(NodeModelReach reach) {
+        Color base = nodeFillColor();
+        return switch (reach) {
+            case ALWAYS -> base;
+            case SOMETIMES -> interpolate(getBackground(), base, 0.55);
+            case NEVER -> interpolate(getBackground(), base, 0.2);
+        };
+    }
+
+    /**
+     * The key to the outlines, in screen space and in the corner.
+     *
+     * <p>Three samples drawn with the same strokes and fills the nodes use, so
+     * the legend cannot describe a picture the canvas is not painting.</p>
+     */
+    private void paintModelReachLegend(Graphics2D canvas) {
+        canvas.setFont(getFont());
+        FontMetrics metrics = canvas.getFontMetrics();
+        int diameter = Math.max(10, metrics.getAscent() - 2);
+        int rowHeight = Math.max(diameter + 6, metrics.getHeight() + 2);
+        int left = 12;
+        int bottom = getHeight() - 12;
+        NodeModelReach[] order = {
+            NodeModelReach.ALWAYS,
+            NodeModelReach.SOMETIMES,
+            NodeModelReach.NEVER
+        };
+        int top = bottom - rowHeight * order.length;
+        for (int index = 0; index < order.length; index++) {
+            NodeModelReach reach = order[index];
+            int centerY = top + rowHeight * index + rowHeight / 2;
+            Ellipse2D.Double sample = new Ellipse2D.Double(
+                    left,
+                    centerY - diameter / 2.0,
+                    diameter,
+                    diameter
+            );
+            canvas.setColor(nodeFillColor(reach));
+            canvas.fill(sample);
+            canvas.setColor(nodeOutlineColor());
+            canvas.setStroke(nodeOutlineStroke(reach));
+            canvas.draw(sample);
+            canvas.setColor(mutedColor());
+            canvas.drawString(
+                    reach.label(),
+                    left + diameter + 8,
+                    centerY + metrics.getAscent() / 2 - 1
+            );
+        }
+        canvas.setStroke(new BasicStroke(1.4f));
     }
 
     private void paintOrdinaryLabels(

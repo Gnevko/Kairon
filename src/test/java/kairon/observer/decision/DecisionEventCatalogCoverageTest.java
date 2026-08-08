@@ -186,29 +186,12 @@ final class DecisionEventCatalogCoverageTest {
         );
     }
 
-    /**
-     * The occurrence count is dropped only where it would count a stage.
-     *
-     * <p>One kind spans three structural graph types today: a log, a sample and
-     * an analysis are counted separately, while the model reads one
-     * {@code BIOLOGICAL_SAMPLE}, so a body-scoped count under that name would be
-     * true of something the model cannot see. The other staged kinds — a ship
-     * transfer, a carrier jump, a construction depot — are one type each and
-     * keep the field. Pinned as an exact set, because this is a claim about a
-     * kind rather than a property of being multi-stage.</p>
+    /*
+     * "The occurrence count is dropped only where the graph counts stages"
+     * stood here. There is no occurrence count any more: occurrenceOnBody was
+     * removed on 2026-08-08 with the two rule flags that shaped it, after 158
+     * live turns showed it bought no restraint and was misread every time.
      */
-    @Test
-    void theOccurrenceCountIsDroppedOnlyWhereTheGraphCountsStages() {
-        Set<String> perStage = new LinkedHashSet<>();
-        for (Class<? extends JournalEventObservation> eventType
-                : DecisionEventCatalog.coveredTypes()) {
-            DecisionEventRule rule = DecisionEventCatalog.ruleFor(eventType);
-            if (rule.stageSpecificOccurrences()) {
-                perStage.add(rule.kind());
-            }
-        }
-        assertEquals(Set.of("BIOLOGICAL_SAMPLE"), perStage);
-    }
 
     @Test
     void anUncataloguedPayloadHasNoRuleRatherThanAGuessedOne() {

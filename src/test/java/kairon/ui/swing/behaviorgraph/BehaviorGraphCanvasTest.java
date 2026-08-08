@@ -329,7 +329,8 @@ final class BehaviorGraphCanvasTest {
                 0,
                 circle,
                 label,
-                current
+                current,
+                NodeModelReach.of(eventType)
         );
     }
 

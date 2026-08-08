@@ -335,7 +335,6 @@ final class JournalEventVariantContractTest {
                 "an arrival in an undiscovered system is exploration"
         );
         assertEquals("arrivalStar", rule.objectName());
-        assertTrue(rule.uncountedOnBody());
         assertEquals(
                 Set.of("system", "starType", "previouslyDiscovered"),
                 rule.retainedQualifiers()

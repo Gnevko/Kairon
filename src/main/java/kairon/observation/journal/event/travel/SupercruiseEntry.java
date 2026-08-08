@@ -27,7 +27,7 @@ public record SupercruiseEntry(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship entered supercruise from normal space.";
+        return "The Commander's ship entered supercruise from normal space.";
     }
 
     @Override

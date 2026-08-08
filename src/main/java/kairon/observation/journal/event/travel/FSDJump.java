@@ -29,7 +29,7 @@ public record FSDJump(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship jumped from one star system to another.";
+        return "The Commander's ship jumped from one star system to another.";
     }
 
     @Override

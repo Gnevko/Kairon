@@ -27,7 +27,7 @@ public record ShipyardBuy(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship was bought at a shipyard.";
+        return "The Commander bought a ship at a shipyard.";
     }
 
     @Override

@@ -138,10 +138,11 @@ final class StatedFactsContractTest {
                     turn.context().path("body").path("name").textValue(),
                     "the body is named once, and here: " + turn.userMessage()
             );
-            assertEquals(
-                    "Schieni",
-                    turn.context().path("system").path("name").textValue(),
-                    "and so is the system: " + turn.userMessage()
+            assertTrue(
+                    turn.context().path("system").path("name").isMissingNode(),
+                    "and the system is named nowhere: crossing one is not "
+                            + "arriving in it, and the jump that was said so "
+                            + "in its own words: " + turn.userMessage()
             );
             assertChangesAndContextPartition(trace);
         }
@@ -284,15 +285,15 @@ final class StatedFactsContractTest {
 
             PipelineTrace.TurnView turn = turnWith(trace, "TOUCHDOWN");
             assertEquals(
-                    "Schieni",
-                    turn.context().path("system").path("name").textValue(),
-                    "the system is reported under its own slot: "
+                    "Schieni 4 a",
+                    turn.context().path("body").path("name").textValue(),
+                    "the body is reported under its own slot: "
                             + turn.userMessage()
             );
             assertEquals(
-                    "Schieni 4 a",
-                    turn.context().path("body").path("name").textValue(),
-                    "and the body under its own, neither displacing the "
+                    "SHIP",
+                    turn.context().path("vehicle").path("kind").textValue(),
+                    "and the vehicle under its own, neither displacing the "
                             + "other: " + turn.userMessage()
             );
             assertChangesAndContextPartition(trace);
@@ -327,11 +328,13 @@ final class StatedFactsContractTest {
                     "a codex entry reads no body at all: "
                             + turn.userMessage()
             );
-            assertTrue(
+            assertFalse(
                     turn.context().path("system").has("name")
                             || eventOfKind(turn, "CODEX_ENTRY_RECORDED")
                                     .has("system"),
-                    "the system it is in is still established: "
+                    "and the system is not named either: a codex entry is "
+                            + "filed inside a system the Commander has not "
+                            + "left, and the name is only news on arriving: "
                             + turn.userMessage()
             );
             assertChangesAndContextPartition(trace);
@@ -371,16 +374,16 @@ final class StatedFactsContractTest {
             );
             assertChangesAndContextPartition(trace);
 
+            int turnsBefore = trace.turns().size();
             harness.journal(embark("10:00:06Z", 23155, "Schieni"))
                     .closeBatch();
-            PipelineTrace after = harness.trace();
-            PipelineTrace.TurnView presence = turnWith(after, "EMBARKED");
-            assertFalse(
-                    presence.context().has("sampling"),
-                    "and a presence event during one carries none of it "
-                            + "either: there is no context.sampling at all, "
-                            + "because the sequence is described by the scans "
-                            + "that step it: " + presence.userMessage()
+            assertEquals(
+                    turnsBefore,
+                    harness.trace().turns().size(),
+                    "getting back into the ship opens no turn at all since "
+                            + "2026-08-08: its document was a body name and a "
+                            + "presence, and something was invented to fill it "
+                            + "nearly every time"
             );
         }
     }

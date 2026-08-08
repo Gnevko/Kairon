@@ -27,7 +27,7 @@ public record ShipyardTransfer(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship stored elsewhere was requested to be transported here.";
+        return "The Commander requested a stored ship be transported here.";
     }
 
     @Override

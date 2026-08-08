@@ -110,7 +110,7 @@ final class SamplingActivationChangeTest {
                 "learning that nothing is being sampled is not a change"
         );
         assertEquals(
-                "A ship entered supercruise from normal space.",
+                "The Commander's ship entered supercruise from normal space.",
                 request.path("events").get(0).path("event").textValue()
         );
         assertEquals(

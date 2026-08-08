@@ -466,8 +466,7 @@ public final class KaironApplication {
             BehaviorGraphObservationProcessor graphProcessor = null;
             BehaviorGraphQueryService behaviorGraphQueryService = null;
             BehaviorGraphEventSource behaviorGraphEventSource = null;
-            CurrentGameStateProjector currentGameState =
-                    new CurrentGameStateProjector();
+            CurrentGameStateProjector currentGameState = null;
             KaironGuiHub guiHub = KaironGuiHub.disabled();
             ObservationSubscription guiSubscription = null;
             ProjectedObservationBus.Subscription guiRegistrySubscription =
@@ -494,6 +493,21 @@ public final class KaironApplication {
                                     behaviorGraphService
                             );
                 }
+                /*
+                 * The run starts from the ship the graph was last active on.
+                 * Read here rather than by the projector itself: canonical
+                 * state is a projection of the journal and reads no store, and
+                 * a session opening in an SRV has no journal record naming a
+                 * ship at all. With the graph disabled there is no store and
+                 * therefore no memory, which is the same run as before this
+                 * existed — no ship until the first Loadout.
+                 */
+                currentGameState = new CurrentGameStateProjector(
+                        behaviorGraphStore == null
+                                ? null
+                                : behaviorGraphStore.lastKnownShip()
+                                        .orElse(null)
+                );
                 projectedObservationBus = new ProjectedObservationBus();
                 projectionCoordinator =
                         new ObservationProjectionCoordinator(

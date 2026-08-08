@@ -113,8 +113,8 @@ final class DecisionTurnBudgetTest {
         }
         assertTrue(
                 fitted.serializedJson().contains(
-                        "\"event\":\"A ship landed on the surface "
-                                + "of a planet or moon.\""),
+                        "\"event\":\"The Commander's ship landed on "
+                                + "the surface of a planet or moon.\""),
                 fitted.serializedJson()
         );
         assertFalse(fitted.serializedJson().contains("\"kind\":\"TOUCHDOWN"));

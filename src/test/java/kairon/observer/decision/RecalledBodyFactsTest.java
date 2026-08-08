@@ -40,7 +40,7 @@ final class RecalledBodyFactsTest {
         );
         JsonNode event = request.path("events").get(0);
         assertEquals(
-                    "A ship in supercruise came within a body's orbital-cruise zone.",
+                    "The Commander's ship, in supercruise, came within a body's orbital-cruise zone.",
                     event.path("event").textValue());
         assertEquals(
                 List.of("event"),
@@ -52,9 +52,10 @@ final class RecalledBodyFactsTest {
                 "Icy One",
                 request.path("context").path("body").path("name").textValue()
         );
-        assertEquals(
-                "Icy System",
-                request.path("context").path("system").path("name").textValue()
+        assertTrue(
+                request.path("context").path("system").path("name")
+                        .isMissingNode(),
+                "an approach happens inside a system already entered"
         );
         assertFalse(
                 request.path("context").has("navigation"),

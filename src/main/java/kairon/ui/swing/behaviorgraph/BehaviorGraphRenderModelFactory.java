@@ -242,7 +242,8 @@ final class BehaviorGraphRenderModelFactory {
                             metrics.stringWidth(label),
                             metrics.getHeight()
                     ),
-                    isCurrent
+                    isCurrent,
+                    NodeModelReach.of(eventType)
             ));
         });
         return nodes;

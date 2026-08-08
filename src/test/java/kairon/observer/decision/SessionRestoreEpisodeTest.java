@@ -150,7 +150,7 @@ final class SessionRestoreEpisodeTest {
             // states the mode itself, so nothing repeats it either way.
             assertEquals(
                     """
-                    {"events":[{"event":"A ship entered supercruise from normal space.",\
+                    {"events":[{"event":"The Commander's ship entered supercruise from normal space.",\
                     "system":"Restore A"}]}""",
                     request.toString()
             );
@@ -325,7 +325,7 @@ final class SessionRestoreEpisodeTest {
 
             JsonNode request = requestFor(pipeline, "FSDJump");
             assertEquals(
-                    "A ship jumped from one star system to another.",
+                    "The Commander's ship jumped from one star system to another.",
                     request.path("events").get(0).path("event").textValue()
             );
             assertEquals(

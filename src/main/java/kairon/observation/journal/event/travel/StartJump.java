@@ -56,8 +56,8 @@ public sealed interface StartJump extends LlmPresentableJournalEvent {
 
         @Override
         public String modelFacingDescription() {
-            return "A frame shift drive began charging for a jump to another "
-                    + "star system.";
+            return "The Commander's ship began charging its frame shift "
+                    + "drive for a jump to another star system.";
         }
 
         @Override
@@ -76,7 +76,8 @@ public sealed interface StartJump extends LlmPresentableJournalEvent {
 
         @Override
         public String modelFacingDescription() {
-            return "A frame shift drive began charging for supercruise.";
+            return "The Commander's ship began charging its frame shift "
+                    + "drive for supercruise.";
         }
 
         @Override
@@ -104,8 +105,8 @@ public sealed interface StartJump extends LlmPresentableJournalEvent {
 
         @Override
         public String modelFacingDescription() {
-            return "A frame shift drive began charging for a jump of an "
-                    + "unidentified kind.";
+            return "The Commander's ship began charging its frame shift "
+                    + "drive for a jump of an unidentified kind.";
         }
 
         @Override

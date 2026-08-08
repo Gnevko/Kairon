@@ -209,6 +209,56 @@ one inverted direction was fixed (`ShipyardTransfer` brings a ship **here**), an
 sent and a preview is not a conversion. `PackageDependencyRulesTest` now also
 forbids `kairon.observation` importing `kairon.semantics`.
 
+**A ship in one of these sentences is the Commander's, and since 2026-08-08 the
+sentence says so.** Every movement sentence began "A ship …", and on the live
+approach of that evening the answer was "a foreign ship entered the
+orbital-cruise zone". Nothing in the request contradicted it — the approach
+profile asks for no `context.ship`, so the document said nothing about whose
+ship it was, and the reading was the reasonable one. Another player's ship is
+never written to this journal, so the indefinite article was not ambiguous but
+wrong. Sixteen sentences were reworded: ten movement records, the three
+`StartJump` variants, and — found by the contract test rather than by the
+report — `CockpitBreached`, `SelfDestruct`, `SystemsShutdown`,
+`FighterDestroyed`, `ShipyardBuy` and `ShipyardTransfer`, which had the same
+defect outside movement. A breached canopy read as somebody else's is the worst
+of them. The auxiliary craft followed for the same reason and by the same
+guard — `LaunchFighter`, `DockSRV` and `SRVDestroyed` now name whose ship
+carried the vehicle.
+
+The launch is worth recording separately, because rewording it is not the whole
+answer. On the live turn of 2026-08-08 the document was
+
+```json
+{"events":[{"event":"A vehicle was launched from the ship.",
+  "commanderControlled":true,"occurrenceOnBody":1}],
+ "changes":[{"subject":"commander","kind":"UPDATED",
+  "fields":{"presence":{"before":"SHIP","after":"SLV"}}}],
+ "context":{"vehicle":{"kind":"SLV"}}}
+```
+
+and the answer was "the Commander is on the surface, the descent went
+normally". Nothing there says surface and nothing says descent; the ship may
+well be hovering, which is exactly how the Commander described the Nomad
+leaving it that morning. The likeliest cue is `occurrenceOnBody`, whose name
+carries the word *body* into a document that otherwise never mentions one. That
+is a field-naming question rather than a sentence-wording one and is untouched
+for now — worth watching, since the field is the behaviour graph's only
+model-facing output.
+
+Multicrew is the one loose case, where the Commander is a guest aboard another
+player's ship; `Touchdown` and `Liftoff` carry a `Multicrew` flag for it, and a
+sentence chosen by reading that flag is exactly what `modelFacingDescription()`
+may not be. The contract is enforced by
+`ModelFacingDescriptionContractTest.aShipInThisDocumentIsTheCommandersShip`.
+
+**A sentence states what the record reports and never what it implies.** In the
+same session `SupercruiseExit` — "A ship dropped out of supercruise into normal
+space" — was answered "welcome to the system, Commander" in the system the
+Commander had spent the whole evening in. Dropping out *into* somewhere reads as
+arriving; it now says the ship **left supercruise for normal space**, which is a
+flight mode ending and claims no arrival. The class cannot say more, because the
+same record also occurs immediately after a real jump.
+
 `events[*].reverses` is **removed** with the same reasoning: it named its
 counterpart action with the internal kind, which no event sends any more, and
 it collapsed five distinct relations into one word. The semantic relationship
@@ -360,6 +410,58 @@ the bus thread.
 `GraphId` combines commander FID and the concrete positive `ShipID`.
 Graphs for different ships are independent; a `Loadout` change updates compact
 metadata and context without changing graph identity.
+
+### Which ship a session belongs to
+
+`LoadGame` answers *what is the Commander sitting in*, which is their ship only
+when the session opens in it. Across the 340 `LoadGame` records in this
+project's journals, 13 distinct `(Ship, ShipID)` pairs appear and 22 records —
+one session in fifteen — name something that is not a ship:
+
+| what | `ShipID` | `FuelCapacity` | records |
+| --- | --- | --- | --- |
+| ships (`Mandalay`, `Python_NX`, `Type9`, `Explorer_NX`, …) | 0–9 | 16 / 20 / 32 / 64 / 128 | 318 |
+| SRV `TestBuggy` (Scarab) | 3 | 0.0 | 14 |
+| SRV `Lander01` (Nomad) | 10 | 0.0 | 1 |
+| suits `FlightSuit`, `ExplorationSuit_Class1`/`_Class5` | 4293000000+ | 1.0 | 8 |
+
+Taken at face value each of those mints a graph of its own. On 2026-08-08 the
+Commander logged in sitting in the Nomad; the session was recorded against
+`F12155965/10` — a graph created empty — while `F12155965/9` (`explorer_nx`, 24
+nodes, 2 episodes) held every episode of the visit and stayed untouched. It does
+not self-correct: the ship's own record is `Loadout`, which arrives at session
+start only when the Commander is in the ship, and thereafter on `DockSRV` and on
+a ship change. That session never docked the SRV, so no `Loadout` ever came.
+
+`CurrentGameStateProjector.namesAStarship` rejects the two shapes, reading each
+fact as itself rather than as a threshold: **an SRV reports no fuel tank**
+(`FuelCapacity: 0.0`), and **a suit's identity comes from a reserved block** far
+above any ship's. A suit's `FuelCapacity` of 1.0 is an energy pack rather than a
+tank, but the id is the sturdier discriminator — a fuel figure is game balance
+and can be retuned, a sentinel block is a format decision.
+
+**Rejection is on positive evidence only.** A record silent about fuel is an
+ordinary ship record — an older client, or a fixture written before any of this
+mattered — and is taken as one; without that clause the whole suite goes
+shipless. So the failure direction is "no ship established", which is visible
+and covered, rather than a wrong ship, which is neither.
+
+What covers it is `kairon.state.LastKnownShip`: the ship the graph was last
+active on, kept in one `last-known-ship.json` at the graph storage root. One
+file rather than one per Commander, because the caller reading it has not read a
+journal record yet and so has no Commander to ask about; the record names its
+own instead, which is what lets a different one be recognised and ignored.
+`BehaviorGraphService` writes it whenever the active graph changes;
+`RuntimeWiring` reads it once and hands it to the projector. A session opening
+inside an SRV therefore starts from the ship that SRV is attached to — which is
+exact, since an SRV cannot be swapped into another ship.
+
+It is a seed, not an authority: read once per Commander in
+`seedShipIfStillUnknown`, replaced by the first `Loadout` of the session, and
+never consulted again. Consulting it whenever the ship is missing would make a
+corrected identity revert. With the behaviour graph disabled there is no store
+and therefore no memory, which is the run as it was before this existed: no ship
+until the first `Loadout`.
 
 The implementation keeps two linked representations:
 
@@ -1178,25 +1280,29 @@ next turn.
 ## Prompt and response contract
 
 The stable system prompt is the single `DecisionPromptFactory.SYSTEM_PROMPT`
-Java constant. It has three blocks and no others:
+Java constant. It has four blocks and no others:
 
 - **the role** — Kairon as a female in-universe shipboard companion to one
   human Commander, calm, observant, warm, restrained, occasionally dryly
   humorous, and never describing herself as an AI, model or assistant;
-- **the preferences** — four lines: greet the Commander when a session begins,
-  read `biologicalSignals` and `geologicalSignals` as the key finding of a scan
-  result, treat a body's `gravity` as mattering to the Commander when a planet
-  is approached — naming it as `context.body.gravity` — and read
-  `biology.remaining` as what is still uncollected and
-  the point of the turn it appears in, appearing in one turn only;
+- **the preferences** — two lines: greet the Commander when a session begins,
+  and read `biology.remaining` as what is still uncollected and the point of
+  the turn it appears in, appearing in one turn only. There were four; the
+  gravity line and the signal-count line were both removed on 2026-08-08 and
+  the measurements are below;
+- **`<grounding>`** — three sentences, positive, naming no field, no unit and
+  no value: state as fact only what the request contains, anything added is
+  your own thought and reads as one, and a detail that is not here is one you
+  do not have — leave it unsaid;
 - **the answer contract** — one JSON object, no surrounding text and no extra
   fields, in exactly one of two shapes.
 
 It names no schema, no bus, no projection, no selection role and no behaviour
 graph, as it never did. What it also no longer names is the request: nothing
-tells the model what `events`, `changes` or `context` are for, what an absent
-field means, or what may not be said. The persona controls voice and
-self-presentation; nothing controls event meaning.
+tells the model what `events`, `changes` or `context` are for, or what an absent
+field means. The one thing it says may not be said is a number the request does
+not contain. The persona controls voice and self-presentation; nothing controls
+event meaning.
 
 **This is a deliberate reduction from 583 words to 70, and its costs were
 measured before it was made.** The long prompt spent 447 of its 583 words on
@@ -1277,12 +1383,190 @@ arrived on that turn with one genus collected and four not, and the answer was
 "a pleasant find for the collection": the question went unanswered with its
 answer in the request.
 
-Its third line names one more, and for the same measured reason. `context.body`
-carries `gravity` on an approach — banded `LOW`, `NORMAL` or `HIGH`, sent only
-where the ship can put down — and on the live approach of 2026-08-07 the model
-returned `SILENT` with the band in the request. How heavily a body pulls is what
-separates a routine landing from a dangerous one, and an approach is when the
-Commander is deciding. The line names the fact and not what to say about it.
+### The gravity line, and why there is not one
+
+There was a fourth preference line, about `context.body.gravity`. It was added
+because the field is real and useful — banded `LOW`, `NORMAL` or `HIGH`, sent
+on an approach and only there — and because on the live approach of 2026-08-07
+the model returned `SILENT` with the band in the request. It was **removed on
+2026-08-08**, after five wordings failed the same way.
+
+**A preference line may name a field. It may not describe a situation.** The
+line said what weight is *for* — that it decides whether the descent is routine
+or wrecks the ship. That is true, and the model applied it to every turn where
+a ship was near the ground. Each rewriting narrowed the words and left the
+count alone:
+
+| wording | what came out |
+| --- | --- |
+| bare importance, no field named | invented figures: 0.24g, 0.12g, 0.17g, 0.32g — three of them for one body |
+| a `<numbers>` block forbidding invented quantities | invented bands instead: LOW, then HIGH for the same body an hour apart |
+| conditioned on the field being present | "gravity is normal", "probably higher than standard", "a planet with no gravity", and on a disembark carrying only a body name, "still low gravity here" |
+| the reason clause cut, address only | disembarks and embarks went quiet; lift-offs did not, three out of three |
+| a 145-entry field glossary added alongside | two consecutive turns on one body: HIGH, then LOW |
+
+Twenty-one consecutive approach, touchdown, lift-off, disembark and embark
+turns produced twenty-one remarks about gravity, and the field was in the
+document for one of them. The condition *when it is in the request* was checked
+honestly and lost to the clause behind it: a situation the model recognises
+beats a field it can look up, because the situation is what the sentence says
+the fact is *about*. Nothing that narrows the sentence removes the situation
+from it. "Still low gravity here" is the sharpest of them — a claim of
+continuity with a turn the model was never shown, since previous comments are
+Kairon's local memory and never travel.
+
+**The field is unchanged and still sent.** An approach only, under
+`ContextNeed.BODY_GRAVITY` asked for by `SYSTEM_AND_BODY_DETAIL` and no other
+profile, and now described in the glossary — which is what makes the removal an
+experiment rather than a deletion. Before the glossary existed, taking the line
+away left the model no way to know what `gravity` was. If approaches go quiet
+without it, the line was buying something and its cost has to be weighed
+against that; if they do not, it was buying nothing. Do not restore it without
+measuring which.
+
+**`<grounding>` was added on 2026-08-08, after naming the field turned out not
+to be enough.** Naming `context.body.gravity` stopped the model inventing a
+value beside a field it had been handed. It did nothing for a turn handed none:
+on a live disembark whose whole document was
+
+```json
+{"events":[{"event":"The Commander stepped out of a ship or SRV.",
+  "system":"Ogaicy KX-B d13-9339","onStation":false,"onPlanet":true,
+  "occurrenceOnBody":1}],
+ "context":{"body":{"name":"Ogaicy KX-B d13-9339 5 b"},
+  "commander":{"presence":"ON_FOOT"},"vehicle":{"kind":"SRV"}}}
+```
+
+— no gravity in it at all, because a walk is not an approach and `PRESENCE`
+never asks for the pull — the answer was "gravity on the planet is 0.24g". That
+was the tenth fabricated quantity, and all ten appeared in turns where the
+named field was absent.
+
+**The first version of the block made it worse, and that failure is why the
+current one is shaped as it is.** It was called `<numbers>` and it was three
+prohibitions, the last of which read "a word like LOW or HIGH is the whole
+measurement; never turn one into a figure". Measured over the four
+gravity-eligible turns after the restart that installed it:
+
+| turn | request carried | answer |
+| --- | --- | --- |
+| disembark | body name only | "Гравитация LOW" |
+| board SRV | body name only | "Гравитация на планете — HIGH" |
+| touchdown | body name only | "Гравитация LOW" |
+| lift-off | no `biology` group | "На планете осталось ещё биологических образцов" |
+
+The figure stopped; the fabrication did not, and the band was wrong on the
+second turn — the same body had been called LOW an hour earlier. The
+prohibition named the vocabulary it was banning, and the model reached for the
+words it had just been shown. This is the documented failure mode of negative
+instruction: the rule has to be inverted to be obeyed, and the token to be
+avoided is now a token in context.
+
+**The replacement is positive and names no field, no unit and no value.** Its
+three sentences are three published techniques, one each:
+
+- *grounding restriction* — state as fact only what the request contains, the
+  "use only the information provided" rule every vendor guide gives;
+- *the voice, kept deliberately* — anything added is your own thought and reads
+  as one. This is the decision of 2026-08-07 written as an instruction rather
+  than a ban, and it is what keeps the bacterium's cobalt metabolism while
+  rejecting a false readout. A general prohibition on inventing facts is the
+  removed 447-word block, and it would take both;
+- *permission to not know* — the technique Anthropic's own guidance puts first,
+  in the form this contract can use. Kairon does not announce uncertainty
+  ("gravity has not been measured on this planet" was measured and rejected);
+  she leaves it unsaid.
+
+The name `<grounding>` is reused on purpose: this is what that block should
+have been. Three sentences, two of which grant rather than forbid, is not the
+same object as 447 words of prohibition — but the silence cost documented above
+is exactly what to watch, and if the voice goes quiet this is the block to
+suspect first.
+
+### The field glossary
+
+A fifth block, `<fields>`, is appended to the prompt from
+`kairon.turn.glossary.DecisionFieldGlossary`. It says what every name the
+request can contain **denotes**, and nothing else.
+
+The document was built to explain itself — the event carries an English
+sentence and the field names are meant to be readable. That holds for
+`planetClass` and `presence`. It does not hold for `occurrenceOnBody`, and on
+2026-08-08 a vehicle launch carrying it was answered "the Commander is on the
+surface, the descent went normally" from a document mentioning neither surface
+nor descent. `occurrenceOnBody` was the only word in it containing *body*. A
+name that has to be guessed will be guessed wrong.
+
+**This is not the reading manual removed on 2026-08-06.** That block told the
+model how to *weigh* what it read — which fields mattered, what to do about
+them, what not to say — and it travelled with 447 words of prohibition that
+cost eight `SILENT`s out of eight. The glossary asks for nothing, ranks
+nothing and forbids nothing; the four preference lines remain the only place a
+field is called important.
+
+It is **static**, so it is byte-identical in every turn and sits in the
+provider's prompt cache. A per-turn glossary of only the fields actually
+present would be shorter and would invalidate that cache on every turn.
+
+**Only reachable names are listed.** A qualifier the projector drops
+(`position`, `marketId`, `subCategory`, `distanceFromArrivalLs`), a taxon level
+folded into `organism` (`genus`, `species`, `variant`), and an adapter name the
+projector renames on the way out (`isNewEntry` → `newEntry`, `isPlayer` →
+`player`, `playerControlled` → `commanderControlled`) are absent: documenting
+what can never arrive is prompt weight bought with nothing.
+
+Staying complete is not left to discipline.
+`DecisionFieldGlossaryContractTest` replays all six fixtures through
+`DecisionProductionPipeline` — the real graph and projector, because
+`occurrenceOnBody` and the vehicle group exist only with them — builds a
+request for every captured trigger, and reconciles the names in both
+directions. A name with no entry fails the build, so a new field cannot ship
+undocumented. An entry no name reaches fails it too, so a removed field cannot
+leave a stale line behind; the names no fixture drives (combat, trade,
+missions, powerplay, engineering, squadrons, and the SRV group) are an explicit
+list rather than a blanket exemption, and a third test checks that everything
+on that list is still described.
+
+**An entry that lists values is checked against the values.** Presence is not
+truth, and an untrue entry is worse than none: within an hour of the glossary
+going live the `status` entry said "ONLINE or OFFLINE", the journal sent
+`REQUESTED` and then `ADDED` for a friend request and its acceptance, and both
+correct answers were read as fabrications — by the author of the entry, not by
+the model. Four of the value-listing entries were wrong the same way:
+`channel` said `SYSTEM` for `STARSYSTEM` and omitted three channels, `kind`
+omitted `CLEARED`, `vehicleKind` listed `ON_FOOT` (a presence, not a vehicle),
+and `presence` listed `STATION`, which does not exist.
+`DecisionFieldGlossaryVocabularyTest` now reads `CommanderLocationMode`,
+`FlightMode`, `SemanticChangeKind`, `AuxiliaryVehicleTypes` and the gravity
+bands from production code and compares them with the words the entry uses.
+`UNKNOWN` is excluded deliberately — it is how canonical state says nothing is
+established, it is never serialized, and naming it would describe a value the
+model cannot receive. `status` stays out of the checked set and its entry says
+so: its words are the journal's own symbols with no enum behind them, which is
+exactly why it was the one that went wrong.
+
+### The signal-count line, removed the same evening
+
+A line named `biologicalSignals` and `geologicalSignals` as the key finding of a
+scan result. It was added for a measured reason — on the 2026-08-06 replay a
+request carrying `biologicalSignals: 1` beside an ice body's class, atmosphere
+and three survey flags produced a remark about the atmosphere, and life on a
+frozen world was the one fact only that document had.
+
+It failed exactly as the gravity line did, one step later. Once gravity stopped
+being the named important thing, the invention moved to the important thing
+that was left. On turns carrying no counts at all: a landing became "no signs of
+biological or geological activity", a disembark became "9 biological signals
+detected on the planet" — a figure from nowhere — and another became "there are
+still biological signals here". **A line that says a field is the key finding is
+heard on turns that have no such field**, whatever the line's condition says.
+
+What it bought had been paid for twice over by then. The surface scanner's
+`organisms` listing reaches the model, and on the live scan of 2026-08-08 she
+named all five genera from it unprompted — a field the line never mentioned —
+and the glossary now describes both counts in their own words. The line is gone;
+if scan results go quiet without it, the trade has to be measured again rather
+than assumed.
 
 The reduction is recorded here rather than argued: it is a decision about what
 Kairon sounds like, and the numbers above are what it is known to cost.

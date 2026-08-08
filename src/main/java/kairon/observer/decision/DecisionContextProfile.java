@@ -180,7 +180,7 @@ public enum DecisionContextProfile {
         Set<String> subjects = new LinkedHashSet<>();
         for (ContextNeed need : contextNeeds) {
             subjects.add(switch (need) {
-                case SYSTEM -> "system";
+                case SYSTEM, SYSTEM_NAME -> "system";
                 case BODY_IDENTITY, BODY_DETAIL, BODY_GRAVITY -> "body";
                 case NAVIGATION -> "navigation";
                 case PRESENCE -> "commander";
@@ -203,8 +203,40 @@ public enum DecisionContextProfile {
     /** What a profile may ask the current situation for. */
     public enum ContextNeed {
 
-        /** Which star system. */
+        /**
+         * The system as a subject: its survey progress, and its scope.
+         *
+         * <p>Two jobs, neither of which is naming it. It puts the system in
+         * {@link #subjectsInScope}, so a change to it can be reported; it lets
+         * {@code DecisionEventProjector.answeredByContext} drop an event's own
+         * {@code system} where canonical state answers the place; and it brings
+         * {@code bodyCount} and {@code scannedCount}, which say how much of the
+         * system has been read.</p>
+         */
         SYSTEM,
+
+        /**
+         * The system's name — asked for by nothing, and that is the claim.
+         *
+         * <p>Where the Commander is only becomes news on arriving somewhere,
+         * and the two records that are an arrival name the system themselves:
+         * {@code FSDJump} carries it as an event field, and the arrival-star
+         * milestone retains {@code system} explicitly. Everything else is
+         * travel <em>within</em> a system the Commander has not left, and there
+         * the name is a constant repeated every turn.</p>
+         *
+         * <p>Measured on the live session of 2026-08-08: an approach to a body
+         * and a supercruise exit at the same body, a minute apart, both
+         * carrying {@code system: "Ogaicy KX-B d13-9339"} — the system the
+         * Commander had been in all evening — and the second was answered
+         * "arrival in the system". The name was doing nothing but suggesting
+         * that arriving somewhere had happened.</p>
+         *
+         * <p>Separate from {@link #SYSTEM} rather than removed, because the
+         * scope and the counts are still wanted. A profile that genuinely
+         * needs the name says so.</p>
+         */
+        SYSTEM_NAME,
 
         /** Which body, by name only. */
         BODY_IDENTITY,

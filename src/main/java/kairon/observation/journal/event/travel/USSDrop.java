@@ -27,7 +27,7 @@ public record USSDrop(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship dropped into an unidentified signal source.";
+        return "The Commander's ship dropped into an unidentified signal source.";
     }
 
     @Override

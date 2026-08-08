@@ -27,7 +27,7 @@ public record ApproachBody(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship in supercruise came within a body's orbital-cruise zone.";
+        return "The Commander's ship, in supercruise, came within a body's orbital-cruise zone.";
     }
 
     @Override

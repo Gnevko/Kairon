@@ -27,7 +27,7 @@ public record LaunchFighter(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A vehicle was launched from the ship.";
+        return "The Commander's ship launched a vehicle it was carrying.";
     }
 
     @Override

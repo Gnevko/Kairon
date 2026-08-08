@@ -132,7 +132,6 @@ public final class DecisionEventProjector {
                     SemanticValue.ofSymbol(uncertainty.marker())
             );
         }
-        appendOccurrenceCount(fields, claimed, projected, rule);
         return ProjectedEvent.of(
                 new LlmDecisionRequest.Event(
                         localId,
@@ -178,49 +177,6 @@ public final class DecisionEventProjector {
             );
         }
         return description;
-    }
-
-    /**
-     * How many times this has happened at this body during this system visit.
-     *
-     * <p>The one thing an event cannot say about itself. "Landed" and "landed
-     * here for the second time" are different situations, and only the episode
-     * knows which one this is. Scoped to the body rather than to the visit,
-     * because a second landing on a different moon is not a repeat of
-     * anything.</p>
-     *
-     * <p>Absent whenever the scope is not established — see
-     * {@link DecisionOccurrenceScope}. A count nobody can attach to a place is
-     * worse than no count.</p>
-     *
-     * <p>Absent too where the graph counts each stage of one kind separately —
-     * see {@link DecisionEventRule#stageSpecificOccurrences()}. The count is
-     * then true of a stage, the name would be read as true of the kind, and a
-     * count read as the wrong thing is the same failure as a count with no
-     * scope. The graph keeps counting; only this field goes.</p>
-     *
-     * <p>And absent where a repeat is never recorded at all — see
-     * {@link DecisionEventRule#uncountedOnBody()}. A field whose only possible
-     * value is one says nothing.</p>
-     */
-    private static void appendOccurrenceCount(
-            List<LlmDecisionRequest.Field> fields,
-            Set<String> claimed,
-            ProjectedObservation projected,
-            DecisionEventRule rule
-    ) {
-        if (rule.stageSpecificOccurrences() || rule.uncountedOnBody()) {
-            return;
-        }
-        Integer count = DecisionOccurrenceScope.occurrenceOnBody(projected);
-        if (count != null) {
-            add(
-                    fields,
-                    claimed,
-                    "occurrenceOnBody",
-                    SemanticValue.ofIntegral(count)
-            );
-        }
     }
 
     /**

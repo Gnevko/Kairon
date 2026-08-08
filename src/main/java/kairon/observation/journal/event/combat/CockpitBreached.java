@@ -25,7 +25,7 @@ public record CockpitBreached(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship's cockpit canopy was breached.";
+        return "The Commander's ship had its cockpit canopy breached.";
     }
 
     @Override

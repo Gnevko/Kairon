@@ -109,12 +109,14 @@ public final class DecisionContextSelector {
             return;
         }
         List<LlmDecisionRequest.Field> facts = new ArrayList<>();
-        add(
-                facts,
-                stated,
-                SemanticField.SYSTEM_NAME,
-                SemanticValue.ofText(state.systemName())
-        );
+        if (needs.contains(ContextNeed.SYSTEM_NAME)) {
+            add(
+                    facts,
+                    stated,
+                    SemanticField.SYSTEM_NAME,
+                    SemanticValue.ofText(state.systemName())
+            );
+        }
         Integer total = describesCurrentSystem(registry, state)
                 ? registry.bodyCount()
                 : null;

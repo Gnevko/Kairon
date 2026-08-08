@@ -18,6 +18,7 @@ import kairon.behavior.model.GraphId;
 import kairon.behavior.model.ShipBehaviorGraph;
 import kairon.behavior.model.SystemEpisode;
 import kairon.behavior.model.SystemEpisodeId;
+import kairon.state.LastKnownShip;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +52,7 @@ public final class JsonBehaviorGraphStore implements BehaviorGraphStore {
             LoggerFactory.getLogger(JsonBehaviorGraphStore.class);
     private static final String GRAPH_FILE = "graph.json";
     private static final String ACTIVE_EPISODE_FILE = "active-episode.json";
+    private static final String LAST_KNOWN_SHIP_FILE = "last-known-ship.json";
     private static final String EPISODES_DIRECTORY = "episodes";
     private static final Comparator<SystemEpisode> EPISODE_ORDER =
             Comparator.comparing(SystemEpisode::startedAt)
@@ -102,6 +104,28 @@ public final class JsonBehaviorGraphStore implements BehaviorGraphStore {
     public synchronized void saveGraph(ShipBehaviorGraph graph) {
         Objects.requireNonNull(graph, "graph");
         writeAtomically(graphFile(graph.graphId()), graph);
+    }
+
+    /**
+     * One file at the storage root, not one per Commander.
+     *
+     * <p>The question is "which ship was the graph last active on", and the
+     * caller asking it has no Commander yet either — it is asked while the
+     * runtime is being wired, before a journal record has been read. A file per
+     * Commander would have to be picked between, which needs a timestamp on
+     * each and turns a lookup into a comparison. One file, last write wins, and
+     * the record names its own Commander so a session that opens under a
+     * different one is recognised and ignored rather than mis-seeded.</p>
+     */
+    @Override
+    public synchronized Optional<LastKnownShip> lastKnownShip() {
+        return readIfPresent(lastKnownShipFile(), LastKnownShip.class);
+    }
+
+    @Override
+    public synchronized void recordLastKnownShip(LastKnownShip ship) {
+        Objects.requireNonNull(ship, "ship");
+        writeAtomically(lastKnownShipFile(), ship);
     }
 
     @Override
@@ -306,6 +330,10 @@ public final class JsonBehaviorGraphStore implements BehaviorGraphStore {
 
     private Path graphFile(GraphId graphId) {
         return graphDirectory(graphId).resolve(GRAPH_FILE);
+    }
+
+    private Path lastKnownShipFile() {
+        return storageDirectory.resolve(LAST_KNOWN_SHIP_FILE).normalize();
     }
 
     private Path activeEpisodeFile(GraphId graphId) {

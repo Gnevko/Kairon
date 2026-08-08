@@ -25,7 +25,7 @@ public record FighterDestroyed(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship-launched fighter was destroyed.";
+        return "The Commander's ship-launched fighter was destroyed.";
     }
 
     @Override

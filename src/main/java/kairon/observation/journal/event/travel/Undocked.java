@@ -27,7 +27,7 @@ public record Undocked(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship lifted off from a landing pad at a station, outpost or settlement.";
+        return "The Commander's ship lifted off from a landing pad at a station, outpost or settlement.";
     }
 
     @Override

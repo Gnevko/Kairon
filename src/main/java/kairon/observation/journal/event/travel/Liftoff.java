@@ -27,7 +27,7 @@ public record Liftoff(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship took off from the surface of a planet or moon.";
+        return "The Commander's ship took off from the surface of a planet or moon.";
     }
 
     @Override

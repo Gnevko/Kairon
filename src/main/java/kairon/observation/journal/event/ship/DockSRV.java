@@ -27,7 +27,7 @@ public record DockSRV(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A surface vehicle was brought back aboard the ship.";
+        return "The Commander's ship took a surface vehicle back aboard.";
     }
 
     @Override

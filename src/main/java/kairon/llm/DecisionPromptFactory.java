@@ -1,6 +1,7 @@
 package kairon.llm;
 
 import kairon.llm.LlmClient.ModelInput;
+import kairon.turn.glossary.DecisionFieldGlossary;
 
 import java.util.Objects;
 
@@ -11,7 +12,7 @@ import java.util.Objects;
  * heading, no prose wrapper, no second rendering. What the provider receives is
  * byte-for-byte what the trace records.</p>
  *
- * <p>The prompt is deliberately three blocks. It used to be six — a role, an
+ * <p>The prompt is deliberately four blocks. It used to be six — a role, an
  * objective naming what is worth saying, a field-by-field reading manual, a
  * process-safety section, a grounding section and this output contract — 583
  * words of which 447 said what must not be done.</p>
@@ -44,14 +45,28 @@ import java.util.Objects;
  * behaviour is not the block that was removed, and nothing about what may not be
  * said comes back with it.</p>
  *
- * <p>Its second line is the only place the prompt names a field of the request,
- * and it is deliberate rather than the reading manual creeping back. Measured on
- * the same replay: a request carrying {@code biologicalSignals: 1} beside an ice
- * body's class, atmosphere and three survey flags produced a remark about the
- * atmosphere. Life on a frozen world was the one fact in the document that only
- * that document had, and it went unsaid. Two field names are stated as the key
- * finding of a scan; nothing is said about what to do with them, and the
- * decision to speak or stay silent is untouched.</p>
+ * <h2>The signal-count line, removed the same evening as the gravity one</h2>
+ * <p>There was a line naming {@code biologicalSignals} and
+ * {@code geologicalSignals} as the key finding of a scan result. It was added
+ * for a measured reason: on the 2026-08-06 replay a request carrying
+ * {@code biologicalSignals: 1} beside an ice body's class, atmosphere and three
+ * survey flags produced a remark about the atmosphere, and life on a frozen
+ * world was the one fact only that document had.</p>
+ *
+ * <p>It failed in the way the gravity line did, one step later. Once gravity
+ * stopped being the named important thing, the invention moved to the named
+ * important thing that was left: on turns carrying no counts at all, a landing
+ * became "no signs of biological or geological activity", a disembark became
+ * "9 biological signals detected on the planet" — a figure from nowhere — and
+ * another became "there are still biological signals here". A line that says a
+ * field is the key finding is heard on turns that have no such field.</p>
+ *
+ * <p>What it was buying had meanwhile been paid for twice over. The surface
+ * scanner's {@code organisms} listing reaches the model, and on the live scan
+ * of 2026-08-08 she named all five genera from it unprompted — a field the line
+ * never mentioned. The glossary now describes both counts in their own words.
+ * So the line is gone, and if scan results go quiet the trade has to be
+ * measured again rather than assumed.</p>
  *
  * <h2>Where the line is drawn</h2>
  * <p>Two different things get called invention and only one of them is a
@@ -72,6 +87,50 @@ import java.util.Objects;
  * may only restate the document is a journal being read aloud, and the whole
  * point of the model is that it is not one.</p>
  *
+ * <h2>The fourth block, and the wrong version of it that came first</h2>
+ * <p>Naming the field was not enough. On 2026-08-08 a live disembark whose
+ * whole document was
+ * {@code {"body":{"name":"Ogaicy KX-B d13-9339 5 b"}}} — no gravity in it at
+ * all, because a walk is not an approach and {@code PRESENCE} never asks for
+ * the pull — was answered "gravity on the planet is 0.24g". That was the tenth
+ * fabricated quantity, and every one of the ten appeared in a turn where the
+ * named field was absent. A line saying where a fact lives stops the model
+ * inventing a value beside a field it was handed; it says nothing about a turn
+ * where it was handed nothing.</p>
+ *
+ * <p><strong>The first attempt at the block made it worse, and how it failed
+ * is the reason the current one is shaped as it is.</strong> It was called
+ * {@code <numbers>} and it was three prohibitions: every number must come from
+ * the request, say nothing about a quantity that is not there, and — fatally —
+ * "a word like LOW or HIGH is the whole measurement; never turn one into a
+ * figure". Measured over the four gravity-eligible turns that followed the
+ * restart: {@code 0.24g} became "gravity LOW", then "gravity — HIGH" on the
+ * same body an hour later, then "gravity LOW" again, and a lift-off acquired
+ * "there are biological samples left on the planet" with no {@code biology}
+ * group in the request at all. The figure stopped and the fabrication did not:
+ * the prohibition named the very vocabulary it was banning, and the model
+ * reached for the words it had just been shown.</p>
+ *
+ * <p>That is the documented failure mode of negative instruction — the model
+ * must invert the rule to obey it, and the token it is told to avoid is a token
+ * it has now seen. The replacement is positive and names no field, no unit and
+ * no value. Its first sentence is the grounding restriction every vendor guide
+ * gives ("use only the information provided"). Its second is this project's own
+ * decision of 2026-08-07 turned into an instruction rather than a ban: an added
+ * remark is allowed and must sound like a thought, which is what separates the
+ * bacterium's cobalt metabolism from a false readout. Its third is the
+ * permission to not know — the single technique Anthropic's own guidance puts
+ * first — in the form this contract can use, since Kairon does not announce
+ * uncertainty ("gravity has not been measured on this planet" was measured and
+ * rejected); she leaves it unsaid.</p>
+ *
+ * <p>The name {@code <grounding>} is back on purpose. The block that was
+ * removed carried that name and 447 words of prohibition across several
+ * sections; this is three sentences, two of which grant rather than forbid. The
+ * cost has to be watched all the same — the removal is documented above at
+ * eight {@code SILENT}s out of eight — and if the voice goes quiet, this is the
+ * block to suspect.</p>
+ *
  * <p>Both of the last two lines name their field, and that is the correction of
  * 2026-08-07. It was bought expensively: stated as bare importance — "gravity
  * matters", "what is left is the point" — they produced nine invented
@@ -82,18 +141,50 @@ import java.util.Objects;
  * important without saying where the fact lives asks the model to supply
  * it.</p>
  *
- * <p>The third line asks for the one fact an approach is actually for. The
- * document already carries it — {@code context.body.gravity}, banded {@code
- * LOW}, {@code NORMAL} or {@code HIGH} and sent only where the ship can put
- * down — and on the live approach of 2026-08-07 the answer was still SILENT
- * with the band right there in the request. Weight decides whether the descent
- * and the touchdown are routine or wreck the ship, and it is the Commander's
- * question at exactly the moment the ship enters a body's orbital-cruise
- * zone. It is <em>not</em> a question about walking around: on foot the pull
- * changes nothing that matters, which is why {@code PRESENCE} asks only which
- * body it is and is right to. Like the second line this one names the fact and
- * not what to say about it, and speaking or staying silent remains the
- * model's.</p>
+ * <h2>The gravity line, and why there is no longer one</h2>
+ * <p>There was a third preference line, about {@code context.body.gravity}, and
+ * it was removed on 2026-08-08 after five wordings failed the same way. It is
+ * recorded here rather than deleted, because the field is still sent and the
+ * question it was added for — an approach returning SILENT with the band in
+ * the request — is still a real one.</p>
+ *
+ * <p><strong>A preference line may name a field. It may not describe a
+ * situation.</strong> The line said what weight is <em>for</em> — that it
+ * decides whether the descent is routine or wrecks the ship — which is true,
+ * and which the model then applied to every turn where a ship was near the
+ * ground. Each rewriting narrowed the words and left the count alone:</p>
+ *
+ * <ul>
+ *   <li>bare importance, no field named: invented figures — {@code 0.24g},
+ *   {@code 0.12g}, {@code 0.17g}, {@code 0.32g}, three of them for one
+ *   body;</li>
+ *   <li>a {@code <numbers>} block forbidding invented quantities: invented
+ *   bands instead, LOW and then HIGH for the same body an hour apart;</li>
+ *   <li>conditioned on the field being present: "gravity is normal",
+ *   "probably higher than standard", "a planet with no gravity", and on a
+ *   disembark carrying only a body name, "still low gravity here" — a claim of
+ *   continuity with a turn the model was never shown;</li>
+ *   <li>the reason clause cut, address only: disembarks and embarks went
+ *   quiet, lift-offs did not — three out of three;</li>
+ *   <li>a 145-entry field glossary added alongside: two consecutive turns on
+ *   one body reported HIGH and then LOW.</li>
+ * </ul>
+ *
+ * <p>Twenty-one consecutive approach, touchdown, lift-off, disembark and embark
+ * turns produced twenty-one remarks about gravity, and the field was in the
+ * document for one of them. The condition "when it is in the request" was
+ * checked honestly and lost to the clause behind it: a situation the model
+ * recognises beats a field it can look up, because the situation is what the
+ * sentence says the fact is <em>about</em>. Nothing that narrows the sentence
+ * removes the situation from it.</p>
+ *
+ * <p>So the line is gone and the experiment it makes possible is the point:
+ * the field still arrives on an approach and only there, and it is now
+ * described in the glossary, which is new — before that, removing the line
+ * meant the model had no way to know what {@code gravity} was. If approaches go
+ * quiet, the line was buying something and its cost has to be weighed against
+ * that; if they do not, it was buying nothing. Do not restore it without
+ * measuring which.</p>
  *
  * <p>It names the field and stops there. It briefly also said that an absent
  * field meant nothing had measured it, which was meant to buy silence and
@@ -135,14 +226,16 @@ public final class DecisionPromptFactory {
 
             <preferences>
             Greet the Commander when a session begins.
-            In a scan result, biologicalSignals and geologicalSignals are the
-            key finding.
-            When approaching a planet, its gravity matters to the Commander.
-            It is context.body.gravity.
-            biology.remaining is what is still uncollected on this body, and
-            it is the point of the turn it appears in. It appears in one turn
-            only.
+            When biology.remaining is in the request, what is still uncollected
+            here is the point of the turn.
             </preferences>
+
+            <grounding>
+            State as fact only what this request contains. Anything you add
+            is your own thought and reads as one.
+            A detail that is not here is one you do not have. Leave it
+            unsaid.
+            </grounding>
 
             <output>
             Return one JSON object, no surrounding text and no extra fields.
@@ -174,6 +267,8 @@ public final class DecisionPromptFactory {
         }
         return new ModelInput(
                 SYSTEM_PROMPT
+                        + "\n"
+                        + DecisionFieldGlossary.TEXT
                         + "\n<output_language>"
                         + outputLanguage
                         + "</output_language>\n",

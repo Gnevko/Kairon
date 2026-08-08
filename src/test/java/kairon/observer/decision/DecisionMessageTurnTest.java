@@ -211,7 +211,7 @@ final class DecisionMessageTurnTest {
         assertEquals(
                 List.of(
                         "Another player sent a text message to a channel the Commander is in.",
-                        "A ship landed on the surface of a planet or moon."
+                        "The Commander's ship landed on the surface of a planet or moon."
                 ),
                 descriptions(both)
         );

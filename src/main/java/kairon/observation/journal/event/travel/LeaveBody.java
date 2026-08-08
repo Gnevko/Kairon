@@ -27,7 +27,7 @@ public record LeaveBody(RawJournalData raw)
 
     @Override
     public String modelFacingDescription() {
-        return "A ship flying away from a body rose above its orbital-cruise altitude.";
+        return "The Commander's ship, flying away from a body, rose above its orbital-cruise altitude.";
     }
 
     @Override

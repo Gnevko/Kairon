@@ -62,42 +62,16 @@ final class FieldAwareStatementTest {
         );
     }
 
-    /** A2: an equal value under another field states nothing. */
-    @Test
-    void anEqualValueUnderAnotherFieldIsNotAStatement(
-            @TempDir Path directory
-    ) {
-        ProjectedEvent event = touchdown(directory);
-
-        assertTrue(
-                event.states(
-                        SemanticField.FLIGHT_MODE,
-                        SemanticValue.ofSymbol("LANDED")
-                ),
-                "the fixture must really state something"
-        );
-        assertEquals(
-                1,
-                event.event().fields().stream()
-                        .filter(field ->
-                                "occurrenceOnBody".equals(field.name()))
-                        .count(),
-                "the fixture must really carry occurrenceOnBody"
-        );
-        assertFalse(
-                event.states(
-                        SemanticField.BIOLOGICAL_SIGNAL_COUNT,
-                        SemanticValue.ofIntegral(1)
-                ),
-                "occurrenceOnBody: 1 says nothing about biological signals"
-        );
-        assertFalse(
-                event.states(
-                        SemanticField.GEOLOGICAL_SIGNAL_COUNT,
-                        SemanticValue.ofIntegral(1)
-                )
-        );
-    }
+    /*
+     * A2 stood here: "an equal value under another field states nothing". Its
+     * example was occurrenceOnBody: 1 beside a biological count of one, and
+     * that field stopped being sent on 2026-08-08 — the touchdown fixture now
+     * carries no integral field at all, so the collision cannot be staged and
+     * an assertion that nothing collides would prove nothing. The rule itself
+     * is unchanged and still checked by A1 and A3: a fact is a field and a
+     * value, and ProjectedEvent.states matches both. Restore this case as soon
+     * as some event carries two integral fields whose values can coincide.
+     */
 
     /** A6: the same field at another value is not stated either. */
     @Test

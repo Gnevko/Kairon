@@ -212,7 +212,7 @@ public final class DecisionEventCatalog {
         // not a body the jump is about, and counting it says nothing.
         put(rules, FSDJump.class,
                 DecisionEventRule.of("SYSTEM_JUMP",
-                        DecisionMechanism.TRAVEL, "distanceLy").uncounted());
+                        DecisionMechanism.TRAVEL, "distanceLy"));
         // The three events whose description names the flight mode outright, so
         // the navigation context would repeat their own sentence. A jump is not
         // among them: it leaves the ship in supercruise and never says so.
@@ -358,7 +358,7 @@ public final class DecisionEventCatalog {
         // reaches this rule through the record it belongs to.
         put(rules, Scan.class,
                 DecisionEventRule.of("BODY_SCANNED",
-                        DecisionMechanism.EXPLORATION).uncounted());
+                        DecisionMechanism.EXPLORATION));
         // The other thing a scan record reports, and the only record that ever
         // carries it: this star had not been discovered before now. Filing it
         // under BODY_SCANNED would report a scan the Commander did not take;
@@ -376,7 +376,6 @@ public final class DecisionEventCatalog {
                                 DecisionMechanism.EXPLORATION)
                         .reading(DecisionContextProfile.SYSTEM_ONLY)
                         .named("arrivalStar")
-                        .uncounted()
                         .retaining(
                                 "system",
                                 "starType",
@@ -390,7 +389,7 @@ public final class DecisionEventCatalog {
         // finding that did not reach the Commander.
         put(rules, FSSBodySignals.class,
                 DecisionEventRule.of("BODY_SIGNALS_FOUND",
-                        DecisionMechanism.EXPLORATION).uncounted());
+                        DecisionMechanism.EXPLORATION));
         // The surface scanner is the only instrument that names what it found,
         // and the whole point of firing probes is to learn which organisms are
         // down there. The system scanner counts signals and names nothing, so
@@ -398,13 +397,13 @@ public final class DecisionEventCatalog {
         put(rules, SAASignalsFound.class,
                 DecisionEventRule.of("BODY_SIGNALS_FOUND",
                         DecisionMechanism.EXPLORATION)
-                        .uncounted().namingOrganisms());
+                        .namingOrganisms());
         // Scoped to the system, like a jump: whichever body happened to be
         // selected when the survey completed is not what the survey is about.
         put(rules, FSSAllBodiesFound.class,
                 DecisionEventRule.of("SYSTEM_SURVEY_COMPLETED",
                         DecisionMechanism.EXPLORATION, "bodyCount")
-                        .uncounted());
+                        );
         // Exploration, read against the system alone: a codex entry cannot say
         // which body it is about. Its BodyID is contradicted by the journal
         // that emits it — the measured replay files a Sudarsky-class gas giant
@@ -456,12 +455,9 @@ public final class DecisionEventCatalog {
         // Those same three are three structural types in the graph, so the
         // body-scoped count of "this event type here" counts logs, or samples,
         // or analyses — never biological samples. Under the one shared kind the
-        // model reads, "occurrenceOnBody: 1" on a FINAL scan says the first
-        // analysis, and reads as the first sample on the body. The count is
-        // therefore not sent; stage and complete say where the sequence is.
         DecisionEventRule sample = DecisionEventRule.of("BIOLOGICAL_SAMPLE",
                         DecisionMechanism.SAMPLING).named("organism")
-                .staged().countedPerStage();
+                .staged();
         put(rules, ScanOrganic.class, sample);
         // One kind, two slices. The analysis that finishes a sample is the one
         // turn where what else grows here answers a question the Commander is

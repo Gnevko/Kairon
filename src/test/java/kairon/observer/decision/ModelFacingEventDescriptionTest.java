@@ -57,7 +57,7 @@ final class ModelFacingEventDescriptionTest {
 
         JsonNode event = JSON.readTree(serialized).path("events").get(0);
         assertEquals(
-                "A ship landed on the surface of a planet or moon.",
+                "The Commander's ship landed on the surface of a planet or moon.",
                 event.path("event").textValue()
         );
         assertFalse(event.has("kind"), serialized);

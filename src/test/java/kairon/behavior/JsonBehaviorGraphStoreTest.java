@@ -14,6 +14,7 @@ import kairon.behavior.normalize.NormalizedEventType;
 import kairon.behavior.persistence.BehaviorGraphStore.StoreException;
 import kairon.behavior.persistence.InMemoryBehaviorGraphStore;
 import kairon.behavior.persistence.JsonBehaviorGraphStore;
+import kairon.state.LastKnownShip;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -39,6 +40,57 @@ final class JsonBehaviorGraphStoreTest {
 
     @TempDir
     Path temporaryDirectory;
+
+    /**
+     * The ship a run ended on, read back by a run that has no Commander yet.
+     *
+     * <p>One file at the storage root rather than one per Commander, because
+     * the caller asking has not read a journal record yet and so has nobody to
+     * ask about. It names its own Commander instead, which is what lets a
+     * different one be recognised and ignored.</p>
+     */
+    @Test
+    void theLastKnownShipOutlivesTheRunAndNamesItsCommander() {
+        JsonBehaviorGraphStore store =
+                new JsonBehaviorGraphStore(temporaryDirectory);
+        assertTrue(
+                store.lastKnownShip().isEmpty(),
+                "a store that has recorded nothing remembers nothing"
+        );
+
+        store.recordLastKnownShip(
+                new LastKnownShip("F12155965", 9L, "explorer_nx", "Caspian")
+        );
+        store.recordLastKnownShip(
+                new LastKnownShip("F12155965", 7L, "lakonminer", null)
+        );
+
+        LastKnownShip reopened = new JsonBehaviorGraphStore(temporaryDirectory)
+                .lastKnownShip()
+                .orElseThrow();
+        assertEquals("F12155965", reopened.commanderFid());
+        assertEquals(7L, reopened.shipId(), "the last write is the memory");
+        assertEquals("lakonminer", reopened.shipType());
+        assertNull(reopened.shipName());
+        assertTrue(
+                Files.isRegularFile(
+                        temporaryDirectory.resolve("last-known-ship.json")
+                ),
+                "at the root, beside the per-Commander directories"
+        );
+    }
+
+    /** An in-memory store keeps no such memory, and says so. */
+    @Test
+    void aStoreWithNoMemoryAnswersEmptyRatherThanGuessing() {
+        InMemoryBehaviorGraphStore store = new InMemoryBehaviorGraphStore();
+
+        store.recordLastKnownShip(
+                new LastKnownShip("F12155965", 9L, "explorer_nx", null)
+        );
+
+        assertTrue(store.lastKnownShip().isEmpty());
+    }
 
     /**
      * Pins the exact Phase C.1 provenance limitation.

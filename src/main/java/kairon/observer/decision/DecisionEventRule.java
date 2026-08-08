@@ -51,29 +51,6 @@ import java.util.Set;
  *                     names a single gap and leaves the rest alone, and like
  *                     {@code wholeAction} it has to be defensible per event
  *                     rather than set for tidiness.
- * @param uncountedOnBody
- *                     whether a body-scoped count of this kind cannot inform,
- *                     so the count is left off rather than sent. Two grounds,
- *                     each a claim about the event that has to be defensible.
- *                     Either a second identical result is not recorded at all,
- *                     so the count can only ever be one — and
- *                     {@code occurrenceOnBody: 1} beside a scan result reads as
- *                     a claim that this body has been scanned once, which is a
- *                     fact about the visit rather than about the reading. Or
- *                     the kind is scoped to the system and names no body, so
- *                     the body it would be counted at is only wherever the ship
- *                     happened to be — the occurrence carries the body the
- *                     graph had established at that moment, which for a jump or
- *                     a completed survey is the arrival star and not a place
- *                     the event is about.
- * @param stageSpecificOccurrences
- *                     whether the graph records each stage of this kind under
- *                     its own structural type, so that a body-scoped count of
- *                     "this event type here" counts one stage rather than the
- *                     kind. The count is then not a fact about the kind the
- *                     model is reading, and {@code occurrenceOnBody} is left off
- *                     rather than sent under a name that would be read as the
- *                     whole. Only meaningful where the kind spans stages at all.
  * @param retainedQualifiers
  *                     the attributes this kind keeps, when the adapter's fact
  *                     carries more than the kind is about. Empty — the ordinary
@@ -134,8 +111,6 @@ public record DecisionEventRule(
         boolean multiStage,
         boolean wholeAction,
         String settledGap,
-        boolean uncountedOnBody,
-        boolean stageSpecificOccurrences,
         Set<String> retainedQualifiers,
         boolean unnamedObject,
         boolean namesOrganisms,
@@ -180,16 +155,6 @@ public record DecisionEventRule(
                     "a wholeAction kind already carries no gap to settle"
             );
         }
-        if (stageSpecificOccurrences && !multiStage) {
-            throw new IllegalArgumentException(
-                    "only a multi-stage kind can be counted per stage"
-            );
-        }
-        if (uncountedOnBody && stageSpecificOccurrences) {
-            throw new IllegalArgumentException(
-                    "one reason to omit the count is enough"
-            );
-        }
         for (String retained : retainedQualifiers) {
             if (retained == null || retained.isBlank()) {
                 throw new IllegalArgumentException(
@@ -231,8 +196,6 @@ public record DecisionEventRule(
                 false,
                 false,
                 null,
-                false,
-                false,
                 Set.of(),
                 false,
                 false,
@@ -254,8 +217,6 @@ public record DecisionEventRule(
                 multiStage,
                 wholeAction,
                 settledGap,
-                uncountedOnBody,
-                stageSpecificOccurrences,
                 retainedQualifiers,
                 unnamedObject,
                 namesOrganisms,
@@ -285,8 +246,6 @@ public record DecisionEventRule(
                 multiStage,
                 wholeAction,
                 settledGap,
-                uncountedOnBody,
-                stageSpecificOccurrences,
                 retainedQualifiers,
                 unnamedObject,
                 namesOrganisms,
@@ -305,8 +264,6 @@ public record DecisionEventRule(
                 multiStage,
                 wholeAction,
                 settledGap,
-                uncountedOnBody,
-                stageSpecificOccurrences,
                 retainedQualifiers,
                 unnamedObject,
                 true,
@@ -325,8 +282,6 @@ public record DecisionEventRule(
                 multiStage,
                 wholeAction,
                 settledGap,
-                uncountedOnBody,
-                stageSpecificOccurrences,
                 retainedQualifiers,
                 true,
                 namesOrganisms,
@@ -347,40 +302,25 @@ public record DecisionEventRule(
 
     DecisionEventRule named(String value) {
         return with(value, multiStage, wholeAction, settledGap,
-                uncountedOnBody, stageSpecificOccurrences, retainedQualifiers);
+                retainedQualifiers);
     }
 
     DecisionEventRule staged() {
         return with(objectName, true, wholeAction, settledGap,
-                uncountedOnBody, stageSpecificOccurrences, retainedQualifiers);
+                retainedQualifiers);
     }
 
     /** The kind settles the action; see {@link #wholeAction()}. */
     DecisionEventRule whole() {
         return with(objectName, multiStage, true, settledGap,
-                uncountedOnBody, stageSpecificOccurrences, retainedQualifiers);
+                retainedQualifiers);
     }
 
     /** That one gap is answered elsewhere; see {@link #settledGap()}. */
     DecisionEventRule settling(String gapName) {
         return with(objectName, multiStage, wholeAction,
                 Objects.requireNonNull(gapName, "gapName"),
-                uncountedOnBody, stageSpecificOccurrences, retainedQualifiers);
-    }
-
-    /** A repeat is never recorded; see {@link #uncountedOnBody()}. */
-    DecisionEventRule uncounted() {
-        return with(objectName, multiStage, wholeAction, settledGap,
-                true, stageSpecificOccurrences, retainedQualifiers);
-    }
-
-    /**
-     * The graph counts each stage separately; see
-     * {@link #stageSpecificOccurrences()}.
-     */
-    DecisionEventRule countedPerStage() {
-        return with(objectName, multiStage, wholeAction, settledGap,
-                uncountedOnBody, true, retainedQualifiers);
+                retainedQualifiers);
     }
 
     /**
@@ -389,7 +329,7 @@ public record DecisionEventRule(
      */
     DecisionEventRule retaining(String... names) {
         return with(objectName, multiStage, wholeAction, settledGap,
-                uncountedOnBody, stageSpecificOccurrences, Set.of(names));
+                Set.of(names));
     }
 
     private DecisionEventRule with(
@@ -397,8 +337,6 @@ public record DecisionEventRule(
             boolean multiStage,
             boolean wholeAction,
             String settledGap,
-            boolean uncountedOnBody,
-            boolean stageSpecificOccurrences,
             Set<String> retainedQualifiers
     ) {
         return new DecisionEventRule(
@@ -410,8 +348,6 @@ public record DecisionEventRule(
                 multiStage,
                 wholeAction,
                 settledGap,
-                uncountedOnBody,
-                stageSpecificOccurrences,
                 retainedQualifiers,
                 unnamedObject,
                 namesOrganisms,

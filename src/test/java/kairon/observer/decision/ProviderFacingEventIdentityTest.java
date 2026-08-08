@@ -83,8 +83,8 @@ final class ProviderFacingEventIdentityTest {
         );
 
         assertEquals(
-                "{\"events\":[{\"event\":\"A ship landed on the surface "
-                        + "of a planet or moon.\","
+                "{\"events\":[{\"event\":\"The Commander's ship landed on "
+                        + "the surface of a planet or moon.\","
                         + "\"commanderControlled\":true}]}",
                 serializer.serializeSection(request, DecisionSections.EVENTS)
         );
