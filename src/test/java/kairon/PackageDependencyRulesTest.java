@@ -55,6 +55,30 @@ final class PackageDependencyRulesTest {
                             + "move because an LLM selection profile changed"
             ),
             new Rule(
+                    "kairon.bio",
+                    "kairon.observer",
+                    "the organic registry is reference data: what the game "
+                            + "calls an organism cannot depend on what Kairon "
+                            + "decides to say about it"
+            ),
+            new Rule(
+                    "kairon.bio",
+                    "kairon.semantics",
+                    "a name is not a meaning; the registry answers one "
+                            + "question from one file and reads no observation"
+            ),
+            new Rule(
+                    "kairon.bio",
+                    "kairon.system",
+                    "same, for the projection that records which organisms a "
+                            + "body carries"
+            ),
+            new Rule(
+                    "kairon.bio",
+                    "kairon.state",
+                    "same, for canonical state"
+            ),
+            new Rule(
                     "kairon.semantics",
                     "kairon.behavior",
                     "the behaviour graph is a subscriber-owned projection; "

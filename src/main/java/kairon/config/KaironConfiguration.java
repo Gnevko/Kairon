@@ -44,6 +44,7 @@ public record KaironConfiguration(
         SpeechConfiguration speech,
         BehaviorGraphConfiguration behaviorGraph,
         ObservationCorpusConfiguration observationCorpus,
+        BioConfiguration bio,
         AuthenticationConfiguration authentication
 ) {
 
@@ -281,6 +282,7 @@ public record KaironConfiguration(
                         raw.observationCorpus,
                         workingDirectory
                 );
+        BioConfiguration bio = validateBio(raw.bio, workingDirectory);
         AuthenticationConfiguration authentication =
                 validateAuthentication(rawAuthentication, llm, speech);
         return new KaironConfiguration(
@@ -291,8 +293,38 @@ public record KaironConfiguration(
                 speech,
                 behaviorGraph,
                 observationCorpus,
+                bio,
                 authentication
         );
+    }
+
+    /**
+     * The organic registry, which is optional and empty by absence.
+     *
+     * <p>No {@code bio} block and no {@code registryFile} both mean the same
+     * thing: run without a registry, and let every organism be named by
+     * whatever the journal said. A path that is set is required to exist, so a
+     * typo is a startup failure rather than a session that silently names
+     * nothing.</p>
+     */
+    private static BioConfiguration validateBio(
+            RawBioConfiguration raw,
+            Path workingDirectory
+    ) {
+        if (raw == null) {
+            return new BioConfiguration(null);
+        }
+        return new BioConfiguration(requiredExistingFile(
+                optionalPath(raw.registryFile, "$.bio.registryFile", workingDirectory),
+                "$.bio.registryFile"
+        ));
+    }
+
+    private static Path requiredExistingFile(Path path, String field) {
+        if (path != null && !Files.isRegularFile(path)) {
+            throw failure("CONFIG_FILE_NOT_FOUND", field);
+        }
+        return path;
     }
 
     private static BehaviorGraphConfiguration validateBehaviorGraph(
@@ -1214,6 +1246,17 @@ public record KaironConfiguration(
         }
     }
 
+    /**
+     * Where the organic registry is read from, or {@code null} for none.
+     *
+     * <p>A separate file rather than a bundled resource: it is generated from
+     * pinned upstream tables under their own licence, it is not compiled into
+     * the jar, and it can be replaced or removed without rebuilding anything
+     * (ADR-0028).</p>
+     */
+    public record BioConfiguration(Path registryFile) {
+    }
+
     public record LlmConfiguration(
             String activeProvider,
             Map<String, LlmProviderConfiguration> providers
@@ -1413,6 +1456,11 @@ public record KaironConfiguration(
         public RawSpeechConfiguration speech;
         public RawBehaviorGraphConfiguration behaviorGraph;
         public RawObservationCorpusConfiguration observationCorpus;
+        public RawBioConfiguration bio;
+    }
+
+    private static final class RawBioConfiguration {
+        public String registryFile;
     }
 
     private record RawSourceConfiguration(

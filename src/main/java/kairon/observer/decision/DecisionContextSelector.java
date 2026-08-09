@@ -45,6 +45,12 @@ import java.util.TreeMap;
  */
 public final class DecisionContextSelector {
 
+    private final DecisionOrganicNames organicNames;
+
+    public DecisionContextSelector(DecisionOrganicNames organicNames) {
+        this.organicNames = Objects.requireNonNull(organicNames, "organicNames");
+    }
+
     public List<LlmDecisionRequest.ContextGroup> select(
             CurrentGameStateSnapshot state,
             SystemRegistrySnapshot registry,
@@ -265,16 +271,18 @@ public final class DecisionContextSelector {
      * system scanner already reported it opens no turn at all. The names would
      * otherwise live for exactly one observation that the model never sees.</p>
      *
-     * <p>One field per genus, named by the organism and valued
-     * {@code COLLECTED} or {@code NOT_COLLECTED}. Not one field carrying a list:
-     * {@link SemanticValue} is a closed set with no list in it, and adding one
-     * would put back the compound value ADR-0024 removed. A genus the game has
-     * no word for at all is still left out — that rule is unchanged — but the
-     * name of the ones that stay is read off the identity by
-     * {@link DecisionNames#genusField} rather than off the localised label. The
-     * label is in whatever language the game runs in, and with a Russian client
-     * this group was the one Cyrillic key in an English document: the document's
-     * own names moved with the output language while nothing else did.</p>
+     * <p>Two listings of organisms, not one field per genus carrying
+     * {@code COLLECTED} or {@code NOT_COLLECTED}: {@link SemanticValue} is a
+     * closed set with no list in it, and a compound value is what ADR-0024
+     * removed.</p>
+     *
+     * <p>The name comes from {@link DecisionOrganicNames}, the same three rungs
+     * every other mention of an organism uses — so one organism reads as one
+     * organism wherever the document names it, and the language it is named in
+     * is Kairon's own setting rather than the game's. Before ADR-0028 this
+     * group cut the name out of the middle of the game's symbol, which said
+     * {@code Bacterial} where the game says {@code Bacterium} and was wrong in
+     * every language. A genus no rung can name is still left out.</p>
      *
      * <p>The whole inventory is sent, including a genus the turn's own event has
      * just finished. That is not the event said twice: the event reports an
@@ -287,7 +295,7 @@ public final class DecisionContextSelector {
      * signals and no survey would otherwise read as three organisms nobody has
      * collected.</p>
      */
-    private static void addBiology(
+    private void addBiology(
             List<LlmDecisionRequest.ContextGroup> groups,
             CurrentGameStateSnapshot state,
             SystemRegistrySnapshot registry,
@@ -306,11 +314,7 @@ public final class DecisionContextSelector {
         }
         Map<String, String> named = new TreeMap<>();
         for (Map.Entry<String, String> genus : survey.genera().entrySet()) {
-            if (genus.getValue() == null) {
-                // The game has no word for this organism at all; see below.
-                continue;
-            }
-            String name = DecisionNames.genusField(genus.getKey());
+            String name = organicNames.name(genus.getKey(), genus.getValue());
             if (name != null) {
                 named.put(name, genus.getKey());
             }
@@ -323,6 +327,20 @@ public final class DecisionContextSelector {
             } else {
                 remaining.add(genus.getKey());
             }
+        }
+        List<LlmDecisionRequest.Field> facts = new ArrayList<>();
+        if (survey.allCollected()) {
+            // Said as a fact rather than left to be inferred from a list that
+            // is not there. A body whose every genus is collected carries no
+            // "remaining", and on the live run of 2026-08-08 that document was
+            // answered by reading "collected" as the opposite — twice, the
+            // second time aloud. Absence goes on meaning "nothing established"
+            // everywhere in this contract; what changed is that finishing a
+            // body is now something the document states.
+            facts.add(new LlmDecisionRequest.Field(
+                    "allCollected",
+                    new SemanticValue.BooleanValue(true)
+            ));
         }
         List<LlmDecisionRequest.Listing> listings = new ArrayList<>();
         if (!collected.isEmpty()) {
@@ -337,10 +355,10 @@ public final class DecisionContextSelector {
                     remaining
             ));
         }
-        if (!listings.isEmpty()) {
+        if (!listings.isEmpty() || !facts.isEmpty()) {
             groups.add(new LlmDecisionRequest.ContextGroup(
                     "biology",
-                    List.of(),
+                    List.copyOf(facts),
                     List.copyOf(listings)
             ));
         }

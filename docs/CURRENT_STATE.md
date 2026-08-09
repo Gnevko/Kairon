@@ -897,6 +897,183 @@ without being one. `SystemRegistryContractTest` (five tests, in
 through `SemanticPipelineHarness`, which now records the snapshot per
 observation and at the end of the run.
 
+## Organic registry
+
+`config/organic-registry.json` (214 KB, `kairon-organic-registry-v1`) carries
+997 entries: 23 genera, 112 species, 862 variants, keyed by the game's
+`$Codex_Ent_…_Name;` symbols. Every entry has an English name; 13 genera, 76
+species and 574 variants also carry a Russian one. Species carry `valueCr` and
+genera carry `colonyDistanceM` and `multipleSpecies`. `valueCr` is now read —
+by the analysis turn (ADR-0029) and by the GUI's price table — and
+`OrganicRegistry` exposes it; `colonyDistanceM` is still loaded by nobody and
+not exposed (ADR-0028).
+
+Six organisms are declared once rather than twice: bark mounds, amphora plants,
+anemones, crystalline shards, sinuous tubers and one stratum the upstream lists
+at the top level all have the same symbol for their genus and their species,
+which is the game saying they are one organism. They are genus entries carrying
+the species' `valueCr`. The first version of the file emitted both, and the
+loader's duplicate check is what found it.
+
+`kairon.bio` is a leaf package: `OrganicRegistry` (immutable, one lookup —
+identifier plus language) and `JsonOrganicRegistryLoader` (strict: a duplicate
+identifier, a species whose genus is not declared, a blank name or another
+schema is a startup failure, because a registry half-read names half the
+organisms and falls back silently on the rest). `PackageDependencyRulesTest`
+forbids `kairon.bio` importing `kairon.observer`, `kairon.semantics`,
+`kairon.system` or `kairon.state`.
+
+`bio.registryFile` in `kairon.json` points at it; `null`, or no `bio` block at
+all, is a supported way to run and means every organism is named by the word the
+journal carried. `RuntimeWiring.organicNames` loads it once and logs
+`ORGANIC_REGISTRY_LOADED file=… organisms=… language=…`.
+
+**Every mention of an organism in the request goes through
+`DecisionOrganicNames`**, three rungs in order: the registry in
+`observer.outputLanguage`, else the journal's own rendering, else the registry's
+canonical English. Below that, nothing — the symbol is not a word. It names the
+`organism` of a sampling event (from the `variantIdentifier` qualifier the
+adapter now carries beside the rendering), the `organism` of a sampling change
+(resolved against the `ORGANIC_SAMPLING_VARIANT` change of the same
+observation), the `organisms` a surface scan lists, and the `collected` and
+`remaining` of `context.biology`. `DecisionNames.genusField` is deleted.
+
+`ModelFacingReplayBaselineTest` moved by four hunks and nothing else: `[
+"Bacterial", "Fonticulus", "Tussocks" ]` became `[ "Bacterium", "Fonticulua",
+"Tussock" ]` in the two turns that list organisms, and the same in the two
+`context.biology` groups. The fixtures configure no registry, so that diff is
+the second rung alone — the words the fixture journals already carried.
+`OrganicNamingContractTest` drives one journal five ways and asserts the whole
+document each time.
+
+**The analysis that finishes a sample says what it pays** (ADR-0029).
+`ScanOrganic.Analysed` alone carries `valueMCr`, and carries `firstFootfall:
+true` where the registry's scan of the body says nobody had walked on it — the
+figure is then five times the published price, base plus a 400% first-discovery
+bonus, which is what all 61 sales in this project's journals show. One number,
+already multiplied, so there is no arithmetic for the model to do;
+`firstFootfall` says why it is large and is never a factor to apply. Silence
+about footfall sends the published price without the flag. **The unit is
+millions to one decimal** — `12.9`, not `12934900` — because the field exists to
+be spoken; the registry and the file stay in credits. Declared on
+`DecisionEventRule.reportsSampleValue`, which no other event sets. The baseline
+does not move — no fixture configures a registry — so the contract is asserted
+by `OrganicNamingContractTest` across first footfall, already footfalled and no
+registry at all, and the glossary's reachability check now loads the shipped
+registry so `valueMCr` is a name a fixture actually produces.
+
+**A finished body says so, and says what it paid in all** (ADR-0029, amended
+2026-08-08). `BiologicalSurvey` now keeps the collected *species* beside the
+collected genera, and `allCollected()` is true once every genus the surface scan
+named has a completed sequence — false where the scan named nothing, because a
+body nobody mapped has no list to have finished and calling that "all collected"
+would turn ignorance into an achievement. Two things follow from it:
+
+- **`context.biology.allCollected: true`** is stated rather than left to be
+  inferred from a missing `remaining`. Absence still means absence everywhere
+  else in this contract; what changed is that finishing a body is now *said*.
+  That empty-list cost is documented twice over — a document reading
+  `{"collected":[…five…]}` with no `remaining` was answered "the rest of the
+  organisms are still unstudied" — and the second occurrence, on T07 of the live
+  run of 2026-08-08, is what bought this field.
+- **`bodyTotalMCr` replaces `valueMCr` on the turn that finishes the body**, and
+  never joins it. One money figure per turn is the ADR-0029 rule that keeps the
+  model out of arithmetic, and the last sample's own price is inside the total
+  anyway. Summed over the collected **species**, because the game prices a
+  species and one genus can be several; five times over where the same
+  `firstFootfall` evidence applies. **Withheld whole if any collected species has
+  no registry price** — a partial sum is a lie about the rest, not an
+  approximation of it.
+
+The prompt's preference block gained a line for each, and
+`DecisionFieldGlossary` an entry for each. `exobiology.jsonl` — the fixture named
+after this — turned out to carry only `Log` and `Sample` records and **never a
+single `Analyse`**, so no fixture had ever finished a sampling sequence, let
+alone a body. One record was appended; the graph path it drives grew from 17
+transitions to 18, and to 19 once ADR-0030 added the `Scan` as well. `OrganicNamingContractTest`'s
+`finishingABodyReportsTheTotalItPaidAndSaysItIsFinished` reads the whole
+document and asserts all four halves at once: `bodyTotalMCr` present, `valueMCr`
+absent, `allCollected` true, `remaining` absent.
+
+**A surveyed body says what it is worth at least** (ADR-0030). The reading that
+names genera carries `atLeastMCr`: the sum, over those genera, of the cheapest
+species the body's own conditions still allow, multiplied by the same five on
+the same `firstFootfall` evidence. **This is the first thing in the request
+Kairon infers rather than reads**, and every decision under it leans one way so
+that the answer understates — an unreported condition admits, a species the file
+states no rules for admits, a genus that survives nothing drops out of the sum.
+A floor cannot be wrong in the direction that matters; a ceiling or a best guess
+would need the opposite property and has neither.
+
+- **The rules ship in the registry file**, per species, beside the value:
+  `bodyTypes`, `atmospheres`, the gravity/temperature/pressure bounds and
+  `volcanism`. `JsonOrganicRegistryLoader` reads them strictly and
+  `OrganicRegistry` now also keeps the parent links, because narrowing a genus
+  needs to know its species. `OrganicPredictor` is the one reader and is kept
+  apart from the registry: naming what was found and predicting what could be
+  there are different jobs with different failure modes.
+- **The conditions were already recorded.** `PlanetBody` has carried planet
+  class, atmosphere type, volcanism, gravity, temperature and pressure since
+  ADR-0025, so all six inputs are a registry lookup — no new stored field.
+  `OrganicConditions` owns the two unit conversions the journal and the tables
+  disagree on (m/s² to g, pascals to atmospheres).
+- **Region, star class, materials and system contents are not consulted.** They
+  constrain 61 of the 254 upstream rulesets and would remove 87% of the wrong
+  species that survive, but ignoring a constraint only widens a set and a wider
+  set only lowers a minimum. That is the next tightening, not a defect.
+- **Measured before it was built**, against 922 detailed scans and 83 samples in
+  the Commander's own journals: the species actually sampled survived in 82 of
+  82 cases where anything survived, 9.6 species per genus became 1.7, exactly
+  one survived in 46 of 82, and the cheapest survivor *was* the true species in
+  61 of 82. One body produced no candidate at all — `Clypeus_01` at 468 K,
+  refused by a published pressure floor of 0.054 against a reading of 0.0481.
+- **The `exobiology.jsonl` fixture gained a `Scan`** of the body it samples, so
+  the prediction is fixture-driven end to end. That removed `firstFootfall` and
+  `previouslyFootfalled` from the glossary's unreachable list rather than adding
+  `atLeastMCr` to it: nothing in the repository had ever scanned anything, which
+  is why no fixture could state a footfall flag.
+- The prompt gained one preference line, and it says *at least* — a floor spoken
+  as a certainty is the misreading this field can cause.
+
+**The GUI has an `Exobiology` tab**: the 118 priced organisms, named in
+`observer.outputLanguage`, with the species of the last `ScanOrganic.Analysed`
+filled in the accent colour and scrolled into view.
+`DesktopOrganicSampleSubscriber` posts the species symbol and the tab resolves
+the rest; the price table is posted once at startup because it is read from a
+file and never changes. Per the 2026-08-08 decision there are no tests under
+`src/test/java/kairon/ui`, and this was proved by rendering the tab and looking
+at it.
+
+The file is written by `OrganicRegistryGeneratorTest` (opt-in, skipped without
+`-Dkairon.bio.registryOutput`). It reads two pinned upstream tables over HTTPS —
+`Silarn/EDMC-BioScan` at `5f0d2e44…` for species names and values,
+`Silarn/EDMC-ExploData` at `011ec1d0…` for genus names, colony distances and the
+star-class and material colour tables — and the Commander's own journals for
+localised names. `THIRD_PARTY_NOTICES.md` records both, GPL-2.0, no upstream
+file copied here.
+
+What the run of 2026-08-08 established, from 238 journals and 848 organic
+records:
+
+- **The generated values are right.** All 61 recorded sales divide exactly by
+  the generated `valueCr`, and every non-zero bonus is exactly four times the
+  sale — the first-discovery payout of five times over, kept as a rule in
+  ADR-0028 rather than as a stored field.
+- **93 organic identifiers were read and all 93 are nameable.** The assertion
+  that would fail if the game had outgrown the pinned tables did not fire.
+- **570 Russian names are composed rather than read**, from 11 genus words and
+  16 colour words derived from the readings and required to agree across every
+  reading of their genus.
+- **Two refusals, both real.** Radicoida translates its epithet — `Radicoida
+  Unicus` is read `Подобокорень уника` — so the genus composes nothing. And the
+  game contradicts itself about Frutexa Metallicum: the species record reads
+  `Кустарник Metallicum` and the variant record reads `Кустарник Металлический
+  - изумруд`, one epithet translated and one not. That species now ships only
+  the one variant name that was read; its other eight carry English alone.
+- **These journals are not all in one language.** Nine codex entries are read
+  both in German and in Russian. None of them is an organism, and an assertion
+  now fails the run if one ever is.
+
 ## Telemetry catalogue
 
 The checked-in runtime catalogue is pinned to
@@ -1017,6 +1194,40 @@ projected into canonical state and the graph, recorded as a semantic effect for
 the next turn, traced and shown in the GUI. When a batch would have consisted
 only of declined observations, no batch exists and the provider is not called.
 
+**Putting the ship down and taking it up again stopped opening turns on
+2026-08-08.** `Touchdown` and `Liftoff` join `Disembark` and `Embark` in the same
+provisional lever, measured on the live run of that evening: **nine such turns,
+none useful.** Two invented a gravity the document did not carry ("gravity is
+normal", "gravity is within norms" — on a body an earlier turn had been shown as
+`LOW`), one invented a past it was never shown ("I hope today's flight is
+smoother than yesterday's"), one repeated the comment before it and was refused
+by the novelty guard, and five were captions of the event ("on the surface of a
+rocky world, all as usual"). The opposite fix was considered and declined on the
+same evidence — giving the landing its gravity, since the two turns that carried
+the band read it correctly — because a lift-off has no use for gravity and was no
+better, and "all as usual" is not a sentence missing a field.
+
+Three consequences, none of them small:
+
+- **`DecisionMechanism.SURFACE` and `DecisionContextProfile.SURFACE` have no
+  admitted event left.** Their catalogue rules stay, exactly as the disembark's
+  did, so restoring the pair is deleting two clauses.
+- **No document can carry `context.body` and `context.vehicle` together any
+  more.** `SURFACE` was the only profile asking for both; a vehicle launch gives
+  the vehicle without a body and a supercruise exit the body without a vehicle.
+  `context.vehicle` itself is still reachable — the live run produced it on a
+  vehicle launch — but no fixture drives one, so it moved to the glossary's
+  not-reached list.
+- **The fixed replay baseline fell from 61 turns to 53**, and every one of the
+  eight is a landing or a take-off: `exobiology.jsonl` 14 → 11,
+  `system-survey.jsonl` 17 → 15 per trigger and 3 → 2 batched, and
+  `touchdown-liftoff.jsonl` 4 → 2. Seven tests used a landing as their generic
+  "something live opens a turn" and were moved onto a supercruise exit; one,
+  `aLandingIsSentAsWhatHappenedAndWhereAndNothingElse`, was about the landing
+  itself and is now about a supercruise exit. `FieldAwareStatementTest` keeps its
+  landing on purpose: `DecisionEventProjector` never consults admission, so what
+  a landing *states* is still a fair question.
+
 The same method declines a `Scan.BodyReading` whose depth is not `Detailed` or
 which names no body, and a signal record from either scanner reporting no
 positive count of anything: neither established a result. One shallow reading is
@@ -1035,6 +1246,27 @@ and admits the undiscovered star reading only when it is filed under that body
 and the visit has not been told yet. The graph asks the same three questions of
 the same fields against its own episode root, so a reading one admits is a
 reading the other records.
+
+**Since 2026-08-08 the same guard also declines a body reading of a body nothing
+was ever reported to be on**, unless the trigger immediately before it was a
+`CodexEntry` with `IsNewEntry`. The Commander asked for it after an evening in
+which bare scans produced five silences and six comments, two of which were the
+only fabrications of the run. Measured over 836 detailed scans in these
+journals, **175 were of a body that had a signals record — four in five are of a
+body with nothing on it**, and in all 175 the signals record came *before* the
+scan, 172 of them immediately before, so whether anything lives there is already
+known when the scan is asked about. The memory is the guard's existing
+per-instrument one rather than a second per-visit tally of the same records.
+
+Three properties of that rule are deliberate. A reading declined as empty is
+**not** recorded as seen, so the same body scanned again once its signals are
+known still opens its own turn — it was declined for what the body is, not for
+having been told. The codex exception is **one step of lookback**, because the
+codex record does not name the body it came from: `BodyID` is 0 in all 168
+entries these journals hold, and a new entry was followed by a scan in 60 cases.
+And the failure direction is **silence** — a body whose signals were established
+on an earlier visit and never restated is declined. `Scan.UndiscoveredStar` and
+the arrival-star milestone are untouched; the rule is about a body reading only.
 
 A scan's signature is what the body **is**, not where it is: the body key, the
 scan depth, the coarse kind, `StarType`, `PlanetClass`, `Landable`,
@@ -1195,15 +1427,16 @@ baseline replay are in that shape — all of them batches where a whole scenario
 collapses into one turn — and **none** of the 90 turns of the 2026-08-07 replay,
 where no batch mixed the two at all.
 
-The `biology` group names each genus by the word in its
-`$Codex_Ent_<word>_Genus_Name;` identity (`DecisionNames.genusField`), not by
-the localised label: the label is in whatever language the game runs in, and
-with a Russian client this group was the one Cyrillic key in an otherwise
-English document — the document's contract moved with `outputLanguage` while
-nothing else did. The word is Frontier's own (`Shrubs` where the catalogue says
-Frutexa) rather than a taxonomy table to keep in step. A genus whose identity is
-not a genus symbol is left out of the group, as an unlabelled one was before,
-and is still recorded and compared everywhere else.
+The `biology` group names each genus through `DecisionOrganicNames`, the same
+three rungs every other mention of an organism uses (ADR-0028): the organic
+registry in `observer.outputLanguage`, else the word the journal itself carried,
+else the registry's canonical English. A genus no rung can name is left out of
+the group, and is still recorded and compared everywhere else. Until 2026-08-08
+this group cut the word out of the middle of the game's own symbol — `Bacterial`
+where the game says `Bacterium`, `Shrubs` where it says `Frutexa` — which was
+wrong in every language, while the sampling event beside it carried the journal's
+rendering and put Cyrillic in an otherwise English document. One rule replaced
+both.
 
 A change carried by a hidden observation is reconciled against the final
 canonical state before it is selected. An observation the model is not shown
@@ -1289,10 +1522,23 @@ Java constant. It has four blocks and no others:
 - **the role** — Kairon as a female in-universe shipboard companion to one
   human Commander, calm, observant, warm, restrained, occasionally dryly
   humorous, and never describing herself as an AI, model or assistant;
-- **the preferences** — two lines: greet the Commander when a session begins,
-  and read `biology.remaining` as what is still uncollected and the point of
-  the turn it appears in, appearing in one turn only. There were four; the
-  gravity line and the signal-count line were both removed on 2026-08-08 and
+- **the preferences** — three lines: greet the Commander when a session begins,
+  read `biology.remaining` as what is still uncollected and the point of the
+  turn it appears in, and read `valueMCr` as what the sample just collected pays
+  with `firstFootfall` beside it meaning nobody had walked here before. The
+  third was added on 2026-08-08 because the two fields arrived and were passed
+  over: the first analysis ever to carry them read `"valueMCr":38.9,
+  "firstFootfall":true` and the answer named neither, using instead the two
+  fields that did have a line. It is worded exactly like the `biology.remaining`
+  line — the field being in the request, then what the field is, then nothing —
+  and the rule it is betting against is this project's own: a line calling a
+  field the point of the turn is heard on turns that have no such field. **What
+  to watch: a credit figure on a turn with no `valueMCr`.** Measured so far, on
+  three eligible turns: two named the figure — "12.2 million credits, nobody had
+  set foot here before us" and "brought 5 million credits" — and one named
+  neither. The first of the two ran to five sentences and was refused by the
+  ceiling that then existed, which is why there is no longer one. There were four lines before 2026-08-08; the
+  gravity line and the signal-count line were both removed that day and
   the measurements are below;
 - **`<grounding>`** — three sentences, positive, naming no field, no unit and
   no value: state as fact only what the request contains, anything added is
@@ -1612,14 +1858,22 @@ event came from the nth trigger bus sequence.
 There is no separate prompt resource or response JSON Schema.
 `ObserverResponseValidator` is the executable response contract. It accepts
 either `{"decision":"SILENT"}` with exactly that one property, or
-`{"decision":"COMMENT","comment":"…"}` with exactly those two. Comments are
-limited to at most four sentences (`MAXIMUM_COMMENT_SENTENCES`), raised from two
-on the evidence of the 2026-08-06 replay: fifteen of that run's seventy-five
-turns were refused for their sentence count alone — eleven answers of three
-sentences and four of four, the longest 265 characters — and a refusal costs the
-whole turn, because the batch is consumed once and no second decision is made.
-The prompt asks for no length; brevity is the role's, and the ceiling only
-refuses what is no longer a remark. Any further property — including the removed
+`{"decision":"COMMENT","comment":"…"}` with exactly those two. **A comment has no length limit at all** as of 2026-08-08.
+There was a ceiling of four sentences, itself raised from two on the evidence of
+the 2026-08-06 replay — fifteen of that run's seventy-five turns refused for
+sentence count alone, eleven answers of three sentences and four of four — and it
+was removed after costing the same thing again at four: the first live turn ever
+to carry a sample's payout named the figure and the first footfall, ran to five
+sentences, and was refused whole. A refusal costs the turn, because the batch is
+consumed once and no second decision is made, so the bound bought silence rather
+than brevity. `MAXIMUM_COMMENT_SENTENCES`, the sentence-terminator pattern and
+`countSentences` are all deleted; `ObserverResponseValidatorTest` asserts the
+absence — five sentences and eight are both valid. **Nothing now bounds what is
+spoken**, and the comment is spoken: an answer that runs long is synthesis time,
+playback the Commander waits through, and the coordinator holding the turn until
+it completes. Brevity is the role's and nothing else's. The shape to reach for if
+answers become paragraphs is a character bound on what is spoken, not a sentence
+count on what may be said. Any further property — including the removed
 `evidence` and the earlier `evidenceTriggerBusSequences` — is
 `INVALID_PROPERTIES`; there is no id validation left, because the request offers
 no id to validate against. `validate` takes the raw output and the previous
@@ -2335,6 +2589,20 @@ model.
    what it is for. Beyond the prompt, she is never shown her own previous
    comments: they are internal to the repetition guard, so no continuity of
    voice is possible by construction, and changing that is an ADR.
+13. Measure the organic registry on a live session
+   ([ADR-0028](decisions/ADR-0028-THE-ORGANIC-REGISTRY-IS-A-FILE.md)). It is
+   wired and the baseline diff is explained, but no live run has been made with
+   it: what wants watching is whether she still names organisms as readily now
+   that the word is Kairon's rather than the game's, and whether the 574
+   composed Russian variant names read as the game's own. Then a standing check
+   that runs the generator's assertions against the journals rather than only
+   when the file is regenerated.
+14. Decide whether the sale of organic data should say what was sold. The
+   adapter for `SellOrganicData` emits a market identity and nothing else — no
+   species, no sum, no bonus — because every number is inside the record's
+   `BioData` array and nothing reads it. The game states all of it, so reporting
+   it would be a stated fact rather than an estimate, but it puts credits in the
+   document and that has its own measurement.
 
 ## Explicitly deferred
 

@@ -5,6 +5,7 @@
 {"timestamp":"2026-07-24T16:00:03.100Z","event":"FSSBodySignals","BodyName":"Test A 1","SystemAddress":1001,"BodyID":4,"Signals":[{"Type":"$SAA_SignalType_Biological;","Count":1}]}
 {"timestamp":"2026-07-24T16:00:03.200Z","event":"FSSBodySignals","BodyName":"Test A 2","SystemAddress":1001,"BodyID":5,"Signals":[{"Type":"$SAA_SignalType_Geological;","Count":3}]}
 {"timestamp":"2026-07-24T16:00:04Z","event":"FSSAllBodiesFound","SystemName":"Test A","SystemAddress":1001,"Count":12}
+{"timestamp":"2026-07-24T16:00:04.200Z","event":"Scan","ScanType":"Detailed","BodyName":"Test A 1","BodyID":4,"StarSystem":"Test A","SystemAddress":1001,"DistanceFromArrivalLS":120.5,"TidalLock":false,"TerraformState":"","PlanetClass":"Rocky body","Atmosphere":"thin carbon dioxide atmosphere","AtmosphereType":"CarbonDioxide","Volcanism":"","MassEM":0.0031,"Radius":1250000.0,"SurfaceGravity":1.96133,"SurfaceTemperature":200.0,"SurfacePressure":5066.25,"Landable":true,"WasDiscovered":false,"WasMapped":false,"WasFootfalled":false}
 {"timestamp":"2026-07-24T16:00:04.500Z","event":"SAAScanComplete","BodyName":"Test A 1","SystemAddress":1001,"BodyID":4,"ProbesUsed":2,"EfficiencyTarget":3}
 {"timestamp":"2026-07-24T16:00:05Z","event":"SAASignalsFound","BodyName":"Test A 1","SystemAddress":1001,"BodyID":4,"Signals":[{"Type":"$SAA_SignalType_Biological;","Count":5}],"Genuses":[{"Genus":"$Codex_Ent_Bacterial_Genus_Name;"}]}
 {"timestamp":"2026-07-24T16:00:06Z","event":"ApproachBody","StarSystem":"Test A","SystemAddress":1001,"Body":"Test A 1","BodyID":4}
@@ -18,3 +19,4 @@
 {"timestamp":"2026-07-24T16:00:14Z","event":"Touchdown","StarSystem":"Test A","SystemAddress":1001,"Body":"Test A 1","BodyID":4,"OnPlanet":true}
 {"timestamp":"2026-07-24T16:00:15Z","event":"Disembark","SRV":true,"ID":10,"StarSystem":"Test A","SystemAddress":1001,"Body":"Test A 1","BodyID":4,"OnPlanet":true}
 {"timestamp":"2026-07-24T16:00:16Z","event":"ScanOrganic","ScanType":"Sample","Genus":"$Codex_Ent_Bacterial_Genus_Name;","Species":"$Codex_Ent_Bacterial_01_Name;","Variant":"$Codex_Ent_Bacterial_01_A_Name;","SystemAddress":1001,"Body":4}
+{"timestamp":"2026-07-24T16:00:17Z","event":"ScanOrganic","ScanType":"Analyse","Genus":"$Codex_Ent_Bacterial_Genus_Name;","Species":"$Codex_Ent_Bacterial_01_Name;","Variant":"$Codex_Ent_Bacterial_01_A_Name;","SystemAddress":1001,"Body":4}

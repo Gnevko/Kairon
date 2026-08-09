@@ -270,7 +270,12 @@ final class StatedFactsContractTest {
      * <p>A body's name and a system's name are both spelled {@code name} inside
      * their groups; the identity compared is the slot, so one never suppresses
      * the other.</p>
-     */
+     *
+     * <p>Driven by a supercruise exit and a vehicle launch in one batch, which
+     * is how a turn carries a body and a vehicle at once now that landings do
+     * not open turns: context needs are the union of the batch's events, so the
+     * body comes from the one and the vehicle from the other. It used to be a
+     * single landing, whose {@code SURFACE} profile asked for both.</p>
     @Test
     void oneSubjectDoesNotSuppressAnother(@TempDir Path directory) {
         try (SemanticPipelineHarness harness =
@@ -280,11 +285,12 @@ final class StatedFactsContractTest {
                     .closeBatch()
                     .journal(approach("10:00:02Z", 23155, "Schieni"))
                     .closeBatch()
-                    .journal(touchdown("10:00:03Z", 23155, "Schieni"))
+                    .journal(supercruiseExit("10:00:03Z", 23155, "Schieni"))
+                    .journal(launchSrv("10:00:04Z"))
                     .closeBatch();
             PipelineTrace trace = harness.trace();
 
-            PipelineTrace.TurnView turn = turnWith(trace, "TOUCHDOWN");
+            PipelineTrace.TurnView turn = turnWith(trace, "VEHICLE_LAUNCHED");
             assertEquals(
                     "Schieni 4 a",
                     turn.context().path("body").path("name").textValue(),
@@ -292,7 +298,7 @@ final class StatedFactsContractTest {
                             + turn.userMessage()
             );
             assertEquals(
-                    "SHIP",
+                    "SLV",
                     turn.context().path("vehicle").path("kind").textValue(),
                     "and the vehicle under its own, neither displacing the "
                             + "other: " + turn.userMessage()
@@ -464,6 +470,25 @@ final class StatedFactsContractTest {
                 + "\",\"event\":\"ApproachBody\",\"StarSystem\":\"" + system
                 + "\",\"SystemAddress\":" + address
                 + ",\"Body\":\"" + system + " 4 a\",\"BodyID\":20}";
+    }
+
+    private static String supercruiseExit(
+            String time,
+            long address,
+            String system
+    ) {
+        return "{\"timestamp\":\"2026-07-30T" + time
+                + "\",\"event\":\"SupercruiseExit\",\"StarSystem\":\"" + system
+                + "\",\"SystemAddress\":" + address
+                + ",\"Body\":\"" + system + " 4 a\",\"BodyID\":20,"
+                + "\"BodyType\":\"Planet\"}";
+    }
+
+    private static String launchSrv(String time) {
+        return "{\"timestamp\":\"2026-07-30T" + time
+                + "\",\"event\":\"LaunchSRV\",\"SRVType\":\"testbuggy\","
+                + "\"Loadout\":\"starter\",\"ID\":24,"
+                + "\"PlayerControlled\":true}";
     }
 
     private static String touchdown(String time, long address, String system) {

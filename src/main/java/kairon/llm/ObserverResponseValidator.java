@@ -13,10 +13,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static java.util.regex.Pattern.UNICODE_CHARACTER_CLASS;
 
 /**
  * Strict local SILENT/COMMENT response validation.
@@ -33,19 +30,23 @@ import static java.util.regex.Pattern.UNICODE_CHARACTER_CLASS;
  * and it is attached there rather than smuggled through a response record that
  * would then be part model and part Kairon.</p>
  *
- * <h2>How long a comment may be</h2>
- * <p>The ceiling is a shape rule: it refuses what is no longer a remark. It is
- * not the place where brevity is asked for — that is the role, and the prompt
- * says nothing about length. A refusal costs the whole turn, because the batch
- * is consumed once and there is no second decision, so the bound has to sit
- * above what a restrained answer actually looks like.</p>
+ * <h2>How long a comment may be: no longer bounded</h2>
+ * <p>There was a ceiling of four sentences, and it is gone as of 2026-08-08.
+ * It had already been raised once — from two, after fifteen of seventy-five
+ * turns of the 2026-08-06 replay were refused on sentence count alone and every
+ * one of them was a comment Kairon would have spoken — and the same cost
+ * arrived again at four. On the first live turn ever to carry a sample's
+ * payout, the answer named the figure and the first footfall, ran to five
+ * sentences, and was refused whole. A batch is consumed once and there is no
+ * second decision, so a refusal is not a shorter comment: it is silence.</p>
  *
- * <p>Measured on the 300-observation replay of 2026-08-06, the first live run
- * under the two-block prompt: fifteen of seventy-five turns were refused for
- * their sentence count alone under a ceiling of two — eleven answers of three
- * sentences and four of four, the longest 265 characters. Every one of them was
- * a comment Kairon would have spoken. Four accepts all of them and still refuses
- * a fifth sentence, which is where a remark becomes a paragraph.</p>
+ * <p><strong>Nothing bounds a comment's length now.</strong> That is the
+ * accepted trade and it is not free — the comment is spoken, so an answer that
+ * runs long costs synthesis time and playback the Commander waits through, and
+ * the coordinator holds the turn until playback completes. Brevity is asked for
+ * by the role and by nothing else. If answers start becoming paragraphs, this
+ * is the decision to revisit, and the shape to reach for is a character bound
+ * on what gets spoken rather than a sentence count on what may be said.</p>
  */
 public final class ObserverResponseValidator {
 
@@ -54,12 +55,6 @@ public final class ObserverResponseValidator {
             "decision",
             "comment"
     );
-    private static final int MAXIMUM_COMMENT_SENTENCES = 4;
-    private static final Pattern SENTENCE_TERMINATOR =
-            Pattern.compile(
-                    "[.!?\\u2026]+(?=\\s|$)",
-                    UNICODE_CHARACTER_CLASS
-            );
 
     private final ObjectMapper responseMapper;
     private final CommentNoveltyGuard noveltyGuard;
@@ -140,11 +135,6 @@ public final class ObserverResponseValidator {
         } else if (comment.isBlank()) {
             violations.add("COMMENT_BLANK");
         } else {
-            int sentenceCount = countSentences(comment);
-            if (sentenceCount < 1
-                    || sentenceCount > MAXIMUM_COMMENT_SENTENCES) {
-                violations.add("COMMENT_SENTENCE_COUNT");
-            }
             noveltyGuard.findViolation(comment, previousComments)
                     .ifPresent(violations::add);
         }
@@ -192,20 +182,6 @@ public final class ObserverResponseValidator {
                 List.of(),
                 detail
         );
-    }
-
-    private static int countSentences(String text) {
-        Matcher matcher = SENTENCE_TERMINATOR.matcher(text);
-        int count = 0;
-        int lastEnd = 0;
-        while (matcher.find()) {
-            count++;
-            lastEnd = matcher.end();
-        }
-        if (!text.substring(lastEnd).strip().isEmpty()) {
-            count++;
-        }
-        return count;
     }
 
     private static ValidatedObserverResponse invalid(String violation) {

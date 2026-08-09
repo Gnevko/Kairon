@@ -126,12 +126,14 @@ final class DecisionProductionPipeline implements AutoCloseable {
      * @param turnPolicy         trigger cap and character budget
      * @param quietPeriodMs      how long after the last trigger a batch closes
      * @param maximumBatchAgeMs  how long after the first trigger it closes
+     * @param organicNames       how organisms are named, registry or not
      */
     record Options(
             boolean graphEnabled,
             DecisionTurnPolicy turnPolicy,
             long quietPeriodMs,
-            long maximumBatchAgeMs
+            long maximumBatchAgeMs,
+            DecisionOrganicNames organicNames
     ) {
 
         static Options production() {
@@ -139,7 +141,8 @@ final class DecisionProductionPipeline implements AutoCloseable {
                     true,
                     DecisionTurnPolicy.production(),
                     60_000L,
-                    120_000L
+                    120_000L,
+                    DecisionOrganicNames.withoutRegistry()
             );
         }
 
@@ -148,7 +151,8 @@ final class DecisionProductionPipeline implements AutoCloseable {
                     enabled,
                     turnPolicy,
                     quietPeriodMs,
-                    maximumBatchAgeMs
+                    maximumBatchAgeMs,
+                    organicNames
             );
         }
 
@@ -157,7 +161,18 @@ final class DecisionProductionPipeline implements AutoCloseable {
                     graphEnabled,
                     turnPolicy,
                     quietPeriod,
-                    maximumBatchAgeMs
+                    maximumBatchAgeMs,
+                    organicNames
+            );
+        }
+
+        Options withOrganicNames(DecisionOrganicNames names) {
+            return new Options(
+                    graphEnabled,
+                    turnPolicy,
+                    quietPeriodMs,
+                    maximumBatchAgeMs,
+                    names
             );
         }
     }
@@ -169,7 +184,13 @@ final class DecisionProductionPipeline implements AutoCloseable {
     DecisionProductionPipeline(Path directory, DecisionTurnPolicy policy) {
         this(
                 directory,
-                new Options(true, policy, 60_000L, 120_000L)
+                new Options(
+                        true,
+                        policy,
+                        60_000L,
+                        120_000L,
+                        DecisionOrganicNames.withoutRegistry()
+                )
         );
     }
 
@@ -211,7 +232,7 @@ final class DecisionProductionPipeline implements AutoCloseable {
                         directory.resolve("decision-pipeline-turns.jsonl")
                 ),
                 new LlmDecisionRequestCompactor(
-                        new LlmDecisionRequestFactory(),
+                        new LlmDecisionRequestFactory(options.organicNames()),
                         new JacksonDecisionRequestSerializer(),
                         policy
                 ),

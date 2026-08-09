@@ -85,8 +85,7 @@ final class SemanticPipelineHarness implements AutoCloseable {
      * until the object they produce has been proved to be the one that was
      * sent.</p>
      */
-    private final LlmDecisionRequestFactory requestFactory =
-            new LlmDecisionRequestFactory();
+    private final LlmDecisionRequestFactory requestFactory;
     private final JacksonDecisionRequestSerializer requestSerializer =
             new JacksonDecisionRequestSerializer();
     private final List<LlmDecisionRequest> internalRequests =
@@ -94,10 +93,12 @@ final class SemanticPipelineHarness implements AutoCloseable {
 
     private SemanticPipelineHarness(
             DecisionProductionPipeline pipeline,
-            boolean graphEnabled
+            boolean graphEnabled,
+            DecisionOrganicNames organicNames
     ) {
         this.pipeline = pipeline;
         this.graphEnabled = graphEnabled;
+        this.requestFactory = new LlmDecisionRequestFactory(organicNames);
     }
 
     static SemanticPipelineHarness create(Path directory) {
@@ -117,10 +118,12 @@ final class SemanticPipelineHarness implements AutoCloseable {
                                 options.graphEnabled(),
                                 options.turnPolicy(),
                                 QUIET_PERIOD_MS,
-                                60_000L
+                                60_000L,
+                                options.organicNames()
                         )
                 ),
-                options.graphEnabled()
+                options.graphEnabled(),
+                options.organicNames()
         );
     }
 
@@ -131,14 +134,31 @@ final class SemanticPipelineHarness implements AutoCloseable {
      * production one unless a test has a reason to say otherwise, so batching
      * is exercised rather than bypassed.</p>
      */
-    record HarnessOptions(boolean graphEnabled, DecisionTurnPolicy turnPolicy) {
+    record HarnessOptions(
+            boolean graphEnabled,
+            DecisionTurnPolicy turnPolicy,
+            DecisionOrganicNames organicNames
+    ) {
 
         static HarnessOptions standard() {
-            return new HarnessOptions(true, DecisionTurnPolicy.production());
+            return new HarnessOptions(
+                    true,
+                    DecisionTurnPolicy.production(),
+                    DecisionOrganicNames.withoutRegistry()
+            );
         }
 
         static HarnessOptions withoutGraph() {
-            return new HarnessOptions(false, DecisionTurnPolicy.production());
+            return new HarnessOptions(
+                    false,
+                    DecisionTurnPolicy.production(),
+                    DecisionOrganicNames.withoutRegistry()
+            );
+        }
+
+        /** The same run, with a registry naming the organisms. */
+        HarnessOptions naming(DecisionOrganicNames names) {
+            return new HarnessOptions(graphEnabled, turnPolicy, names);
         }
     }
 

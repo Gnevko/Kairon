@@ -93,6 +93,82 @@ final class KaironConfigurationTest {
         assertTrue(provider.toString().contains("apiKey=<absent>"));
     }
 
+    /**
+     * No organic registry is a way to run, not a broken configuration.
+     *
+     * <p>Every organism is then named by the word the journal itself carried,
+     * which is what every organism was named by before ADR-0028.</p>
+     */
+    @Test
+    void bioRegistryIsAbsentWhenTheSectionIsMissing() throws IOException {
+        Path journalDirectory = Files.createDirectory(
+                temporaryDirectory.resolve("bio-missing-section-journals")
+        );
+        writeAuthentication(authentication(null, null, null));
+        KaironConfiguration configuration = KaironConfiguration.load(
+                writeConfiguration(
+                        "bio-missing-section.json",
+                        configuration("live", journalDirectory, null, "lm-studio")
+                )
+        );
+        assertNull(configuration.bio().registryFile());
+    }
+
+    @Test
+    void bioRegistryFileIsResolvedLikeEveryOtherConfiguredPath()
+            throws IOException {
+        Path journalDirectory = Files.createDirectory(
+                temporaryDirectory.resolve("bio-present-journals")
+        );
+        Path registry = temporaryDirectory.resolve("organic-registry.json");
+        Files.writeString(registry, "{}");
+        writeAuthentication(authentication(null, null, null));
+        KaironConfiguration configuration = KaironConfiguration.load(
+                writeConfiguration(
+                        "bio-present.json",
+                        configuration(
+                                "live",
+                                journalDirectory,
+                                null,
+                                "lm-studio",
+                                bioSection(nullablePath(registry))
+                        )
+                )
+        );
+        assertEquals(registry, configuration.bio().registryFile());
+    }
+
+    /**
+     * A path that is set and is not there is a typo, and typos are loud.
+     *
+     * <p>The alternative is a session that runs with no registry because of a
+     * misspelling, names nothing, and says so nowhere.</p>
+     */
+    @Test
+    void bioRegistryFileMustExist() throws IOException {
+        Path journalDirectory = Files.createDirectory(
+                temporaryDirectory.resolve("bio-absent-file-journals")
+        );
+        writeAuthentication(authentication(null, null, null));
+        ConfigurationException failure = assertThrows(
+                ConfigurationException.class,
+                () -> KaironConfiguration.load(
+                        writeConfiguration(
+                                "bio-absent-file.json",
+                                configuration(
+                                        "live",
+                                        journalDirectory,
+                                        null,
+                                        "lm-studio",
+                                        bioSection("\"./no-such-registry.json\"")
+                                )
+                        )
+                )
+        );
+        assertEquals("CONFIG_FILE_NOT_FOUND", failure.code());
+        assertEquals("$.bio.registryFile", failure.path());
+    }
+
     @Test
     void observationCorpusDefaultsToDisabledWhenSectionMissing() throws IOException {
         Path journalDirectory = Files.createDirectory(
@@ -748,6 +824,12 @@ final class KaironConfigurationTest {
         return baseConfiguration.substring(0, insertionPoint)
                 + observationCorpusSection
                 + baseConfiguration.substring(insertionPoint);
+    }
+
+    private static String bioSection(String registryFile) {
+        return "                  \"bio\": {\n"
+                + "                    \"registryFile\": " + registryFile + "\n"
+                + "                  },\n";
     }
 
     private static String observationCorpusSection(

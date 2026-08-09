@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.JournalEventObservation.RawJournalData;
 import kairon.observation.journal.event.social.ReceiveText;
-import kairon.observation.journal.event.travel.Touchdown;
+import kairon.observation.journal.event.ship.LaunchSRV;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -142,11 +142,16 @@ final class NpcChatterSelectionTest {
     /** Every other event type is admitted without inspecting its payload. */
     @Test
     void noOtherEventTypeIsFiltered() throws Exception {
-        JournalEventObservation touchdown = new Touchdown(raw("""
-                {"timestamp":"2026-07-30T10:00:00Z","event":"Touchdown",
-                 "PlayerControlled":true,"Latitude":18.7,"Longitude":-35.0}
+        // Not a landing: putting the ship down and taking it up again were
+        // added to the declined set on 2026-08-08, on nine measured turns that
+        // produced two invented gravities, an invented yesterday, a repeat and
+        // five captions. A vehicle launch is the nearest thing still admitted.
+        JournalEventObservation launch = new LaunchSRV(raw("""
+                {"timestamp":"2026-07-30T10:00:00Z","event":"LaunchSRV",
+                 "SRVType":"testbuggy","Loadout":"starter","ID":24,
+                 "PlayerControlled":true}
                 """));
-        assertTrue(LlmJournalEventSelection.admitsAsTrigger(touchdown));
+        assertTrue(LlmJournalEventSelection.admitsAsTrigger(launch));
     }
 
     private static ReceiveText receiveText(String channel, String message) {
@@ -168,7 +173,7 @@ final class NpcChatterSelectionTest {
                 JSON.readTree(compact),
                 Optional.of("ReceiveText").filter(
                         ignored -> compact.contains("\"ReceiveText\"")
-                ).or(() -> Optional.of("Touchdown")),
+                ).or(() -> Optional.of("LaunchSRV")),
                 Optional.of(Instant.parse("2026-07-30T10:00:00Z"))
         );
     }

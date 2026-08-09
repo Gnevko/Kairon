@@ -47,6 +47,7 @@ final class PostMappingRescanTest {
             assertEquals(
                     List.of(
                             "SYSTEM_JUMP",
+                            "BODY_SIGNALS_FOUND",
                             "BODY_SCANNED",
                             "BODY_MAPPING_COMPLETED"
                     ),
@@ -55,7 +56,7 @@ final class PostMappingRescanTest {
                             + trace.describe()
             );
             assertEquals(
-                    3,
+                    4,
                     trace.providerCalls(),
                     "and the restatement opened no turn of its own"
             );
@@ -107,6 +108,7 @@ final class PostMappingRescanTest {
             // Standing at the body, so canonical state answers for this one.
             harness.journal(ObservationCaptureMode.LIVE, approach())
                     .closeBatch();
+            bearsSignals(harness);
             harness.journal(ObservationCaptureMode.LIVE, scan(1833.95371))
                     .closeBatch();
             harness.journal(ObservationCaptureMode.LIVE, mappingComplete())
@@ -148,7 +150,8 @@ final class PostMappingRescanTest {
             PipelineTrace trace = harness.trace();
 
             assertEquals(
-                    List.of("SYSTEM_JUMP", "BODY_SCANNED", "BODY_SCANNED"),
+                    List.of("SYSTEM_JUMP", "BODY_SIGNALS_FOUND",
+                            "BODY_SCANNED", "BODY_SCANNED"),
                     trace.modelFacingKinds(),
                     "a body that is now mapped is a different reading: "
                             + trace.describe()
@@ -167,8 +170,22 @@ final class PostMappingRescanTest {
         harness.journal(loadGame())
                 .journal(ObservationCaptureMode.LIVE, jump())
                 .closeBatch();
+        bearsSignals(harness);
         harness.journal(ObservationCaptureMode.LIVE, scan(1833.95371))
                 .closeBatch();
+    }
+
+    /**
+     * The system scanner finds something on the body, in a batch of its own.
+     *
+     * <p>Scaffolding since 2026-08-08: a reading of a body nothing was reported
+     * to be on opens no turn at all, and what these tests are about is the
+     * second reading of a body the first one already reported.</p>
+     */
+    private static void bearsSignals(SemanticPipelineHarness harness) {
+        harness.journal(ObservationCaptureMode.LIVE, Journal.bodyBearsSignals(
+                "10:01:30Z", 17658387800858L, 5, "Schieni GG-A c3-64 3"
+        )).closeBatch();
     }
     private static String jump() {
         return """

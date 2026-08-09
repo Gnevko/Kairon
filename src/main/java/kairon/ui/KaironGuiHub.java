@@ -1,5 +1,6 @@
 package kairon.ui;
 
+import kairon.bio.OrganicRegistry.PricedOrganism;
 import kairon.system.SystemRegistrySnapshot;
 
 import java.time.Instant;
@@ -38,6 +39,24 @@ public interface KaironGuiHub extends AutoCloseable {
      * facts spelled twice.</p>
      */
     void postSystemRegistry(SystemRegistrySnapshot snapshot);
+
+    /**
+     * The organic registry's price table, once.
+     *
+     * <p>It is read from a file at startup and never changes, so this is posted
+     * once and not per observation. The list is already immutable and already
+     * shaped for a table; a parallel view record would be the same facts spelled
+     * twice.</p>
+     */
+    void postOrganicRegistry(List<PricedOrganism> organisms);
+
+    /**
+     * The species whose sampling sequence was just analysed.
+     *
+     * <p>The identifier and nothing else: what it is called and what it pays are
+     * the registry's to answer, and the view already has the registry.</p>
+     */
+    void postOrganicSample(String speciesIdentifier);
 
     CompletionStage<Void> closeRequested();
 
@@ -236,6 +255,16 @@ public interface KaironGuiHub extends AutoCloseable {
         @Override
         public void postSystemRegistry(SystemRegistrySnapshot snapshot) {
             Objects.requireNonNull(snapshot, "snapshot");
+        }
+
+        @Override
+        public void postOrganicRegistry(List<PricedOrganism> organisms) {
+            Objects.requireNonNull(organisms, "organisms");
+        }
+
+        @Override
+        public void postOrganicSample(String speciesIdentifier) {
+            Objects.requireNonNull(speciesIdentifier, "speciesIdentifier");
         }
 
         @Override

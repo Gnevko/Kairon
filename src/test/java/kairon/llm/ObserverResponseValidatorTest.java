@@ -253,22 +253,27 @@ final class ObserverResponseValidatorTest {
     }
 
     /**
-     * The ceiling refuses a paragraph, not a third sentence.
+     * Length is not a reason to refuse an answer.
      *
-     * <p>Under a ceiling of two, fifteen of the seventy-five turns of the
-     * 2026-08-06 replay were refused for their sentence count alone — answers of
-     * three and four sentences that would otherwise have been spoken. Both ends
-     * are asserted here: a refusal is the loss of a whole turn, so the bound is
-     * worth as much as the accepts below it.</p>
+     * <p>The ceiling was two, then four, and is now gone (2026-08-08). Both
+     * raisings were bought the same way: fifteen of the seventy-five turns of
+     * the 2026-06 replay refused on sentence count alone, and then the first
+     * live turn ever to carry a sample's payout — which named the figure and the
+     * first footfall, ran to five sentences, and was lost whole. A batch is
+     * consumed once, so a refusal is silence rather than a shorter comment.</p>
+     *
+     * <p>What is asserted here is the absence: a five-sentence answer and a
+     * paragraph are both valid, and nothing in the validator measures length.
+     * Brevity is the role's to ask for.</p>
      */
     @Test
-    void acceptsUpToFourSentencesAndRefusesAFifth() {
+    void acceptsAnAnswerOfAnyLength() {
         for (String text : List.of(
                 "Supercruise is engaged.",
-                "Supercruise is engaged. The star is close.",
-                "Supercruise is engaged. The star is close. Heat is rising.",
                 "Supercruise is engaged. The star is close. Heat is rising. "
-                        + "Nothing alarming yet."
+                        + "Nothing alarming yet.",
+                "One. Two. Three. Four. Five.",
+                "One. Two. Three. Four. Five. Six. Seven. Eight."
         )) {
             ValidatedObserverResponse response = validator.validate(
                     comment(text),
@@ -278,10 +283,6 @@ final class ObserverResponseValidatorTest {
             assertEquals(Status.VALID, response.status(), text);
             assertEquals(List.of(), response.violations(), text);
         }
-        assertViolation(
-                comment("One. Two. Three. Four. Five."),
-                "COMMENT_SENTENCE_COUNT"
-        );
     }
 
     /** No violation names an id, because no id was ever offered. */
@@ -290,7 +291,6 @@ final class ObserverResponseValidatorTest {
         for (String raw : List.of(
                 "{\"decision\":\"SILENT\",\"extra\":1}",
                 "{\"decision\":\"COMMENT\"}",
-                comment("One. Two. Three. Four. Five."),
                 "{\"decision\":\"COMMENT\",\"comment\":\"x\",\""
                         + REMOVED_CITATION_PROPERTY
                         + "\":[1]}"

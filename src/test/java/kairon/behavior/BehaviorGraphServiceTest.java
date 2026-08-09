@@ -668,6 +668,7 @@ final class BehaviorGraphServiceTest {
                         NormalizedEventType.FSS_BODY_SIGNALS_FOUND,
                         NormalizedEventType.FSS_BODY_SIGNALS_FOUND,
                         NormalizedEventType.FSS_ALL_BODIES_FOUND,
+                        NormalizedEventType.BODY_SCANNED,
                         NormalizedEventType.SAA_SCAN_COMPLETE,
                         NormalizedEventType.SAA_SIGNALS_FOUND,
                         NormalizedEventType.APPROACH_BODY,
@@ -680,7 +681,11 @@ final class BehaviorGraphServiceTest {
                         NormalizedEventType.LIFTOFF,
                         NormalizedEventType.TOUCHDOWN,
                         NormalizedEventType.DISEMBARK,
-                        NormalizedEventType.SCAN_ORGANIC_SAMPLE
+                        NormalizedEventType.SCAN_ORGANIC_SAMPLE,
+                        // The fixture finishes its sample as of 2026-08-08: it
+                        // is what makes a completed body — and the total it
+                        // paid — reachable at all.
+                        NormalizedEventType.SCAN_ORGANIC_ANALYSE
                 ),
                 episode.timeline().stream()
                         .map(EventOccurrence::eventType)
@@ -696,7 +701,10 @@ final class BehaviorGraphServiceTest {
                 firstTouchdown.context().biologicalSignalCount()
         );
         assertEquals(Boolean.TRUE, firstTouchdown.context().bodyHasBiology());
-        assertEquals(17, episode.occurrenceTransitions().size());
+        // Nineteen: one occurrence more is one transition more, and the
+        // fixture gained two — the Analyse that finishes its sample, and the
+        // Scan of the body it samples (ADR-0030).
+        assertEquals(19, episode.occurrenceTransitions().size());
         ShipBehaviorGraph graph = harness.graph(SHIP_9);
 
         // Completing a survey is a deliberate action and has its own node; the
@@ -704,8 +712,14 @@ final class BehaviorGraphServiceTest {
         // them is the sequence the Commander actually performed.
         assertTrue(hasNode(graph, NormalizedEventType.SAA_SCAN_COMPLETE));
         assertTrue(hasNode(graph, NormalizedEventType.SAA_SIGNALS_FOUND));
+        // The scan of the body now sits between the two, so the system scan
+        // leads into it and it leads into the survey.
         assertNotNull(graph.edge(new EdgeKey(
                 NormalizedEventType.FSS_ALL_BODIES_FOUND,
+                NormalizedEventType.BODY_SCANNED
+        )));
+        assertNotNull(graph.edge(new EdgeKey(
+                NormalizedEventType.BODY_SCANNED,
                 NormalizedEventType.SAA_SCAN_COMPLETE
         )));
         assertNotNull(graph.edge(new EdgeKey(
@@ -792,7 +806,7 @@ final class BehaviorGraphServiceTest {
         // allowlist to extend. Round-tripping is covered by
         // JsonBehaviorGraphStoreTest for occurrences generally; this event has
         // nothing about it that the store treats differently.
-        assertEquals(5L, survey.episodeSequence());
+        assertEquals(6L, survey.episodeSequence());
     }
 
     private static boolean hasNode(

@@ -28,6 +28,9 @@ import kairon.observer.ObserverTurnCoordinator;
 import kairon.observer.decision.DecisionTurnPolicy;
 import kairon.observer.decision.JacksonDecisionRequestSerializer;
 import kairon.observer.decision.LlmDecisionRequestCompactor;
+import kairon.bio.JsonOrganicRegistryLoader;
+import kairon.bio.OrganicRegistry;
+import kairon.observer.decision.DecisionOrganicNames;
 import kairon.observer.decision.LlmDecisionRequestFactory;
 import kairon.output.CommentSink;
 import kairon.output.CommentSink.SpeechDescriptor;
@@ -42,6 +45,7 @@ import kairon.projection.ObservationProjectionSubscriber;
 import kairon.projection.ProjectedObservationBus;
 import kairon.trace.JsonLinesTurnTraceWriter;
 import kairon.ui.DesktopObserverTurnListener;
+import kairon.ui.DesktopOrganicSampleSubscriber;
 import kairon.ui.DesktopSystemRegistrySubscriber;
 import kairon.ui.DesktopUiSubscriber;
 import kairon.ui.KaironGuiHub;
@@ -49,6 +53,7 @@ import kairon.ui.swing.SwingKaironGuiHub;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Path;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -409,6 +414,8 @@ public final class KaironApplication {
         private final ObservationSubscription guiSubscription;
         private final ProjectedObservationBus.Subscription
                 guiRegistrySubscription;
+        private final ProjectedObservationBus.Subscription
+                guiOrganicSubscription;
         private final AtomicBoolean closed = new AtomicBoolean();
 
         private RuntimeWiring(
@@ -425,7 +432,8 @@ public final class KaironApplication {
                 CurrentGameStateView currentGameState,
                 KaironGuiHub guiHub,
                 ObservationSubscription guiSubscription,
-                ProjectedObservationBus.Subscription guiRegistrySubscription
+                ProjectedObservationBus.Subscription guiRegistrySubscription,
+                ProjectedObservationBus.Subscription guiOrganicSubscription
         ) {
             this.bus = bus;
             this.llmClient = llmClient;
@@ -443,6 +451,7 @@ public final class KaironApplication {
             this.guiHub = guiHub;
             this.guiSubscription = guiSubscription;
             this.guiRegistrySubscription = guiRegistrySubscription;
+            this.guiOrganicSubscription = guiOrganicSubscription;
         }
 
         private static RuntimeWiring create(
@@ -471,6 +480,8 @@ public final class KaironApplication {
             ObservationSubscription guiSubscription = null;
             ProjectedObservationBus.Subscription guiRegistrySubscription =
                     null;
+            ProjectedObservationBus.Subscription guiOrganicSubscription = null;
+            OrganicRegistry organicRegistry = OrganicRegistry.EMPTY;
             try {
                 bus = new InProcessObservationBus();
                 if (configuration.behaviorGraph().enabled()) {
@@ -539,10 +550,17 @@ public final class KaironApplication {
                 // kairon-llm-situation-v2.1 is the only production context.
                 // There is no fallback and no version selector: a turn either
                 // produces one sparse request or, on overflow, none at all.
+                organicRegistry = organicRegistry(configuration);
                 coordinator = new ObserverTurnCoordinator(
                         configuration.observer(),
                         new LlmDecisionRequestCompactor(
-                                new LlmDecisionRequestFactory(),
+                                new LlmDecisionRequestFactory(
+                                        new DecisionOrganicNames(
+                                                organicRegistry,
+                                                configuration.observer()
+                                                        .outputLanguage()
+                                        )
+                                ),
                                 new JacksonDecisionRequestSerializer(),
                                 DecisionTurnPolicy.production()
                         ),
@@ -565,12 +583,23 @@ public final class KaironApplication {
                     guiRegistrySubscription =
                             new DesktopSystemRegistrySubscriber(guiHub)
                                     .subscribeTo(projectedObservationBus);
+                    guiOrganicSubscription =
+                            new DesktopOrganicSampleSubscriber(guiHub)
+                                    .subscribeTo(projectedObservationBus);
+                    // The price table is read from a file once and never
+                    // changes, so it is posted once rather than per
+                    // observation.
+                    guiHub.postOrganicRegistry(organicRegistry.priced(
+                            configuration.observer().outputLanguage()
+                    ));
                 }
                 boolean guiSubscriptionActive = !guiHub.enabled()
                         || guiSubscription != null
                         && guiSubscription.isActive()
                         && guiRegistrySubscription != null
-                        && guiRegistrySubscription.isActive();
+                        && guiRegistrySubscription.isActive()
+                        && guiOrganicSubscription != null
+                        && guiOrganicSubscription.isActive();
                 if (!llmSubscriptions.allActive()
                         || !projectionSubscription.isActive()
                         || !diagnosticSubscription.isActive()
@@ -592,10 +621,19 @@ public final class KaironApplication {
                         currentGameState,
                         guiHub,
                         guiSubscription,
-                        guiRegistrySubscription
+                        guiRegistrySubscription,
+                        guiOrganicSubscription
                 );
             } catch (RuntimeException failure) {
                 RuntimeException cleanupFailure = null;
+                if (guiOrganicSubscription != null) {
+                    ProjectedObservationBus.Subscription createdOrganic =
+                            guiOrganicSubscription;
+                    cleanupFailure = attempt(
+                            cleanupFailure,
+                            createdOrganic::close
+                    );
+                }
                 if (guiRegistrySubscription != null) {
                     ProjectedObservationBus.Subscription createdRegistry =
                             guiRegistrySubscription;
@@ -742,6 +780,34 @@ public final class KaironApplication {
             );
         }
 
+        /**
+         * How organisms are named this run.
+         *
+         * <p>No configured file means no registry, which is a supported way to
+         * run and not a degraded one: every organism is then named by the word
+         * the journal itself carried. A configured file that will not load is
+         * a startup failure — the loader says exactly what was wrong with it,
+         * and a registry half-read would name half the organisms and silently
+         * fall back on the rest (ADR-0028).</p>
+         */
+        private static OrganicRegistry organicRegistry(
+                KaironConfiguration configuration
+        ) {
+            Path registryFile = configuration.bio().registryFile();
+            if (registryFile == null) {
+                LOGGER.info("ORGANIC_REGISTRY_ABSENT");
+                return OrganicRegistry.EMPTY;
+            }
+            OrganicRegistry registry = JsonOrganicRegistryLoader.load(registryFile);
+            LOGGER.info(
+                    "ORGANIC_REGISTRY_LOADED file={} organisms={} language={}",
+                    registryFile,
+                    registry.size(),
+                    configuration.observer().outputLanguage()
+            );
+            return registry;
+        }
+
         private static CommentSink createCommentSink(
                 KaironConfiguration configuration
         ) {
@@ -805,6 +871,12 @@ public final class KaironApplication {
             );
             firstFailure = attempt(firstFailure,
                     () -> coordinator.shutdown().toCompletableFuture().join());
+            if (guiOrganicSubscription != null) {
+                firstFailure = attempt(
+                        firstFailure,
+                        guiOrganicSubscription::close
+                );
+            }
             if (guiRegistrySubscription != null) {
                 firstFailure = attempt(
                         firstFailure,

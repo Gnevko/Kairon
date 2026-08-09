@@ -3,6 +3,7 @@ package kairon.ui.swing;
 import kairon.behavior.event.BehaviorGraphEventSource;
 import kairon.behavior.graph.BehaviorGraphVisualizationQuery;
 import kairon.config.KaironConfiguration.UiConfiguration;
+import kairon.bio.OrganicRegistry.PricedOrganism;
 import kairon.system.SystemRegistrySnapshot;
 import kairon.ui.KaironGuiHub;
 import org.slf4j.Logger;
@@ -175,6 +176,20 @@ public final class SwingKaironGuiHub implements KaironGuiHub {
     }
 
     @Override
+    public void postOrganicRegistry(List<PricedOrganism> organisms) {
+        offer(new OrganicRegistryUpdate(
+                List.copyOf(Objects.requireNonNull(organisms, "organisms"))
+        ));
+    }
+
+    @Override
+    public void postOrganicSample(String speciesIdentifier) {
+        offer(new OrganicSampleUpdate(
+                Objects.requireNonNull(speciesIdentifier, "speciesIdentifier")
+        ));
+    }
+
+    @Override
     public CompletionStage<Void> closeRequested() {
         return closeRequested;
     }
@@ -312,6 +327,10 @@ public final class SwingKaironGuiHub implements KaironGuiHub {
 
         void updateSystemRegistry(SystemRegistrySnapshot snapshot);
 
+        void updateOrganicRegistry(List<PricedOrganism> organisms);
+
+        void markOrganicSample(String speciesIdentifier);
+
         void updateDroppedCount(long droppedCount);
 
         void showStopping();
@@ -341,7 +360,9 @@ public final class SwingKaironGuiHub implements KaironGuiHub {
             ObservationEffectUpdate,
             ModelDecisionUpdate,
             ModelCompletionUpdate,
-            SystemRegistryUpdate {
+            SystemRegistryUpdate,
+            OrganicRegistryUpdate,
+            OrganicSampleUpdate {
 
         void apply(GuiView view);
     }
@@ -388,6 +409,24 @@ public final class SwingKaironGuiHub implements KaironGuiHub {
         @Override
         public void apply(GuiView view) {
             view.updateSystemRegistry(snapshot);
+        }
+    }
+
+    private record OrganicRegistryUpdate(List<PricedOrganism> organisms)
+            implements UiUpdate {
+
+        @Override
+        public void apply(GuiView view) {
+            view.updateOrganicRegistry(organisms);
+        }
+    }
+
+    private record OrganicSampleUpdate(String speciesIdentifier)
+            implements UiUpdate {
+
+        @Override
+        public void apply(GuiView view) {
+            view.markOrganicSample(speciesIdentifier);
         }
     }
 

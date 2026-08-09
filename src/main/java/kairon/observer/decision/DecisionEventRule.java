@@ -85,6 +85,11 @@ import java.util.Set;
  *                     the body in the registry snapshot captured with this very
  *                     observation, so an instrument that named nothing must not
  *                     list what another one named earlier.
+ * @param reportsSampleValue
+ *                     whether this reading says what the sample it finished is
+ *                     worth. True for the analysis that completes a sampling
+ *                     sequence and false for every other step, because only the
+ *                     last one collects anything. See ADR-0029.
  * @param statedValues canonical fields this event's own sentence already states,
  *                     each at the one value it states. A supercruise entry says
  *                     the flight mode is supercruise in those words, so
@@ -114,6 +119,7 @@ public record DecisionEventRule(
         Set<String> retainedQualifiers,
         boolean unnamedObject,
         boolean namesOrganisms,
+        boolean reportsSampleValue,
         Map<SemanticField, SemanticValue> statedValues
 ) {
 
@@ -199,6 +205,7 @@ public record DecisionEventRule(
                 Set.of(),
                 false,
                 false,
+                false,
                 Map.of()
         );
     }
@@ -220,6 +227,7 @@ public record DecisionEventRule(
                 retainedQualifiers,
                 unnamedObject,
                 namesOrganisms,
+                reportsSampleValue,
                 statedValues
         );
     }
@@ -249,6 +257,7 @@ public record DecisionEventRule(
                 retainedQualifiers,
                 unnamedObject,
                 namesOrganisms,
+                reportsSampleValue,
                 stated
         );
     }
@@ -266,6 +275,34 @@ public record DecisionEventRule(
                 settledGap,
                 retainedQualifiers,
                 unnamedObject,
+                true,
+                reportsSampleValue,
+                statedValues
+        );
+    }
+
+    /**
+     * This reading says what the sample it finished is worth; see
+     * {@link #reportsSampleValue()}.
+     *
+     * <p>Declared per event, not per mechanism. Sampling has three steps and
+     * only the last one collects anything: a log and a sample in the middle of
+     * a sequence have nothing to pay out, and a price on them would be a price
+     * on work not yet done.</p>
+     */
+    DecisionEventRule reportingSampleValue() {
+        return new DecisionEventRule(
+                kind,
+                mechanism,
+                readAs,
+                objectName,
+                quantityName,
+                multiStage,
+                wholeAction,
+                settledGap,
+                retainedQualifiers,
+                unnamedObject,
+                namesOrganisms,
                 true,
                 statedValues
         );
@@ -285,6 +322,7 @@ public record DecisionEventRule(
                 retainedQualifiers,
                 true,
                 namesOrganisms,
+                reportsSampleValue,
                 statedValues
         );
     }
@@ -351,6 +389,7 @@ public record DecisionEventRule(
                 retainedQualifiers,
                 unnamedObject,
                 namesOrganisms,
+                reportsSampleValue,
                 statedValues
         );
     }

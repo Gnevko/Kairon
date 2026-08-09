@@ -26,12 +26,35 @@ import java.util.Objects;
  */
 public final class LlmDecisionRequestFactory {
 
-    private final DecisionEventProjector eventProjector =
-            new DecisionEventProjector();
-    private final DecisionChangeSelector changeSelector =
-            new DecisionChangeSelector();
-    private final DecisionContextSelector contextSelector =
-            new DecisionContextSelector();
+    private final DecisionEventProjector eventProjector;
+    private final DecisionChangeSelector changeSelector;
+    private final DecisionContextSelector contextSelector;
+
+    /**
+     * A factory that names organisms through {@code names}.
+     *
+     * <p>One naming for all three collaborators on purpose: an organism named
+     * one way in an event and another in the context beside it is the defect
+     * ADR-0028 removed, and the way to keep it removed is that there is one
+     * object deciding.</p>
+     */
+    public LlmDecisionRequestFactory(DecisionOrganicNames names) {
+        Objects.requireNonNull(names, "names");
+        this.eventProjector = new DecisionEventProjector(names);
+        this.changeSelector = new DecisionChangeSelector(names);
+        this.contextSelector = new DecisionContextSelector(names);
+    }
+
+    /**
+     * A factory with no organic registry behind it.
+     *
+     * <p>Exactly the {@code bio.registryFile: null} configuration: every
+     * organism is named by the word the journal itself carried, which is what
+     * every organism was named by before ADR-0028.</p>
+     */
+    public LlmDecisionRequestFactory() {
+        this(DecisionOrganicNames.withoutRegistry());
+    }
 
     public LlmDecisionRequest create(DecisionTurnInputs inputs) {
         Objects.requireNonNull(inputs, "inputs");

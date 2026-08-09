@@ -17,6 +17,11 @@ import java.util.TreeSet;
  * empty map beside a positive count is the ordinary state of a body that has
  * been seen from the system scanner and not yet mapped.</p>
  *
+ * <p>{@code collectedSpecies} is the same collection read one level down. The
+ * game prices a species, not a genus, so a total of what a body paid can only
+ * be summed from these; {@code completed} answers what is left to find and
+ * cannot, because one genus can be several species.</p>
+ *
  * <p>{@code completed} is the genera whose sampling sequence finished: three
  * scans, the last of which is {@code ScanOrganic.Analysed}. Kept as raw
  * {@code $Codex_Ent_..._Name;} identifiers, and matched on them — two records
@@ -35,12 +40,13 @@ import java.util.TreeSet;
  */
 public record BiologicalSurvey(
         Map<String, String> genera,
-        Set<String> completed
+        Set<String> completed,
+        Set<String> collectedSpecies
 ) {
 
     /** Nothing surveyed and nothing collected. */
     public static final BiologicalSurvey EMPTY =
-            new BiologicalSurvey(Map.of(), Set.of());
+            new BiologicalSurvey(Map.of(), Set.of(), Set.of());
 
     public BiologicalSurvey {
         genera = Collections.unmodifiableMap(new TreeMap<>(
@@ -48,6 +54,9 @@ public record BiologicalSurvey(
         ));
         completed = Collections.unmodifiableSet(new TreeSet<>(
                 Objects.requireNonNull(completed, "completed")
+        ));
+        collectedSpecies = Collections.unmodifiableSet(new TreeSet<>(
+                Objects.requireNonNull(collectedSpecies, "collectedSpecies")
         ));
     }
 
@@ -64,7 +73,7 @@ public record BiologicalSurvey(
         }
         Map<String, String> merged = new TreeMap<>(genera);
         merged.putAll(reported);
-        return new BiologicalSurvey(merged, completed);
+        return new BiologicalSurvey(merged, completed, collectedSpecies);
     }
 
     /**
@@ -76,15 +85,39 @@ public record BiologicalSurvey(
      * missing would make the collection depend on the instrument rather than on
      * what happened.</p>
      */
-    public BiologicalSurvey withCompleted(String genusIdentifier) {
-        if (genusIdentifier == null
-                || genusIdentifier.isBlank()
-                || completed.contains(genusIdentifier)) {
+    public BiologicalSurvey withCompleted(
+            String genusIdentifier,
+            String speciesIdentifier
+    ) {
+        boolean newGenus = genusIdentifier != null
+                && !genusIdentifier.isBlank()
+                && !completed.contains(genusIdentifier);
+        boolean newSpecies = speciesIdentifier != null
+                && !speciesIdentifier.isBlank()
+                && !collectedSpecies.contains(speciesIdentifier);
+        if (!newGenus && !newSpecies) {
             return this;
         }
-        Set<String> merged = new TreeSet<>(completed);
-        merged.add(genusIdentifier);
-        return new BiologicalSurvey(genera, merged);
+        Set<String> genusesDone = new TreeSet<>(completed);
+        if (newGenus) {
+            genusesDone.add(genusIdentifier);
+        }
+        Set<String> speciesDone = new TreeSet<>(collectedSpecies);
+        if (newSpecies) {
+            speciesDone.add(speciesIdentifier);
+        }
+        return new BiologicalSurvey(genera, genusesDone, speciesDone);
+    }
+
+    /**
+     * Whether every genus the survey named has been collected.
+     *
+     * <p>False when the survey named nothing: a body nobody has mapped has no
+     * list to have finished, and calling that "all collected" would turn
+     * ignorance into an achievement.</p>
+     */
+    public boolean allCollected() {
+        return !genera.isEmpty() && completed.containsAll(genera.keySet());
     }
 
     /**
@@ -103,6 +136,7 @@ public record BiologicalSurvey(
 
     /** Whether anything at all is recorded here. */
     public boolean isEmpty() {
-        return genera.isEmpty() && completed.isEmpty();
+        return genera.isEmpty() && completed.isEmpty()
+                && collectedSpecies.isEmpty();
     }
 }

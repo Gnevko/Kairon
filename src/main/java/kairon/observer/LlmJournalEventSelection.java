@@ -266,6 +266,23 @@ public final class LlmJournalEventSelection {
      * never shown. Each time the document held a body name and nothing else,
      * and something had to be said.</p>
      *
+     * <p>Putting the ship down and taking it up again read the same way, and
+     * were added on 2026-08-08 for the same reason after a measured live run.
+     * <strong>Nine such turns, none of them useful:</strong> two invented a
+     * gravity the document did not carry ("gravity is normal", "gravity is
+     * within norms" — on a body an earlier turn had been shown as LOW), one
+     * invented a past it was never shown ("I hope today's flight is smoother
+     * than yesterday's"), one was rejected as a repeat of the comment before
+     * it, and five were captions of the event itself — "on the surface of a
+     * rocky world, all as usual". The landing profile is the same
+     * {@code PRESENCE}: a body name, where the Commander is, which vehicle.</p>
+     *
+     * <p>The tempting fix was the opposite one — give the landing its gravity,
+     * since the two turns that <em>carried</em> the band that evening both read
+     * it correctly. It was declined on the same evening's evidence: the lift-off
+     * has no use for gravity and was no better, and "all as usual" is not a
+     * sentence missing a field.</p>
+     *
      * <p>This is the provisional lever rather than a change of source role, and
      * deliberately: the catalogue rules for both types stay where they are, so
      * restoring them is deleting two clauses. They also go on being projected
@@ -314,7 +331,9 @@ public final class LlmJournalEventSelection {
         }
         return !(event instanceof ScanOrganic.Sampled)
                 && !(event instanceof Disembark)
-                && !(event instanceof Embark);
+                && !(event instanceof Embark)
+                && !(event instanceof Touchdown)
+                && !(event instanceof Liftoff);
     }
 
     /**

@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class FieldAwareStatementTest {
 
     private final DecisionEventProjector projector =
-            new DecisionEventProjector();
+            new DecisionEventProjector(DecisionOrganicNames.withoutRegistry());
 
     // ------------------------------------------------ the predicate itself
 
@@ -229,7 +229,11 @@ final class FieldAwareStatementTest {
                     .journal(ObservationCaptureMode.BOOTSTRAP, jump())
                     .journal(ObservationCaptureMode.BOOTSTRAP, approach())
                     .settleProjection();
-            harness.journal(ObservationCaptureMode.LIVE, touchdownJson())
+            // A supercruise exit rather than the landing this test was
+            // written on: landings stopped opening turns on 2026-08-08, and
+            // what the case needs is any live event whose own body the
+            // situation answers for.
+            harness.journal(ObservationCaptureMode.LIVE, supercruiseExitJson())
                     .closeBatch();
             PipelineTrace trace = harness.trace();
             PipelineTrace.TurnView turn = trace.turns().getLast();
@@ -237,12 +241,12 @@ final class FieldAwareStatementTest {
             assertEquals(
                     "Schieni GG-A c3-84 4 a",
                     turn.context().path("body").path("name").textValue(),
-                    "the situation names the body the landing happened on: "
+                    "the situation names the body the event happened at: "
                             + turn.userMessage()
             );
             assertFalse(
                     turn.events().get(0).has("body"),
-                    "and the landing does not name it a second time"
+                    "and the event does not name it a second time"
             );
             assertFalse(
                     changedSlots(turn).contains("body.name"),
@@ -352,6 +356,23 @@ final class FieldAwareStatementTest {
                 """;
     }
 
+    private static String supercruiseExitJson() {
+        return """
+                {"timestamp":"2026-07-30T10:01:00Z","event":"SupercruiseExit",
+                 "StarSystem":"Schieni GG-A c3-84","SystemAddress":23155,
+                 "Body":"Schieni GG-A c3-84 4 a","BodyID":20,
+                 "BodyType":"Planet"}
+                """;
+    }
+
+    /**
+     * A landing, for the tests that ask what a landing states.
+     *
+     * <p>Still a landing on purpose: {@link DecisionEventProjector} projects
+     * whatever it is handed and never consults the observer's admission, so a
+     * type that no longer opens a turn is still the right subject for a
+     * question about what that type states.</p>
+     */
     private static String touchdownJson() {
         return """
                 {"timestamp":"2026-07-30T10:01:00Z","event":"Touchdown",

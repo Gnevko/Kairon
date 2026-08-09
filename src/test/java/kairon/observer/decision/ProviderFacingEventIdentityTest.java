@@ -69,24 +69,23 @@ final class ProviderFacingEventIdentityTest {
      * <p>The events section is compared whole rather than field by field: the
      * point is that nothing precedes the description, and only an exact string
      * can say that. The rest of the document is checked for the identity
-     * separately, because a landing legitimately establishes a system name and
-     * a flight mode.</p>
+     * separately, because a supercruise exit legitimately establishes a system
+     * name and a flight mode.</p>
      */
     @Test
-    void aLandingIsSentAsWhatHappenedAndWhereAndNothingElse() {
+    void aSupercruiseExitIsSentAsWhatHappenedAndWhereAndNothingElse() {
         DecisionTurnFixture fixture = new DecisionTurnFixture();
         LlmDecisionRequest request = factory.create(
                 fixture.inputs(List.of(fixture.graphDisabled("""
                         {"timestamp":"2026-07-30T10:00:00Z",
-                         "event":"Touchdown","PlayerControlled":true,
+                         "event":"SupercruiseExit","BodyType":"Planet",
                          "StarSystem":"Test A","Body":"Test A 1"}
                         """)))
         );
 
         assertEquals(
-                "{\"events\":[{\"event\":\"The Commander's ship landed on "
-                        + "the surface of a planet or moon.\","
-                        + "\"commanderControlled\":true}]}",
+                "{\"events\":[{\"event\":\"The Commander's ship left "
+                        + "supercruise for normal space.\"}]}",
                 serializer.serializeSection(request, DecisionSections.EVENTS)
         );
         String whole = serializer.serialize(request);
@@ -451,7 +450,7 @@ final class ProviderFacingEventIdentityTest {
                         """)
                 .journal("""
                         {"timestamp":"2026-07-30T10:00:09Z",
-                         "event":"Touchdown","PlayerControlled":true,
+                         "event":"SupercruiseExit","BodyType":"Planet",
                          "StarSystem":"Test A","Body":"Test A 1",
                          "Latitude":18.7,"Longitude":-35.0}
                         """)

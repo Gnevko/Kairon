@@ -96,4 +96,31 @@ final class Journal {
                 + "\",\"event\":\"Location\",\"StarSystem\":\"" + system
                 + "\",\"SystemAddress\":" + address + ",\"Docked\":false}";
     }
+
+    /**
+     * The system scanner reporting that a body has something on it.
+     *
+     * <p>Scaffolding since 2026-08-08, because a body reading of a body nothing
+     * was reported to be on no longer opens a turn. In a real journal this
+     * record always comes before the scan — 175 times out of 175 in this
+     * Commander's own — so a test whose subject is the scan writes it first and
+     * then gets on with the scan.</p>
+     *
+     * <p>One biological signal, deliberately the least a reading can establish:
+     * a test that varies what was found is a test about signals, and that
+     * belongs beside its own assertions rather than here.</p>
+     */
+    static String bodyBearsSignals(
+            String time,
+            long address,
+            int bodyId,
+            String bodyName
+    ) {
+        return "{\"timestamp\":\"" + DATE + time
+                + "\",\"event\":\"FSSBodySignals\",\"BodyName\":\"" + bodyName
+                + "\",\"BodyID\":" + bodyId
+                + ",\"SystemAddress\":" + address
+                + ",\"Signals\":[{\"Type\":\"$SAA_SignalType_Biological;\","
+                + "\"Count\":1}]}";
+    }
 }

@@ -141,6 +141,37 @@ import java.util.Objects;
  * important without saying where the fact lives asks the model to supply
  * it.</p>
  *
+ * <h2>The payout line, added on the evidence of one turn</h2>
+ * <p>The third line names {@code valueMCr} and {@code firstFootfall}, and it
+ * exists because the fields arrived and were ignored. On the live run of
+ * 2026-08-08 the first analysis to carry them read
+ * {@code "valueMCr":38.9,"firstFootfall":true} — thirty-nine million credits
+ * and a body nobody had walked on — and the answer was "the last sample of
+ * Frutexa Acus is collected; bacteria, tussock, stratum and tubus are still
+ * uncollected here". She used {@code organism} and {@code biology.remaining},
+ * both of which a preference line names, and passed over the two facts that
+ * had no line. That is not proof the line is what did it, but it is the one
+ * difference between the fields she used and the fields she did not.</p>
+ *
+ * <p>The wording copies the {@code biology.remaining} line exactly, because
+ * that is the shape that has survived: it opens with the field being in the
+ * request, says what the field <em>is</em>, and stops. It describes no
+ * situation — nothing about detours being worth making or samples being worth
+ * collecting — and it says nothing about what absence means.</p>
+ *
+ * <p><strong>The risk is stated rather than hoped away.</strong> The rule this
+ * project paid for twice is that a line calling a field the point of the turn
+ * is heard on turns that have no such field. The signal-count line failed
+ * exactly so. What makes this one a different bet is that {@code valueMCr}
+ * appears in one turn only — the analysis that finishes a sample — which is the
+ * property {@code biology.remaining} has and the signal counts did not; and
+ * that the model already volunteers value talk without any line at all, having
+ * answered a scan carrying only {@code previouslyFootfalled: false} with
+ * "nobody has set foot here, so the samples will be especially valuable".
+ * <strong>What to watch:</strong> a credit figure on a turn with no
+ * {@code valueMCr} — a log, an approach, a landing. One is enough to withdraw
+ * the line, and withdrawing it is deleting three lines.</p>
+ *
  * <h2>The gravity line, and why there is no longer one</h2>
  * <p>There was a third preference line, about {@code context.body.gravity}, and
  * it was removed on 2026-08-08 after five wordings failed the same way. It is
@@ -228,6 +259,13 @@ public final class DecisionPromptFactory {
             Greet the Commander when a session begins.
             When biology.remaining is in the request, what is still uncollected
             here is the point of the turn.
+            When valueMCr is in the request, what the sample just collected
+            pays is the point of the turn, and firstFootfall beside it means
+            nobody had walked here before.
+            When bodyTotalMCr is in the request, this body is finished and what
+            it paid in all is the point of the turn.
+            When atLeastMCr is in the request, the least this body's organisms
+            could pay is the point of the turn.
             </preferences>
 
             <grounding>

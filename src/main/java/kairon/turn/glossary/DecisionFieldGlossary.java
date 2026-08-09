@@ -170,6 +170,8 @@ public final class DecisionFieldGlossary {
             "previouslyDiscovered", "somebody had already found it",
             "previouslyMapped", "somebody had already mapped it",
             "previouslyFootfalled", "somebody had already walked on it",
+            "firstFootfall", "nobody had walked on this body before, so the "
+                    + "sample pays five times over",
             "efficiencyTarget", "how many probes the mapping allows for a "
                     + "bonus",
             "probesUsed", "how many probes were actually fired",
@@ -232,6 +234,12 @@ public final class DecisionFieldGlossary {
 
     /** Money and amounts, each under the unit it is counted in. */
     private static final Map<String, String> AMOUNTS = entries(
+            "valueMCr", "what the finished sample pays at Vista Genomics, in "
+                    + "millions of credits",
+            "bodyTotalMCr", "what every sample collected on this body pays in "
+                    + "all, in millions of credits",
+            "atLeastMCr", "the lowest total one sample of each organism named "
+                    + "here could pay, in millions of credits",
             "credits", "an amount of credits",
             "units", "a count of things",
             "tonnes", "a mass of cargo",
@@ -288,6 +296,8 @@ public final class DecisionFieldGlossary {
             "gravity", "how heavily the body pulls: LOW, NORMAL or HIGH",
             "type", "the broad kind of thing",
             "active", "a sampling run is under way",
+            "allCollected", "every organism the survey named here has been "
+                    + "collected",
             "collected", "organisms already sampled here",
             "remaining", "organisms here that are still uncollected"
     );

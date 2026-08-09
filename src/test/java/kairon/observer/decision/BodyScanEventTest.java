@@ -252,6 +252,12 @@ final class BodyScanEventTest {
         try (DecisionProductionPipeline pipeline =
                      new DecisionProductionPipeline(directory)) {
             arrived(pipeline);
+            // The system scanner reports it bears something first, as the
+            // journal always does: a reading of a body nothing was reported to
+            // be on opens no turn, and this test is about the reading.
+            pipeline.journal(Journal.bodyBearsSignals(
+                    "10:00:59Z", 23155, 20, "Schieni 4 a"
+            ));
             pipeline.journal(detailedPlanet(
                     "2026-07-30T10:01:00Z",
                     20,
@@ -275,15 +281,17 @@ final class BodyScanEventTest {
                     )
             );
             assertEquals(
-                    List.of("SYSTEM_JUMP", "BODY_SCANNED"),
+                    List.of("SYSTEM_JUMP", "BODY_SIGNALS_FOUND",
+                            "BODY_SCANNED"),
                     pipeline.modelFacingKinds()
             );
             assertEquals(
                     1L,
                     pipeline.edge(
-                            NormalizedEventType.SYSTEM_ENTRY,
+                            NormalizedEventType.FSS_BODY_SIGNALS_FOUND,
                             NormalizedEventType.BODY_SCANNED
-                    ).globalCounter().rawCount()
+                    ).globalCounter().rawCount(),
+                    "one edge into the scan, not two"
             );
         }
     }
@@ -295,6 +303,12 @@ final class BodyScanEventTest {
         try (DecisionProductionPipeline pipeline =
                      new DecisionProductionPipeline(directory)) {
             arrived(pipeline);
+            // The system scanner reports it bears something first, as the
+            // journal always does: a reading of a body nothing was reported to
+            // be on opens no turn, and this test is about the reading.
+            pipeline.journal(Journal.bodyBearsSignals(
+                    "10:00:59Z", 23155, 20, "Schieni 4 a"
+            ));
             pipeline.journal(detailedPlanet(
                     "2026-07-30T10:01:00Z",
                     20,
@@ -320,12 +334,14 @@ final class BodyScanEventTest {
                     )
             );
             assertEquals(
-                    List.of("SYSTEM_JUMP", "BODY_SCANNED", "BODY_SCANNED"),
+                    List.of("SYSTEM_JUMP", "BODY_SIGNALS_FOUND",
+                            "BODY_SCANNED", "BODY_SCANNED"),
                     pipeline.modelFacingKinds()
             );
             assertEquals(
                     List.of(
                             NormalizedEventType.SYSTEM_ENTRY,
+                            NormalizedEventType.FSS_BODY_SIGNALS_FOUND,
                             NormalizedEventType.BODY_SCANNED,
                             NormalizedEventType.BODY_SCANNED
                     ),

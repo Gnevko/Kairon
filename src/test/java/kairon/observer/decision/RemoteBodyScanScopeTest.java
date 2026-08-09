@@ -40,6 +40,7 @@ final class RemoteBodyScanScopeTest {
         try (SemanticPipelineHarness harness =
                      SemanticPipelineHarness.create(directory)) {
             arrivedAndAutoScanned(harness);
+            bearsSignals(harness, 7, "Schieni GG-A c3-64 5");
             harness.journal(ObservationCaptureMode.LIVE, detailedScan(
                             "10:02:00Z",
                             7,
@@ -120,6 +121,8 @@ final class RemoteBodyScanScopeTest {
         try (SemanticPipelineHarness harness =
                      SemanticPipelineHarness.create(directory)) {
             arrivedAndAutoScanned(harness);
+            bearsSignals(harness, 7, "Schieni GG-A c3-64 5");
+            bearsSignals(harness, 8, "Schieni GG-A c3-64 6");
             harness.journal(ObservationCaptureMode.LIVE, detailedScan(
                             "10:02:00Z", 7, "Schieni GG-A c3-64 5", 2356.4
                     ))
@@ -252,6 +255,25 @@ final class RemoteBodyScanScopeTest {
                 .closeBatch();
         harness.journal(ObservationCaptureMode.LIVE, autoScanOfArrivalStar())
                 .settleProjection();
+    }
+
+    /**
+     * The system scanner finds something on a body, in a batch of its own.
+     *
+     * <p>Scaffolding since 2026-08-08: a reading of a body nothing was reported
+     * to be on opens no turn, and these two tests are about what a reading's
+     * turn carries. Its own batch, because a signals event asks for the body it
+     * is about, and the scope of the scan turn is the very thing being pinned
+     * here.</p>
+     */
+    private static void bearsSignals(
+            SemanticPipelineHarness harness,
+            int bodyId,
+            String bodyName
+    ) {
+        harness.journal(ObservationCaptureMode.LIVE, Journal.bodyBearsSignals(
+                "10:01:3" + bodyId + "Z", 17658387800858L, bodyId, bodyName
+        )).closeBatch();
     }
 
     private static List<String> bodyChangedSlots(PipelineTrace.TurnView turn) {

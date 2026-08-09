@@ -10,6 +10,7 @@ import kairon.behavior.model.EventOccurrenceId;
 import kairon.behavior.model.GraphId;
 import kairon.behavior.model.SystemEpisodeId;
 import kairon.behavior.normalize.NormalizedEventType;
+import kairon.bio.OrganicRegistry.PricedOrganism;
 import kairon.system.SystemRegistrySnapshot;
 import kairon.ui.KaironGuiHub.ModelCompletionView;
 import kairon.ui.KaironGuiHub.ModelDecisionView;
@@ -62,6 +63,8 @@ final class KaironHudWindow implements SwingKaironGuiHub.GuiView {
     private final JLabel status = HudTheme.mutedLabel("Running");
     private final JTabbedPane tabs = HudTheme.tabbedPane();
     private final BehaviorGraphTab behaviorGraphTab;
+    private final OrganicRegistryTab organicRegistryTab =
+            new OrganicRegistryTab();
     private final SystemRegistryTab systemRegistryTab =
             new SystemRegistryTab();
     private final ChangeListener tabSelectionListener =
@@ -178,6 +181,16 @@ final class KaironHudWindow implements SwingKaironGuiHub.GuiView {
     }
 
     @Override
+    public void updateOrganicRegistry(List<PricedOrganism> organisms) {
+        organicRegistryTab.apply(organisms);
+    }
+
+    @Override
+    public void markOrganicSample(String speciesIdentifier) {
+        organicRegistryTab.highlight(speciesIdentifier);
+    }
+
+    @Override
     public void updateSystemRegistry(SystemRegistrySnapshot snapshot) {
         requireEdt();
         systemRegistryTab.apply(snapshot);
@@ -253,6 +266,7 @@ final class KaironHudWindow implements SwingKaironGuiHub.GuiView {
         );
         tabs.addTab("Journal Observer", main);
         tabs.addTab(SystemRegistryTab.TITLE, systemRegistryTab);
+        tabs.addTab(OrganicRegistryTab.TITLE, organicRegistryTab);
         tabs.addTab(BehaviorGraphTab.TITLE, behaviorGraphTab);
         tabs.addChangeListener(tabSelectionListener);
         behaviorGraphTab.setTabSelected(

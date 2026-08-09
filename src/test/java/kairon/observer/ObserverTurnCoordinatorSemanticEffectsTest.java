@@ -96,9 +96,9 @@ class ObserverTurnCoordinatorSemanticEffectsTest {
             List<Long> firstTurn = busSequences(pipeline.drained());
 
             pipeline.journal("""
-                    {"timestamp":"2026-07-30T14:00:05Z","event":"Touchdown",\
+                    {"timestamp":"2026-07-30T14:00:05Z","event":"SupercruiseExit",\
                     "StarSystem":"Alpha","SystemAddress":11,\
-                    "Body":"Alpha 1","BodyID":3,"PlayerControlled":true}
+                    "Body":"Alpha 1","BodyID":3,"BodyType":"Planet"}
                     """);
             pipeline.awaitIdle();
             List<Long> secondTurn = busSequences(pipeline.drained());
@@ -166,9 +166,9 @@ class ObserverTurnCoordinatorSemanticEffectsTest {
             assertEquals(List.of(1L), busSequences(pipeline.drained()));
 
             pipeline.journal("""
-                    {"timestamp":"2026-07-30T14:00:05Z","event":"Touchdown",\
+                    {"timestamp":"2026-07-30T14:00:05Z","event":"SupercruiseExit",\
                     "StarSystem":"Alpha","SystemAddress":11,\
-                    "Body":"Alpha 1","BodyID":3,"PlayerControlled":true}
+                    "Body":"Alpha 1","BodyID":3,"BodyType":"Planet"}
                     """);
             pipeline.awaitIdle();
 
@@ -245,9 +245,9 @@ class ObserverTurnCoordinatorSemanticEffectsTest {
                     """);
             pipeline.status();
             pipeline.journal("""
-                    {"timestamp":"2026-07-30T14:00:05Z","event":"Touchdown",\
+                    {"timestamp":"2026-07-30T14:00:05Z","event":"SupercruiseExit",\
                     "StarSystem":"Alpha","SystemAddress":11,\
-                    "Body":"Alpha 1","BodyID":3,"PlayerControlled":true}
+                    "Body":"Alpha 1","BodyID":3,"BodyType":"Planet"}
                     """);
             pipeline.awaitIdle();
             return pipeline.drained().envelopes().stream()

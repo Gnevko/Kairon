@@ -466,8 +466,11 @@ public final class DecisionEventCatalog {
         // the body saying "not collected" about an organism nobody had started
         // on. Registered per variant because it is the same domain event read
         // against more of the situation — the kind is unchanged.
+        // It is also the only step that collects anything, so it is the only
+        // one that can say what was collected is worth (ADR-0029).
         put(rules, ScanOrganic.Analysed.class,
-                sample.reading(DecisionContextProfile.SAMPLING_ANALYSED));
+                sample.reading(DecisionContextProfile.SAMPLING_ANALYSED)
+                        .reportingSampleValue());
     }
 
     private static void registerMission(

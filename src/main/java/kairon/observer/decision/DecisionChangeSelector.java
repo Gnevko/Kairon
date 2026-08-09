@@ -60,6 +60,12 @@ import java.util.Set;
  */
 public final class DecisionChangeSelector {
 
+    private final DecisionOrganicNames organicNames;
+
+    public DecisionChangeSelector(DecisionOrganicNames organicNames) {
+        this.organicNames = Objects.requireNonNull(organicNames, "organicNames");
+    }
+
     public List<LlmDecisionRequest.Change> select(
             DecisionTurnInputs inputs,
             List<ProjectedEvent> events,
@@ -85,6 +91,8 @@ public final class DecisionChangeSelector {
                 inputs.finalTrigger().currentState();
         boolean bodyInScope =
                 DecisionBodyScope.canonicalBodyIsInScope(events, finalState);
+        Map<Long, SemanticStateChange> organismIdentities =
+                organismIdentities(inputs);
         for (SemanticStateChange change : allChanges(inputs)) {
             ProjectedEvent cause =
                     byBusSequence.get(change.provenance().busSequence());
@@ -101,11 +109,16 @@ public final class DecisionChangeSelector {
                     DecisionNames.subject(change.field().subject()),
                     change.changeKind()
             );
+            SemanticStateChange identities = organismIdentities.get(
+                    change.provenance().busSequence()
+            );
             grouped.computeIfAbsent(key, ignored -> new ArrayList<>())
                     .add(new LlmDecisionRequest.FieldChange(
                             DecisionNames.field(change.field()),
-                            change.before(),
-                            change.after()
+                            named(change.field(), change.before(),
+                                    identities == null ? null : identities.before()),
+                            named(change.field(), change.after(),
+                                    identities == null ? null : identities.after())
                     ));
         }
         List<LlmDecisionRequest.Change> result =
@@ -119,6 +132,56 @@ public final class DecisionChangeSelector {
                 )
         ));
         return List.copyOf(result);
+    }
+
+    /**
+     * The organism identity change each observation carried, by bus sequence.
+     *
+     * <p>Canonical state keeps the organism twice — the game's
+     * {@code $Codex_Ent_…_Name;} symbol and the game's rendering of it — and
+     * they move together, in one observation, because they are two components
+     * of one sampling process. The document sends the rendering under
+     * {@code organism} and never sends the symbol, so the symbol has to be
+     * looked up beside its own change to name what the rendering names.</p>
+     *
+     * <p>Only the identity field is collected here, and only so that
+     * {@link #named} can resolve it. Nothing about which changes are selected
+     * depends on this map: a change is judged, suppressed and grouped on the
+     * values the journal established, and the registry is consulted once, at
+     * the moment the value is written into the document. That is the same
+     * separation as everywhere else — identity is compared, a name is
+     * presentation.</p>
+     */
+    private static Map<Long, SemanticStateChange> organismIdentities(
+            DecisionTurnInputs inputs
+    ) {
+        Map<Long, SemanticStateChange> byBusSequence = new LinkedHashMap<>();
+        for (SemanticStateChange change : allChanges(inputs)) {
+            if (change.field() == SemanticField.ORGANIC_SAMPLING_VARIANT) {
+                byBusSequence.put(change.provenance().busSequence(), change);
+            }
+        }
+        return byBusSequence;
+    }
+
+    /**
+     * One side of a change, named through the registry where it is an organism.
+     *
+     * <p>Every other field is written exactly as canonical state established
+     * it. An absent or unnameable organism keeps the journal's own word, which
+     * is what {@link DecisionOrganicNames} falls back to.</p>
+     */
+    private SemanticValue named(
+            SemanticField field,
+            SemanticValue value,
+            SemanticValue identity
+    ) {
+        if (field != SemanticField.ORGANIC_SAMPLING_VARIANT_LABEL
+                || !value.known()) {
+            return value;
+        }
+        SemanticValue named = organicNames.name(identity, value);
+        return named.known() ? named : value;
     }
 
     private static List<SemanticStateChange> allChanges(

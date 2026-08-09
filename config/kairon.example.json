@@ -40,6 +40,9 @@
     "enabled": false,
     "outputFile": "var/observation-corpus.jsonl"
   },
+  "bio": {
+    "registryFile": "./config/organic-registry.json"
+  },
   "llm": {
     "activeProvider": "lm-studio",
     "providers": {

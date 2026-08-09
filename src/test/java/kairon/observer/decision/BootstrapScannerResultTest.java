@@ -154,6 +154,17 @@ final class BootstrapScannerResultTest {
     ) throws Exception {
         try (DecisionProductionPipeline pipeline = perTrigger(directory)) {
             arrived(pipeline);
+            // Something is found on the body first, as the journal always has
+            // it: a reading of a body nothing was reported to be on opens no
+            // turn, and what is being pinned here is history versus a live
+            // reading rather than what the body carries.
+            pipeline.journal(
+                    ObservationCaptureMode.LIVE,
+                    Journal.bodyBearsSignals(
+                            "10:00:30Z", 23155L, 20, "Schieni 4 a"
+                    )
+            );
+            pipeline.settle();
             int beforeScan = pipeline.modelInputs().size();
 
             pipeline.journal(

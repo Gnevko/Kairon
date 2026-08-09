@@ -1,6 +1,7 @@
 package kairon.observer.decision;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import kairon.bio.JsonOrganicRegistryLoader;
 import kairon.projection.ProjectedObservation;
 import kairon.turn.glossary.DecisionFieldGlossary;
 import org.junit.jupiter.api.Test;
@@ -91,9 +92,18 @@ final class DecisionFieldGlossaryContractTest {
             "details", "identifiedObject", "taxi", "multicrew", "occupancy",
             "context.ship", "context.sampling", "active",
             "before",
-            // No fixture drives an SRV or reads a footfalled body, though the
-            // live session of 2026-08-08 produced all four.
-            "vehicle", "vehicleKind", "vehicleType", "previouslyFootfalled"
+            // No fixture drives an SRV, though the live session of 2026-08-08
+            // produced all three. "previouslyFootfalled" and "firstFootfall"
+            // were here too until the exobiology fixture gained a Scan of the
+            // body it samples (ADR-0030): a footfall flag needs a scan to state
+            // it, and nothing had ever scanned anything.
+            "vehicle", "vehicleKind", "vehicleType",
+            // context.vehicle was reachable through a landing until landings
+            // stopped opening turns on 2026-08-08. It is still reachable in a
+            // real session through a vehicle launch, which is admitted and
+            // which the live run of that evening produced carrying
+            // {"kind":"SLV"}; no fixture drives one.
+            "context.vehicle"
     );
 
     @Test
@@ -210,11 +220,25 @@ final class DecisionFieldGlossaryContractTest {
     private void collectFrom(String fixture, Set<String> into) {
         JacksonDecisionRequestSerializer serializer =
                 new JacksonDecisionRequestSerializer();
-        LlmDecisionRequestFactory factory = new LlmDecisionRequestFactory();
+        // The shipped registry, because it is what production reads and it is
+        // what makes an organism's price reachable at all: valueMCr comes from
+        // the registry or from nowhere, and exempting it as "no fixture drives
+        // one" would be exempting a name the very next live turn produces.
+        DecisionOrganicNames naming = new DecisionOrganicNames(
+                JsonOrganicRegistryLoader.load(
+                        Path.of("config", "organic-registry.json")
+                ),
+                DecisionOrganicNames.CANONICAL_LANGUAGE
+        );
+        LlmDecisionRequestFactory factory = new LlmDecisionRequestFactory(naming);
         try {
             Path directory = Files.createTempDirectory("glossary-" + fixture);
             try (DecisionProductionPipeline pipeline =
-                         new DecisionProductionPipeline(directory)) {
+                         new DecisionProductionPipeline(
+                                 directory,
+                                 DecisionProductionPipeline.Options.production()
+                                         .withOrganicNames(naming)
+                         )) {
                 fixtureRecords(fixture).forEach(pipeline::journal);
                 pipeline.settleProjection();
                 for (ProjectedObservation trigger

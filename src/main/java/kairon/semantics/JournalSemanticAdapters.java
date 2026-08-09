@@ -639,6 +639,19 @@ final class JournalSemanticAdapters {
                             .qualifier("genus", raw.displayText("Genus"))
                             .qualifier("species", raw.displayText("Species"))
                             .qualifier("variant", raw.displayText("Variant"))
+                            // The identity beside the rendering, not instead of
+                            // it. displayText gives whichever word the game was
+                            // set to write, and the symbol is what says which
+                            // organism that word is about — the same separation
+                            // TaxonName states for canonical state. Whoever
+                            // names the organism downstream needs both: one to
+                            // look it up and one to fall back to.
+                            .qualifier("variantIdentifier", raw.symbol("Variant"))
+                            // The species is what the game prices, so its
+                            // identity travels for the same reason the
+                            // variant's does: something downstream has to look
+                            // it up, and a rendering is not a key.
+                            .qualifier("speciesIdentifier", raw.symbol("Species"))
                             .qualifier("scanType", raw.symbol("ScanType"))
                             .processStage(stage)
                             .completion(completion)

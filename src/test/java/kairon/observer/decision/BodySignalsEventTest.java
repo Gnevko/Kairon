@@ -524,7 +524,19 @@ final class BodySignalsEventTest {
         }
     }
 
-    /** E2: and so does the other order. */
+    /**
+     * E2: and so does the other order, which the model is not told about.
+     *
+     * <p>The graph records both readings in the order they arrived. The model
+     * hears only the finding: since 2026-08-08 a body reading of a body nothing
+     * has been reported to be on opens no turn, and when the scan comes first
+     * nothing has been reported yet.</p>
+     *
+     * <p>The cost is nil in practice and the order is why. In this Commander's
+     * journals the signals record came before the scan in all 175 cases where a
+     * body had one — 172 of them immediately before — so this order is a shape
+     * the fixture can make and the game does not.</p>
+     */
     @Test
     void aScanBeforeSignalsKeepsTheOtherOrder(@TempDir Path directory)
             throws Exception {
@@ -551,12 +563,11 @@ final class BodySignalsEventTest {
                     run
             );
             assertEquals(
-                    List.of(
-                            "SYSTEM_JUMP",
-                            "BODY_SCANNED",
-                            "BODY_SIGNALS_FOUND"
-                    ),
-                    pipeline.modelFacingKinds()
+                    List.of("SYSTEM_JUMP", "BODY_SIGNALS_FOUND"),
+                    pipeline.modelFacingKinds(),
+                    "the graph kept both; the model was told the finding, and "
+                            + "the reading that preceded it said nothing was "
+                            + "there yet"
             );
         }
     }

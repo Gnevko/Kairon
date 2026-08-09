@@ -1,5 +1,6 @@
 package kairon.observer.decision;
 
+import kairon.bio.OrganicConditions;
 import kairon.observation.journal.JournalEventObservation;
 import kairon.observation.journal.LlmPresentableJournalEvent;
 import kairon.projection.ProjectedObservation;
@@ -7,6 +8,7 @@ import kairon.semantics.SemanticFact;
 import kairon.semantics.SemanticField;
 import kairon.semantics.SemanticObservationEnvelope;
 import kairon.semantics.SemanticValue;
+import kairon.system.PlanetBody;
 import kairon.system.SystemObject;
 import kairon.semantics.UnresolvedFact;
 
@@ -16,6 +18,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -81,6 +84,21 @@ public final class DecisionEventProjector {
             "species"
     );
 
+    /** The adapter's identity for the organism, which names it and is not it. */
+    private static final String VARIANT_IDENTIFIER = "variantIdentifier";
+
+    /** The same, one level up: the species is what the game prices. */
+    private static final String SPECIES_IDENTIFIER = "speciesIdentifier";
+
+    /** Base plus a 400% first-discovery bonus; see {@link #appendSampleValue}. */
+    private static final long FIRST_FOOTFALL_MULTIPLE = 5L;
+
+    private final DecisionOrganicNames organicNames;
+
+    public DecisionEventProjector(DecisionOrganicNames organicNames) {
+        this.organicNames = Objects.requireNonNull(organicNames, "organicNames");
+    }
+
     public ProjectedEvent project(int localId, ProjectedObservation projected) {
         Objects.requireNonNull(projected, "projected");
         JournalEventObservation payload = payloadOf(projected);
@@ -107,6 +125,8 @@ public final class DecisionEventProjector {
         for (SemanticFact fact : envelope.structuredFacts()) {
             appendFact(fields, claimed, fact, rule);
         }
+        appendSampleValue(fields, claimed, rule, projected, envelope);
+        appendPredictedFloor(fields, claimed, rule, projected, envelope);
         for (UnresolvedFact gap : envelope.unresolvedFacts()) {
             if (rule.wholeAction()) {
                 // The kind settles the action, so there is no adjacent claim
@@ -200,7 +220,234 @@ public final class DecisionEventProjector {
      * wherever the document mentions it. A genus the game has no word for is
      * left out of both.</p>
      */
-    private static List<LlmDecisionRequest.Listing> organismsFound(
+    /**
+     * What the finished sample pays, and why it pays that (ADR-0029).
+     *
+     * <p>Two facts and one rule. The registry prices a sample of this species;
+     * the game states, on the scan that found the body, whether anybody had
+     * ever walked on it. Nobody having walked on a body is nobody having
+     * sampled anything there, so the data is undiscovered and Vista Genomics
+     * pays five times over — base plus a 400% first-discovery bonus, which is
+     * exactly what all 61 recorded sales in this project's journals show.</p>
+     *
+     * <p>{@code valueMCr} is therefore the payout and not the base, in millions
+     * rather than in credits: one number in the document, so there is no
+     * arithmetic for the model to get wrong, and it is already in the shape it
+     * will be said out loud. {@code firstFootfall} beside it says why it is
+     * large. Where the game
+     * never said whether the body had been walked on, the base price is sent
+     * without the flag — that is the price the game publishes and it is true
+     * whatever the bonus does; claiming the bonus needs evidence, and silence
+     * about footfall is not it. Absent entirely with no registry and for an
+     * organism the registry does not price.</p>
+     *
+     * <p><strong>This is a claim, and it is the only predicted one in the
+     * document.</strong> The bonus is decided at the sale, not here; what is
+     * known here is that nobody had landed. Another Commander landing and
+     * selling between this scan and this sale would take it, and Kairon would
+     * have said five times.</p>
+     */
+    private void appendSampleValue(
+            List<LlmDecisionRequest.Field> fields,
+            Set<String> claimed,
+            DecisionEventRule rule,
+            ProjectedObservation projected,
+            SemanticObservationEnvelope envelope
+    ) {
+        if (!rule.reportsSampleValue()) {
+            return;
+        }
+        OptionalLong value = OptionalLong.empty();
+        for (SemanticFact fact : envelope.structuredFacts()) {
+            value = organicNames.sampleValueCr(
+                    fact.qualifiers().get(SPECIES_IDENTIFIER)
+            );
+            if (value.isPresent()) {
+                break;
+            }
+        }
+        if (value.isEmpty()) {
+            return;
+        }
+        SystemObject body = bodyOf(projected, envelope);
+        boolean first = body != null
+                && Boolean.FALSE.equals(body.profile().wasFootfalled());
+        long payout = first
+                ? value.orElseThrow() * FIRST_FOOTFALL_MULTIPLE
+                : value.orElseThrow();
+        // Finishing the body replaces the sample's own price with the body's
+        // total. One money figure per turn, always: two would be the arithmetic
+        // this field exists to keep out of the model's hands, and the last
+        // sample's price is inside the total anyway.
+        OptionalLong total = bodyTotal(body, first);
+        add(
+                fields,
+                claimed,
+                total.isPresent() ? "bodyTotalMCr" : "valueMCr",
+                new SemanticValue.DecimalValue(
+                        millions(total.orElse(payout))
+                )
+        );
+        if (first) {
+            add(
+                    fields,
+                    claimed,
+                    "firstFootfall",
+                    new SemanticValue.BooleanValue(true)
+            );
+        }
+    }
+
+    /**
+     * The least this body's organisms could be worth, on the turn they are named.
+     *
+     * <p>The scan names genera and the game prices species, so the scan alone is
+     * not a number. This narrows each genus by what the body's own scan reported
+     * — planet class, atmosphere, gravity, temperature, pressure, volcanism —
+     * and sums the cheapest survivor of each (ADR-0030). The same footfall
+     * evidence multiplies it by the same five.</p>
+     *
+     * <p>Rides on {@link DecisionEventRule#namesOrganisms()} rather than on a
+     * declaration of its own: the genus list is exactly what this sums over, and
+     * a second flag that would have to agree with the first is a way for them to
+     * disagree.</p>
+     *
+     * <p><strong>It is a floor, and the name says so.</strong> Every decision
+     * underneath leans the same way — an unreported condition admits, an
+     * unstated ruleset admits, a genus that survives nothing drops out of the
+     * sum — so the answer understates. That is the only direction it is allowed
+     * to be wrong in: this is the one thing in the request Kairon infers rather
+     * than reads.</p>
+     */
+    private void appendPredictedFloor(
+            List<LlmDecisionRequest.Field> fields,
+            Set<String> claimed,
+            DecisionEventRule rule,
+            ProjectedObservation projected,
+            SemanticObservationEnvelope envelope
+    ) {
+        if (!rule.namesOrganisms()) {
+            return;
+        }
+        SystemObject body = bodyOf(projected, envelope);
+        if (!(body instanceof PlanetBody planet)) {
+            return;
+        }
+        OptionalLong floor = organicNames.floorValueCr(
+                body.biology().genera().keySet(),
+                OrganicConditions.ofScan(
+                        planet.planetClass(),
+                        planet.atmosphereType(),
+                        planet.volcanism(),
+                        planet.surfaceGravity(),
+                        planet.surfaceTemperature(),
+                        planet.surfacePressure()
+                )
+        );
+        if (floor.isEmpty()) {
+            return;
+        }
+        boolean first = Boolean.FALSE.equals(body.profile().wasFootfalled());
+        add(
+                fields,
+                claimed,
+                "atLeastMCr",
+                new SemanticValue.DecimalValue(millions(
+                        first
+                                ? floor.orElseThrow() * FIRST_FOOTFALL_MULTIPLE
+                                : floor.orElseThrow()
+                ))
+        );
+        if (first) {
+            add(
+                    fields,
+                    claimed,
+                    "firstFootfall",
+                    new SemanticValue.BooleanValue(true)
+            );
+        }
+    }
+
+    /**
+     * What the whole body paid, once every genus on it is collected.
+     *
+     * <p>Empty until then, and empty when the survey named nothing: a body
+     * nobody mapped has no list to have finished. Summed over the species
+     * actually collected, because the game prices a species and the genus
+     * inventory cannot answer — one genus can be several species.</p>
+     */
+    private OptionalLong bodyTotal(SystemObject body, boolean firstFootfall) {
+        if (body == null || !body.biology().allCollected()) {
+            return OptionalLong.empty();
+        }
+        long total = 0L;
+        for (String species : body.biology().collectedSpecies()) {
+            OptionalLong value = organicNames.sampleValueCr(
+                    SemanticValue.ofSymbol(species)
+            );
+            if (value.isEmpty()) {
+                // One unpriced organism makes the total a lie about the rest.
+                return OptionalLong.empty();
+            }
+            total += value.orElseThrow();
+        }
+        return total == 0L
+                ? OptionalLong.empty()
+                : OptionalLong.of(
+                        firstFootfall ? total * FIRST_FOOTFALL_MULTIPLE : total
+                );
+    }
+
+    /**
+     * A payout in millions, to one decimal place.
+     *
+     * <p>Credits are how the game states a price and millions are how anybody
+     * says one out loud: {@code 12934900} is seven digits to read and "12.9" is
+     * two syllables. The whole point of this field is that it gets spoken, so
+     * it is sent in the shape it will be spoken in rather than in the shape it
+     * was stored in.</p>
+     *
+     * <p>One decimal is enough for every organism in the registry and for every
+     * bonus on one: the cheapest is 0.1 and the dearest, at five times over, is
+     * 100.0. It is deliberately not exact — the exact figure is the game's to
+     * state at the sale, and a companion saying "twelve point nine three four
+     * nine million" is reading out a database.</p>
+     */
+    private static double millions(long credits) {
+        return Math.round(credits / 100_000.0) / 10.0;
+    }
+
+    /**
+     * The body this observation is about, as the registry holds it.
+     *
+     * <p>Read off the fact's own identity rather than off canonical state: a
+     * sampling record files its body under {@code Body}, and the registry
+     * snapshot captured with this observation is the one that answers for
+     * it.</p>
+     */
+    private static SystemObject bodyOf(
+            ProjectedObservation projected,
+            SemanticObservationEnvelope envelope
+    ) {
+        for (SemanticFact fact : envelope.structuredFacts()) {
+            if (!(fact.identity()
+                    instanceof SemanticValue.IdentityValue identity)) {
+                continue;
+            }
+            try {
+                SystemObject body = projected.systemRegistry()
+                        .object(Long.parseLong(identity.value()));
+                if (body != null) {
+                    return body;
+                }
+            } catch (NumberFormatException notABodyId) {
+                // Not a body identity; the next fact may carry one.
+            }
+        }
+        return null;
+    }
+
+    private List<LlmDecisionRequest.Listing> organismsFound(
             DecisionEventRule rule,
             ProjectedObservation projected,
             SemanticObservationEnvelope envelope
@@ -208,30 +455,13 @@ public final class DecisionEventProjector {
         if (!rule.namesOrganisms()) {
             return List.of();
         }
-        SystemObject body = null;
-        for (SemanticFact fact : envelope.structuredFacts()) {
-            if (!(fact.identity()
-                    instanceof SemanticValue.IdentityValue identity)) {
-                continue;
-            }
-            try {
-                body = projected.systemRegistry()
-                        .object(Long.parseLong(identity.value()));
-            } catch (NumberFormatException notABodyId) {
-                body = null;
-            }
-            if (body != null) {
-                break;
-            }
-        }
+        SystemObject body = bodyOf(projected, envelope);
         if (body == null) {
             return List.of();
         }
         Set<String> named = new TreeSet<>();
         body.biology().genera().forEach((identity, label) -> {
-            String name = label == null
-                    ? null
-                    : DecisionNames.genusField(identity);
+            String name = organicNames.name(identity, label);
             if (name != null) {
                 named.add(name);
             }
@@ -244,7 +474,7 @@ public final class DecisionEventProjector {
                 ));
     }
 
-    private static void appendFact(
+    private void appendFact(
             List<LlmDecisionRequest.Field> fields,
             Set<String> claimed,
             SemanticFact fact,
@@ -366,7 +596,7 @@ public final class DecisionEventProjector {
                 && rule.mechanism() == DecisionMechanism.EXPLORATION);
     }
 
-    private static void appendQualifiers(
+    private void appendQualifiers(
             List<LlmDecisionRequest.Field> fields,
             Set<String> claimed,
             SemanticFact fact,
@@ -408,11 +638,23 @@ public final class DecisionEventProjector {
                 continue;
             }
             if (rule.mechanism() == DecisionMechanism.SAMPLING) {
-                if (SAMPLING_TAXON_LEVELS.contains(key)) {
+                if (SAMPLING_TAXON_LEVELS.contains(key)
+                        || VARIANT_IDENTIFIER.equals(key)
+                        || SPECIES_IDENTIFIER.equals(key)) {
                     continue;
                 }
                 if ("variant".equals(key)) {
-                    add(fields, claimed, "organism", entry.getValue());
+                    // The registry names it; the journal's own rendering is the
+                    // fallback, not the value. See DecisionOrganicNames.
+                    add(
+                            fields,
+                            claimed,
+                            "organism",
+                            organicNames.name(
+                                    fact.qualifiers().get(VARIANT_IDENTIFIER),
+                                    entry.getValue()
+                            )
+                    );
                     continue;
                 }
                 if ("scanType".equals(key)) {

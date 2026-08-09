@@ -85,14 +85,14 @@ final class SemanticPipelineKnownInvalidContractTest {
             assertEquals(
                     1,
                     trace.providerCalls(),
-                    "the landing is the only thing worth a turn: nothing "
+                    "the live arrival is the only thing worth a turn: nothing "
                             + "historical opened one\n" + trace.describe()
             );
             PipelineTrace.TurnView turn = trace.turns().getLast();
             assertEquals(
-                    List.of("TOUCHDOWN"),
+                    List.of("SUPERCRUISE_EXITED"),
                     turn.eventKinds(),
-                    "the live turn is about the landing"
+                    "the live turn is about the arrival at the body"
             );
             assertEquals(
                     List.of(),
@@ -329,8 +329,8 @@ final class SemanticPipelineKnownInvalidContractTest {
             PipelineTrace.TurnView turn =
                     harness.trace().turns().getLast();
             assertTrue(
-                    turn.eventKinds().contains("TOUCHDOWN"),
-                    "the scenario must reach the landing"
+                    turn.eventKinds().contains("SUPERCRUISE_EXITED"),
+                    "the scenario must reach the live trigger"
             );
             boolean inChanges =
                     changedSlots(turn).contains("body.biologicalSignals");
@@ -382,12 +382,18 @@ final class SemanticPipelineKnownInvalidContractTest {
                 + reported + "]}";
     }
 
+    /**
+     * The live trigger these scenarios need, which is no longer a landing.
+     *
+     * <p>Putting the ship down stopped opening turns on 2026-08-08. What these
+     * tests want of it is only that something live opens one at a body, which a
+     * supercruise exit does.</p>
+     */
     private static String touchdown(String time) {
         return "{\"timestamp\":\"2026-07-30T" + time
-                + "\",\"event\":\"Touchdown\",\"StarSystem\":\"Schieni\","
+                + "\",\"event\":\"SupercruiseExit\",\"StarSystem\":\"Schieni\","
                 + "\"SystemAddress\":23155,\"Body\":\"Schieni 4 a\","
-                + "\"BodyID\":20,\"PlayerControlled\":true,"
-                + "\"Latitude\":1.0,\"Longitude\":2.0}";
+                + "\"BodyID\":20,\"BodyType\":\"Planet\"}";
     }
 
     private static String attack(String time) {

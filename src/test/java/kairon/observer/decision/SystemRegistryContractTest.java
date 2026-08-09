@@ -51,6 +51,9 @@ final class SystemRegistryContractTest {
         try (SemanticPipelineHarness harness =
                      SemanticPipelineHarness.create(directory)) {
             arrive(harness);
+            harness.journal(Journal.bodyBearsSignals(
+                    "10:00:50Z", 4001L, 5, "Survey Alpha A 2 a"
+            )).closeBatch();
             harness.journal(MOON_SCAN).closeBatch();
 
             PipelineTrace trace = harness.trace();
@@ -106,7 +109,8 @@ final class SystemRegistryContractTest {
             );
 
             assertEquals(
-                    List.of("SYSTEM_JUMP", "BODY_SCANNED"),
+                    List.of("SYSTEM_JUMP", "BODY_SIGNALS_FOUND",
+                            "BODY_SCANNED"),
                     trace.modelFacingKinds(),
                     "and the scan really did reach the model"
             );
@@ -122,6 +126,9 @@ final class SystemRegistryContractTest {
         try (SemanticPipelineHarness harness =
                      SemanticPipelineHarness.create(directory)) {
             arrive(harness);
+            harness.journal(Journal.bodyBearsSignals(
+                    "10:00:50Z", 4001L, 5, "Survey Alpha A 2 a"
+            )).closeBatch();
             harness.journal(MOON_SCAN).closeBatch();
             harness.journal("""
                     {"timestamp":"2026-07-30T10:05:00Z","event":"FSDJump",
@@ -148,7 +155,8 @@ final class SystemRegistryContractTest {
                     "which the jump also said is a star"
             );
             assertEquals(
-                    List.of("SYSTEM_JUMP", "BODY_SCANNED", "SYSTEM_JUMP"),
+                    List.of("SYSTEM_JUMP", "BODY_SIGNALS_FOUND",
+                            "BODY_SCANNED", "SYSTEM_JUMP"),
                     trace.modelFacingKinds()
             );
         }
@@ -288,9 +296,11 @@ final class SystemRegistryContractTest {
      * down there, and the reading carries their names. The system scanner counts
      * signals from across the system and names nothing, so the same kind of event
      * lists nothing there — which is why this is declared per instrument rather
-     * than per kind. The names are the words in the genus identities, the same
-     * spelling {@code context.biology} uses, so one organism reads as one
-     * organism wherever the document mentions it.</p>
+     * than per kind. The names come from {@link DecisionOrganicNames}, the same
+     * three rungs {@code context.biology} uses, so one organism reads as one
+     * organism wherever the document mentions it. No registry is configured
+     * here, so what is read is the second rung — the word the journal itself
+     * carried.</p>
      */
     @Test
     void aSurfaceScanListsTheOrganismsItNamed(@TempDir Path directory) {
@@ -306,7 +316,7 @@ final class SystemRegistryContractTest {
 
             assertEquals(List.of("BODY_SIGNALS_FOUND"), turn.eventKinds());
             assertEquals(
-                    List.of("Bacterial", "Fonticulus", "Tussocks"),
+                    List.of("Bacterium", "Fonticulua", "Tussock"),
                     values(found.path("organisms")),
                     "the probes named three, and all three are listed: "
                             + turn.userMessage()
@@ -376,11 +386,11 @@ final class SystemRegistryContractTest {
                             + "second one: " + completion.userMessage()
             );
             assertEquals(
-                    List.of("Bacterial"),
+                    List.of("Bacterium"),
                     values(biology.path("collected"))
             );
             assertEquals(
-                    List.of("Fonticulus", "Tussocks"),
+                    List.of("Fonticulua", "Tussock"),
                     values(biology.path("remaining")),
                     "and what is still out there is named beside it"
             );
@@ -431,7 +441,10 @@ final class SystemRegistryContractTest {
      * <p>{@code $Codex_Ent_…} is the game's internal identifier. It is what the
      * registry compares readings on and it is not a name anything shows — the
      * same rule every other model-facing label obeys. The organism is still
-     * recorded; it simply cannot be named.</p>
+     * recorded; it simply cannot be named. Cutting the word out of the middle
+     * of the symbol is what ADR-0028 stopped: it produced {@code Tussocks}
+     * where the game says {@code Tussock}, and there is no rung below the two
+     * that can actually name an organism.</p>
      */
     @Test
     void anUnnamedGenusIsRecordedAndNotSpelledOut(@TempDir Path directory) {
@@ -466,10 +479,11 @@ final class SystemRegistryContractTest {
                     "nothing is collected here, so no collected list at all"
             );
             assertEquals(
-                    List.of("Tussocks"),
+                    List.of("Tussock"),
                     values(biology.path("remaining")),
-                    "only the organism the game has a word for, named by the "
-                            + "word in its own identity"
+                    "only the organism something can name: the journal named "
+                            + "this one and no registry is configured to name "
+                            + "the other"
             );
             assertEquals(
                     Set.of(
@@ -489,6 +503,9 @@ final class SystemRegistryContractTest {
         try (SemanticPipelineHarness harness =
                      SemanticPipelineHarness.create(directory)) {
             arrive(harness);
+            harness.journal(Journal.bodyBearsSignals(
+                    "10:01:50Z", 9999L, 3, "Elsewhere 1"
+            )).closeBatch();
             harness.journal("""
                     {"timestamp":"2026-07-30T10:02:00Z","event":"Scan",
                      "ScanType":"Detailed","BodyName":"Elsewhere 1","BodyID":3,
@@ -510,7 +527,8 @@ final class SystemRegistryContractTest {
                             + "dropped"
             );
             assertEquals(
-                    List.of("SYSTEM_JUMP", "BODY_SCANNED"),
+                    List.of("SYSTEM_JUMP", "BODY_SIGNALS_FOUND",
+                            "BODY_SCANNED"),
                     trace.modelFacingKinds(),
                     "the observer still reports it; only the registry "
                             + "declines to file it here"

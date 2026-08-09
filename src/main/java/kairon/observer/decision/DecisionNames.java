@@ -77,10 +77,6 @@ final class DecisionNames {
      * milestone is about the star the ship arrived at, and canonical body facts
      * belong in that turn only while they are still that star's.</p>
      */
-    /** How the journal spells a genus identity, either side of the word. */
-    private static final String GENUS_SYMBOL_PREFIX = "$Codex_Ent_";
-    private static final String GENUS_SYMBOL_SUFFIX = "_Genus_Name;";
-
     /** Earth's pull in metres per second squared, and the two bands off it. */
     private static final double STANDARD_GRAVITY = 9.80665;
     private static final double LOW_GRAVITY_LIMIT = 0.5;
@@ -130,42 +126,6 @@ final class DecisionNames {
         return earthPull <= NORMAL_GRAVITY_LIMIT
                 ? SemanticValue.ofSymbol("NORMAL")
                 : SemanticValue.ofSymbol("HIGH");
-    }
-
-    /**
-     * What one genus is called in the document, or null.
-     *
-     * <p>Read off the game's own {@code $Codex_Ent_<word>_Genus_Name;} symbol
-     * rather than off the localised label beside it. The label is whatever
-     * language the game is running in — with a Russian client the biology group
-     * was the one Cyrillic key in an otherwise English document, so the
-     * <em>contract</em> moved with the output language while everything around
-     * it stayed put. Names in this document are its own; the words a comment is
-     * spoken in are the model's.</p>
-     *
-     * <p>The word is Frontier's, not a translation of it: {@code Shrubs} where
-     * the catalogue says Frutexa. That is the identity the journal actually
-     * carries, and inventing a nicer one would be a table of taxonomy to keep in
-     * step with a game that adds to it.</p>
-     *
-     * <p>Null when the symbol is not a genus symbol. A genus is then left out of
-     * the group, exactly as an unlabelled one was before — the identity is still
-     * recorded, still counted and still compared everywhere else.</p>
-     */
-    static String genusField(String genusIdentifier) {
-        if (genusIdentifier == null) {
-            return null;
-        }
-        String symbol = genusIdentifier.strip();
-        if (!symbol.startsWith(GENUS_SYMBOL_PREFIX)
-                || !symbol.endsWith(GENUS_SYMBOL_SUFFIX)) {
-            return null;
-        }
-        String word = symbol.substring(
-                GENUS_SYMBOL_PREFIX.length(),
-                symbol.length() - GENUS_SYMBOL_SUFFIX.length()
-        );
-        return word.isBlank() ? null : word;
     }
 
     /**

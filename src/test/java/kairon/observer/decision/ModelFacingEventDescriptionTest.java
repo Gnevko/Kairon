@@ -205,7 +205,9 @@ final class ModelFacingEventDescriptionTest {
 
         IllegalStateException refusal = assertThrows(
                 IllegalStateException.class,
-                () -> new DecisionEventProjector().project(1, silent)
+                () -> new DecisionEventProjector(
+                        DecisionOrganicNames.withoutRegistry()
+                ).project(1, silent)
         );
         assertTrue(
                 refusal.getMessage().contains("model trigger"),

@@ -452,6 +452,9 @@ public final class CurrentSystemRegistry {
     private void recordCompletedSample(JsonNode raw) {
         Long bodyId = nonNegativeLong(raw, "Body");
         String genus = text(raw, "Genus");
+        // The species too, because the game prices a species and a total of
+        // what a body paid can be summed from nothing else.
+        String species = text(raw, "Species");
         if (bodyId == null || genus.isEmpty()) {
             return;
         }
@@ -460,7 +463,9 @@ public final class CurrentSystemRegistry {
         BodyProfile profile = profileOf(existing, identity);
         objects.put(bodyId, reclassified(
                 existing,
-                profile.withBiology(profile.biology().withCompleted(genus))
+                profile.withBiology(
+                        profile.biology().withCompleted(genus, species)
+                )
         ));
     }
 
